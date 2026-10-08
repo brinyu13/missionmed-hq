@@ -150,10 +150,17 @@ const unsupportedRules=['UNSUPPORTED_GUARANTEE','UNSUPPORTED_VISA','UNSUPPORTED_
 const programRuleCategories=[[/^robotic/i,'ROBOTICS'],[/^surgery$/i,'SURGERY'],[/^cardiology$/i,'CARDIOLOGY'],[/^fellowship/i,'FELLOWSHIP'],[/^research$/i,'RESEARCH'],[/^scholarship$/i,'SCHOLARSHIP'],[/^elective/i,'ELECTIVE'],[/^mentorship$/i,'MENTORSHIP'],[/^simulation$/i,'SIMULATION'],[/^rural$/i,'RURAL'],[/^international$/i,'INTERNATIONAL'],[/^visa$/i,'VISA'],[/^sponsor/i,'SPONSORSHIP']];
 const programRule=word=>{const category=programRuleCategories.find(([pattern])=>pattern.test(word))?.[1];return category?'UNSUPPORTED_PROGRAM_'+category:'UNSUPPORTED_PROGRAM_TOPIC';};
 function requireAuthoredSupport(ok,rule){if(!ok){const e=new Error('loi_composition_unsupported');e.code='loi_composition_unsupported';e.rule=rule;throw e;}}
+// A plural role label is not an invented person's name. Require two distinct
+// named chiefs in the SAME mapped supported leadership source; never stem names.
+function supportedSectionChiefPlural(name,allowed){
+ if(name!=='Section Chiefs')return false;
+ return allowed.some(r=>r.kind==='evidence'&&r.field==='research.leadership'&&(!r.state||r.state==='SUPPORTED')&&
+  new Set([...r.text.matchAll(/^([A-Z][^\n]*?,[ \t]*(?:MD|DO)\b[^\n]*)\nSection Chief(?:[,; \t][^\n]*)?$/gm)].map(m=>m[1].split(',')[0].trim().toLowerCase())).size>=2);
+}
 function checkAuthoredUnit(quote,allowed){
  const support=allowed.map(r=>r.text).join('\n'),supportedWords=new Set(normalizedWords(support));
  proseNeed(quantities(quote).every(q=>quantities(support).includes(q)),'loi_composition_invented_quantity');
- proseNeed(namedTokens(quote).every(n=>normalizedWords(n).every(w=>supportedWords.has(w))),'loi_composition_invented_identity');
+ proseNeed(namedTokens(quote).every(n=>normalizedWords(n).every(w=>supportedWords.has(w))||supportedSectionChiefPlural(n,allowed)),'loi_composition_invented_identity');
  for(const [index,[assertion,source]] of sensitiveTopics.entries())requireAuthoredSupport(!assertion.test(quote)||source.test(support),unsupportedRules[index]);
  if(/\b(?:your program|the program|residents|curriculum|faculty)\b/i.test(quote))for(const m of quote.matchAll(programTopics))requireAuthoredSupport(new RegExp('\\b'+m[0]+'\\b','i').test(support),programRule(m[0]));
  for(const m of quote.matchAll(pastActions))proseNeed(new RegExp('\\b'+m[1]+'\\b','i').test(support),'loi_composition_invented_event');

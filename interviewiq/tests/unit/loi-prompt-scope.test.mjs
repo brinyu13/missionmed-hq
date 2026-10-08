@@ -24,3 +24,11 @@ test('confirmed linked Advanced relationship retains its conditional instruction
  const refs=[...input().refs,{ref:'positionContext',kind:'context',text:'This is a Transitional Year (PGY-1) program. The applicant is pursuing the prerequisite year for Example Advanced Program.'}],b=body(input({refs,positionType:'TRANSITIONAL_YEAR',advancedProgramName:'Example Advanced Program'}));assert.match(b.instructions,/confirmed Advanced program pathway/);
 });
 test('consumed diagnostic request is not reused',()=>assert.notEqual(SYNTHETIC_LOI_DIAGNOSTIC_REQUEST,'8806fffb-6f9b-4768-8389-442d9798220f'));
+test('source coverage checklist names every actual input reference and selected opening kind',()=>{
+ const x=input({refs:[...input().refs,{ref:'context:whyNow',kind:'context',text:'I am expressing interest.'},{ref:'context:applicationState',kind:'context',text:'No application event is asserted.'},{ref:'context:interviewState',kind:'context',text:'No interview event is asserted.'}]}),b=body(x);
+ for(const r of x.refs)assert.ok(b.instructions.includes(r.ref));
+ assert.match(b.instructions,/DIRECT_CONCISE: first non-identity reference kind context/);
+ assert.match(b.instructions,/Never duplicate an ID/);assert.match(b.instructions,/Do not omit negative application\/interview context/);
+ assert.match(b.instructions,/do not add unsupported citations/);
+ assert.notEqual(SYNTHETIC_LOI_DIAGNOSTIC_REQUEST,'8d0e5c96-6456-4a2e-808e-ad8c3adb80a8');
+});

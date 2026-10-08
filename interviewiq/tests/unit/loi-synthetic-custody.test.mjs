@@ -24,7 +24,7 @@ test('non-allowlisted requests and any echoed secure key retain no raw custody',
 test('public generation and replay projection excludes private diagnostics/custody',()=>{const source=fs.readFileSync(new URL('../../server/loi-generation.mjs',import.meta.url),'utf8');const start=source.indexOf('function publicResult('),end=source.indexOf('\n',start);const fn=new Function(source.slice(start,end)+';return publicResult;')();const result=fn({generationId:'test',input:{approaches:[],refs:[]},subject},{status:'STANDARD_FALLBACK',proposals:[],diagnostic:{code:'test'},syntheticRejectedWire:{wire:'PRIVATE_SYNTHETIC_ONLY'}},true);assert.equal(result.syntheticRejectedWire,undefined);assert.equal(result.diagnostic,undefined);assert.ok(!JSON.stringify(result).includes('PRIVATE_SYNTHETIC_ONLY'));});
 
 test('synthetic custody preserves trace-invalid wire without admitting it',()=>{
- for(const mutate of [w=>w.candidates[0].paragraphs[1].text+='\nExtra sentence.',w=>w.candidates[0].paragraphs[1].refs=['unknown'],w=>w.candidates[0].paragraphs[1].refs=['program','program'],w=>w.candidates[0].paragraphs[1].text=' padded ']){
+ for(const mutate of [w=>w.candidates[0].paragraphs[1].text+='\nExtra sentence.',w=>w.candidates[0].paragraphs[1].refs=['unknown'],w=>w.candidates[0].paragraphs[1].text=' padded ']){
   const w=wire();mutate(w);const r=syntheticRejectedWire(w,input,id);assert.deepEqual(r.wire,w);assert.throws(()=>normalizeLoiParagraphs(w,input));
  }
 });
@@ -38,3 +38,5 @@ test('previous consumed synthetic diagnostic request cannot retain another wire'
 });
 
 test('provider trace-invalid wire is captured before unchanged normalizer rejects it',async()=>{const e=await attempt({formatting:true});assert.equal(e.loiDiagnostic.code,'loi_composition_trace');assert.ok(e.syntheticRejectedWire.wire.candidates[0].paragraphs[1].text.includes('\n'));assert.equal(e.code,'LOI_PROVIDER_FAILED');});
+
+test('raw synthetic custody preserves duplicate source IDs while normalization deduplicates',()=>{const w=wire();w.candidates[0].paragraphs[1].refs=['program','program'];const r=syntheticRejectedWire(w,input,id);assert.deepEqual(r.wire,w);assert.deepEqual(normalizeLoiParagraphs(w,input).candidates[0].claims[1].refs,['program']);});

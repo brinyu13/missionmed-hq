@@ -71,7 +71,8 @@ export function proseInstructions(input){
  const position=input.refs.find(r=>r.ref==='positionContext'&&r.kind==='context');
  const hasPosition=['PRELIMINARY','TRANSITIONAL_YEAR'].includes(input.positionType)&&typeof position?.text==='string'&&position.text.trim().length>0;
  const positionInstruction=hasPosition?' Use only the confirmed positionContext reference to explain the PGY-1 qualifying year.'+(input.advancedProgramName&&position.text.includes(input.advancedProgramName)?' Keep that confirmed Advanced program pathway clear and early.':' Do not add a relationship to any other training program.'):'';
- return PROSE_INSTRUCTIONS+' '+count+' Requested approach: '+selected+positionInstruction;
+ const coverage=' Reference checklist: '+input.refs.map(r=>r.ref).join(', ')+'. Every listed ID must occur in a refs array at least once in EACH complete letter, with prose actually expressing its source meaning. Do not omit negative application/interview context; acknowledge it truthfully without inventing an event. Never duplicate an ID in the same paragraph. In the opening substantive paragraph, order non-identity references by the actual opening emphasis for the requested approach. ' + input.approaches.map(a=>a+': first non-identity reference kind '+({WARM_PERSONAL:'reason',DIRECT_CONCISE:'context',ACADEMIC_PROGRAM:'evidence',POST_INTERVIEW:'context',UPDATE_LED:'fact',STRONG_INTEREST:'reason'}[a])).join('; ') + '. Check coverage and ordering before returning JSON; do not add unsupported citations merely to satisfy this checklist.';
+ return PROSE_INSTRUCTIONS+' '+count+' Requested approach: '+selected+positionInstruction+coverage;
 }
 export const PARAGRAPH_SCHEMA='iiq-loi-authored-paragraphs-v1';
 
@@ -98,8 +99,8 @@ export function normalizeLoiParagraphs(output,input) {
   let text='';const spans=[];
   for(const p of row.paragraphs){
    need(keys(p,['text','refs'])&&typeof p.text==='string'&&p.text.length>0&&p.text.length<=20000&&p.text===p.text.trim()&&!/[\r\n\u2028\u2029]/.test(p.text));
-   need(Array.isArray(p.refs)&&p.refs.length<=known.size&&new Set(p.refs).size===p.refs.length&&p.refs.every(r=>typeof r==='string'&&known.has(r)));
-   if(text)text+='\n\n';const start=text.length;text+=p.text;need(text.length<=20000);spans.push({start,end:text.length,refs:[...p.refs]});
+   need(Array.isArray(p.refs)&&p.refs.length<=known.size&&p.refs.every(r=>typeof r==='string'&&known.has(r)));
+   if(text)text+='\n\n';const start=text.length;text+=p.text;need(text.length<=20000);spans.push({start,end:text.length,refs:[...new Set(p.refs)]});
   }
   const claims=proseUnits(text).map(u=>{
    const owners=spans.filter(p=>p.start<u.end&&p.end>u.start);need(owners.length===1);
@@ -170,7 +171,7 @@ const DIAGNOSTIC_CODES=new Set(['LOI_PROVIDER_TIMEOUT','LOI_PROVIDER_RESPONSE','
 const DIAGNOSTIC_RULES=new Set(['UNSUPPORTED_GUARANTEE','UNSUPPORTED_VISA','UNSUPPORTED_RANK','UNSUPPORTED_ACHIEVEMENT','UNSUPPORTED_PERSONAL_TIE','UNSUPPORTED_PROGRAM_TOPIC','UNSUPPORTED_PROGRAM_ROBOTICS','UNSUPPORTED_PROGRAM_SURGERY','UNSUPPORTED_PROGRAM_CARDIOLOGY','UNSUPPORTED_PROGRAM_FELLOWSHIP','UNSUPPORTED_PROGRAM_RESEARCH','UNSUPPORTED_PROGRAM_SCHOLARSHIP','UNSUPPORTED_PROGRAM_ELECTIVE','UNSUPPORTED_PROGRAM_MENTORSHIP','UNSUPPORTED_PROGRAM_SIMULATION','UNSUPPORTED_PROGRAM_RURAL','UNSUPPORTED_PROGRAM_INTERNATIONAL','UNSUPPORTED_PROGRAM_VISA','UNSUPPORTED_PROGRAM_SPONSORSHIP','UNSUPPORTED_EVIDENCE_STATE']);
 export function loiFailureDiagnostic(error,stage,outputSha256=null){return {stage:['AUTHOR_INTENT','PROVIDER_RESPONSE','PROSE_VALIDATION','DISPATCH'].includes(stage)?stage:'UNKNOWN',code:DIAGNOSTIC_CODES.has(error?.code)?error.code:'UNCLASSIFIED',outputSha256:typeof outputSha256==='string'&&/^[a-f0-9]{64}$/.test(outputSha256)?outputSha256:null,...(error?.code==='loi_composition_unsupported'&&DIAGNOSTIC_RULES.has(error?.rule)?{rule:error.rule}:{})};}
 // One synthetic-only diagnostic request. This is not a raw student-output log.
-export const SYNTHETIC_LOI_DIAGNOSTIC_REQUEST='8d0e5c96-6456-4a2e-808e-ad8c3adb80a8';
+export const SYNTHETIC_LOI_DIAGNOSTIC_REQUEST='06f1a7ff-e82b-45d7-bd55-a98387644076';
 const SYNTHETIC_LOI_INPUT_SHA='0725798083c9bac53b710aa6a1244bb552a376bb32bb6e81ca9c3ef8b84de8ef';
 const syntheticInputKeys=['program','refs','context','motivations','facts','selectedEvidence','approaches','contextConfirmations','positionType','advancedProgramName'];
 function syntheticInputMatches(input){try{return v.digest(Object.fromEntries(syntheticInputKeys.map(k=>[k,input[k]])))===SYNTHETIC_LOI_INPUT_SHA;}catch{return false;}}

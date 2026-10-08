@@ -18,9 +18,16 @@ test('persisted authored schema and final factual/student-review contract remain
  const {input,wire}=fixture(),output=normalizeLoiParagraphs(wire,input);assert.equal(output.schema,AUTHORED_SCHEMA);const rows=validateAuthoredSingleCallPlans(output,input);assert.equal(rows.length,1);assert.equal(rows[0].review.studentVerificationRequired,true);assert.equal(rows[0].review.automaticFactualCertification,false);
 });
 for(const [name,mutate]of [
- ['unknown refs',p=>p.refs=['unknown']],['duplicate refs',p=>p.refs=['program','program']],['missing refs',p=>delete p.refs],['extra properties',p=>p.claims=[]],['empty text',p=>p.text=''],['leading whitespace',p=>p.text=' '+p.text],['embedded newline',p=>p.text+='\nOther'],['embedded unicode separator',p=>p.text+='\u2028Other'],['oversize text',p=>p.text='a'.repeat(20001)]
+ ['unknown refs',p=>p.refs=['unknown']],['missing refs',p=>delete p.refs],['extra properties',p=>p.claims=[]],['empty text',p=>p.text=''],['leading whitespace',p=>p.text=' '+p.text],['embedded newline',p=>p.text+='\nOther'],['embedded unicode separator',p=>p.text+='\u2028Other'],['oversize text',p=>p.text='a'.repeat(20001)]
 ])test('fails closed for '+name,()=>{const {input,wire}=fixture();mutate(wire.candidates[0].paragraphs[1]);assert.throws(()=>normalizeLoiParagraphs(wire,input),e=>e.code==='loi_composition_trace');});
 test('sources are never inferred from text or neighboring paragraphs',()=>{const {input,wire}=fixture();wire.candidates[0].paragraphs[1].refs=[];const output=normalizeLoiParagraphs(wire,input);assert.deepEqual(output.candidates[0].claims[1].refs,[]);assert.throws(()=>validateAuthoredSingleCallPlans(output,input),e=>e.code==='loi_composition_unmapped');});
 test('invented quantity remains denied after normalization even with a declared evidence ref',()=>{const {input,wire}=fixture();wire.candidates[0].paragraphs.splice(2,0,{text:'The passing rate is 95%.',refs:['evidence:0']});assert.throws(()=>validateAuthoredSingleCallPlans(normalizeLoiParagraphs(wire,input),input),e=>e.code==='loi_composition_invented_quantity');});
 test('canonical program substitution is not repaired',()=>{const {input,wire}=fixture();for(const p of wire.candidates[0].paragraphs)p.text=p.text.replaceAll(input.program.name,'Another Program');assert.throws(()=>validateAuthoredSingleCallPlans(normalizeLoiParagraphs(wire,input),input),e=>e.code==='loi_composition_reference');});
 test('provider wire requests paragraphs with explicit refs; same approved model and no tools',()=>{const {input}=fixture(),b=JSON.parse(buildLoiProseRequest(input,4096)),row=b.text.format.schema.properties.candidates.items;assert.equal(b.model,LOI_MODEL);assert.deepEqual(b.reasoning,{effort:'minimal'});assert.deepEqual(b.tools,[]);assert.equal(b.store,false);assert.equal(b.max_output_tokens,4096);assert.equal(JSON.parse(b.input[0].content[0].text).schema,PARAGRAPH_SCHEMA);assert.deepEqual(row.required,['approach','paragraphs','fitLinks']);assert.equal(row.properties.claims,undefined);});
+
+test('duplicate known paragraph refs normalize as an ordered set without changing prose',()=>{
+ const {input,wire}=fixture(),p=wire.candidates[0].paragraphs[1];p.refs=['program','reason:0','program'];
+ const row=normalizeLoiParagraphs(wire,input).candidates[0];assert.equal(row.text,wire.candidates[0].paragraphs.map(p=>p.text).join('\n\n'));
+ assert.deepEqual(row.claims[1].refs,['program','reason:0']);
+ p.refs=['program','unknown','program'];assert.throws(()=>normalizeLoiParagraphs(wire,input),e=>e.code==='loi_composition_trace');
+});
