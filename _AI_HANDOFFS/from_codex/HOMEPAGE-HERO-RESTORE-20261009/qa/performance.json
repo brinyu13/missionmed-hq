@@ -1,0 +1,94 @@
+[
+  {
+    "viewport": [
+      1440,
+      900
+    ],
+    "perf": {
+      "lcp": [
+        {
+          "time": 4280,
+          "size": 329508,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp"
+        }
+      ],
+      "cls": 0
+    },
+    "nav": [
+      {
+        "dcl": 5670.70000000298,
+        "load": 5680.20000000298,
+        "transfer": 196473
+      }
+    ]
+  },
+  {
+    "viewport": [
+      1440,
+      900
+    ],
+    "perf": {
+      "lcp": [
+        {
+          "time": 2828,
+          "size": 604021,
+          "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp"
+        }
+      ],
+      "cls": 0
+    },
+    "nav": [
+      {
+        "dcl": 4487.5,
+        "load": 4507.600000008941,
+        "transfer": 196469
+      }
+    ]
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "perf": {
+      "lcp": [
+        {
+          "time": 3116,
+          "size": 54172,
+          "url": ""
+        }
+      ],
+      "cls": 0
+    },
+    "nav": [
+      {
+        "dcl": 4394.0999999940395,
+        "load": 4413,
+        "transfer": 196470
+      }
+    ]
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "perf": {
+      "lcp": [
+        {
+          "time": 5776,
+          "size": 54172,
+          "url": ""
+        }
+      ],
+      "cls": 0
+    },
+    "nav": [
+      {
+        "dcl": 5904.9000000059605,
+        "load": 5925.79999999702,
+        "transfer": 196470
+      }
+    ]
+  }
+]

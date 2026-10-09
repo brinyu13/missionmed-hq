@@ -1,0 +1,162 @@
+[
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "mr-application",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp",
+    "imageLoaded": true,
+    "index": 0,
+    "marian": false,
+    "primary": "Explore Interview Bootcamp Week",
+    "primaryHref": "https://missionmedinstitute.com/missionresidency/#dates",
+    "scrollY": 0,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": true,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "exam-live",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+    "imageLoaded": true,
+    "index": 1,
+    "marian": false,
+    "primary": "Explore Exam Prep",
+    "primaryHref": "https://missionmedinstitute.com/examprep/",
+    "scrollY": 162,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": false,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "mr-communication",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/b-immersive/assets/online-class.webp",
+    "imageLoaded": true,
+    "index": 2,
+    "marian": false,
+    "primary": "Explore Interview Bootcamp Week",
+    "primaryHref": "https://missionmedinstitute.com/missionresidency/#dates",
+    "scrollY": 162,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": false,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "usce-fit",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-operating.webp",
+    "imageLoaded": true,
+    "index": 3,
+    "marian": false,
+    "primary": "Explore USCE",
+    "primaryHref": "https://missionmedinstitute.com/usce/",
+    "scrollY": 162,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": false,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "mr-ranking",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-ranking.webp",
+    "imageLoaded": true,
+    "index": 4,
+    "marian": false,
+    "primary": "Explore Interview Bootcamp Week",
+    "primaryHref": "https://missionmedinstitute.com/missionresidency/#dates",
+    "scrollY": 0,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": false,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "exam-reasoning",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/exam-live.webp",
+    "imageLoaded": true,
+    "index": 5,
+    "marian": false,
+    "primary": "Explore Exam Prep",
+    "primaryHref": "https://missionmedinstitute.com/examprep/",
+    "scrollY": 162,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": false,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "mr-story",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-community.webp",
+    "imageLoaded": true,
+    "index": 6,
+    "marian": false,
+    "primary": "Explore Interview Bootcamp Week",
+    "primaryHref": "https://missionmedinstitute.com/missionresidency/#dates",
+    "scrollY": 162,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": false,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "ctaControlOverlap": false,
+    "heroHeight": 648,
+    "horizontalOverflow": false,
+    "id": "usce-pathway",
+    "image": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/usce-clinical.webp",
+    "imageLoaded": true,
+    "index": 7,
+    "marian": false,
+    "primary": "Explore USCE",
+    "primaryHref": "https://missionmedinstitute.com/usce/",
+    "scrollY": 0,
+    "secondaryHref": "https://missionmedinstitute.com/testimonials/",
+    "secondaryVisible": false,
+    "videos": 0,
+    "viewport": [
+      1440,
+      900
+    ]
+  }
+]

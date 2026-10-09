@@ -1,0 +1,110 @@
+[
+  {
+    "viewport": [
+      1440,
+      900
+    ],
+    "status": 200,
+    "metrics": {
+      "lcp": {
+        "time": 3284,
+        "size": 604021,
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp"
+      },
+      "cls": 0.0014225823045267488,
+      "nav": [
+        {
+          "responseEnd": 2384.699999988079,
+          "domContentLoaded": 6594.29999999702,
+          "transferSize": 138812
+        }
+      ],
+      "heroId": "mr-application",
+      "heroHeight": 648,
+      "overflow": false
+    },
+    "errors": [],
+    "failed": []
+  },
+  {
+    "viewport": [
+      1440,
+      900
+    ],
+    "status": 200,
+    "metrics": {
+      "lcp": {
+        "time": 4284,
+        "size": 604021,
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp"
+      },
+      "cls": 0.0014225823045267488,
+      "nav": [
+        {
+          "responseEnd": 2859.5999999940395,
+          "domContentLoaded": 9307.39999999106,
+          "transferSize": 138784
+        }
+      ],
+      "heroId": "mr-application",
+      "heroHeight": 648,
+      "overflow": false
+    },
+    "errors": [],
+    "failed": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "status": 200,
+    "metrics": {
+      "lcp": {
+        "time": 3432,
+        "size": 112320,
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp"
+      },
+      "cls": 0.014922385790085951,
+      "nav": [
+        {
+          "responseEnd": 2117.7999999970198,
+          "domContentLoaded": 6467.79999999702,
+          "transferSize": 138711
+        }
+      ],
+      "heroId": "mr-application",
+      "heroHeight": 860,
+      "overflow": false
+    },
+    "errors": [],
+    "failed": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "status": 200,
+    "metrics": {
+      "lcp": {
+        "time": 3860,
+        "size": 112320,
+        "url": "https://missionmedinstitute.com/wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/assets/mr-application.webp"
+      },
+      "cls": 0.013979471385928362,
+      "nav": [
+        {
+          "responseEnd": 2762.4000000059605,
+          "domContentLoaded": 9132.20000000298,
+          "transferSize": 138892
+        }
+      ],
+      "heroId": "mr-application",
+      "heroHeight": 860,
+      "overflow": false
+    },
+    "errors": [],
+    "failed": []
+  }
+]
