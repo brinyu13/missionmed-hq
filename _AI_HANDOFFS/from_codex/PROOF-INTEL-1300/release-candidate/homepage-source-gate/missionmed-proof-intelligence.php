@@ -92,12 +92,21 @@ add_action('template_redirect', function() {
     exit;
 }, 1);
 
-// Preserve the legacy source widget in Elementor, but withhold its unauthenticated
-// quotations and numerical library claim from the public homepage.
-add_filter('elementor/widget/render_content', function ($content, $widget) {
-    if (is_front_page() && $widget->get_id() === '0d7d676' &&
-        $widget->get_name() === 'html' && strpos($content, 'hpv-section') !== false) {
-        return '';
+// Elementor may replay cached widget HTML without invoking widget render filters.
+// Filter only the exact legacy testimonial section, preserving all surrounding bytes.
+function mm_proof_1300_filter_legacy_homepage($html) {
+    if (strpos($html, 'elementor-3305') === false ||
+        strpos($html, 'elementor-element-0d7d676') === false) { return $html; }
+    $pattern = '~<section\b[^>]*\bclass=["\']hpv-section["\'][^>]*>.*?</section>~is';
+    if (preg_match_all($pattern, $html, $matches, PREG_OFFSET_CAPTURE) !== 1) { return $html; }
+    $section = $matches[0][0][0];
+    if (strpos($section, 'Real Students. Real Match Days. Real Tears.') === false ||
+        strpos($section, 'Hundreds more on Facebook') === false) { return $html; }
+    $offset = $matches[0][0][1];
+    return substr($html, 0, $offset) . substr($html, $offset + strlen($section));
+}
+add_action('template_redirect', function () {
+    if (is_front_page() && (int) get_queried_object_id() === 3305) {
+        ob_start('mm_proof_1300_filter_legacy_homepage');
     }
-    return $content;
-}, 10, 2);
+}, 0);
