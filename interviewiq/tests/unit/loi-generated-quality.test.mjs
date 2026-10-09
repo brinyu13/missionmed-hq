@@ -79,3 +79,25 @@ test('quality diagnostics admit only private closed rules, never arbitrary provi
  const denied=loiFailureDiagnostic({code:'loi_composition_quality',rule:'secret or provider prose'},'PROSE_VALIDATION');
  assert.equal(denied.rule,undefined);
 });
+
+// R12 regression: supported facts in a different paragraph are not local citations.
+test('specialty cannot be borrowed from a leadership roster into an uncited identity opening',()=>{
+ const ps=paragraphs();ps[0].text=ps[0].text.replace(' after submitting',' in Internal Medicine after submitting');
+ const original=JSON.stringify(ps);
+ assert.throws(()=>validateAuthoredSingleCallPlans(plan(ps),input),{code:'loi_composition_invented_identity'});
+ assert.equal(JSON.stringify(ps),original);
+ assert.equal(validateAuthoredSingleCallPlans(plan(paragraphs()),input)[0].studentReviewRequired,true);
+});
+test('review snapshot metadata is not silently converted into factual letter content',()=>{
+ const ps=paragraphs();ps.push({text:'The roster was reviewed on 2026-09-10.',refs:['evidence:0']});
+ assert.equal(input.refs.find(r=>r.ref==='evidence:0').asOf.label,'2026-09-10');
+ assert.throws(()=>validateAuthoredSingleCallPlans(plan(ps),input),{code:'loi_composition_invented_quantity'});
+});
+test('generation scopes specialty and provenance dates without weakening provider limits',()=>{
+ const b=JSON.parse(buildLoiProseRequest(input,4096));
+ assert.match(b.instructions,/never append a specialty/);
+ assert.match(b.instructions,/metadata labels are not applicant updates or program events/);
+ assert.match(b.instructions,/same paragraph, omit it/);
+ assert.equal(b.max_output_tokens,4096);assert.deepEqual(b.reasoning,{effort:'minimal'});
+ assert.deepEqual(b.tools,[]);assert.equal(b.store,false);
+});
