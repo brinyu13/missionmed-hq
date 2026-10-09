@@ -156,25 +156,29 @@ else
   pass "Branch is non-main."
 fi
 
-declare -a tracked_files
-declare -a untracked_files
+declare -a tracked_files=()
+declare -a untracked_files=()
+tracked_count=0
+untracked_count=0
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
   status_code="${line:0:2}"
   path_part="${line:3}"
   if [[ "$status_code" == "??" ]]; then
     untracked_files+=("$path_part")
+    untracked_count=$((untracked_count + 1))
   else
     if [[ "$path_part" == *" -> "* ]]; then
       path_part="${path_part##* -> }"
     fi
     tracked_files+=("$path_part")
+    tracked_count=$((tracked_count + 1))
   fi
 done < <(git status --porcelain)
 
 echo
 echo "tracked_dirty_files:"
-if [[ "${#tracked_files[@]}" -eq 0 ]]; then
+if [[ "$tracked_count" -eq 0 ]]; then
   echo "  (none)"
 else
   for f in "${tracked_files[@]}"; do
@@ -183,7 +187,7 @@ else
 fi
 
 echo "untracked_files:"
-if [[ "${#untracked_files[@]}" -eq 0 ]]; then
+if [[ "$untracked_count" -eq 0 ]]; then
   echo "  (none)"
 else
   for f in "${untracked_files[@]}"; do
@@ -191,7 +195,7 @@ else
   done
 fi
 
-dirty_count=$(( ${#tracked_files[@]} + ${#untracked_files[@]} ))
+dirty_count=$(( tracked_count + untracked_count ))
 if (( dirty_count > 0 )); then
   echo
   echo "=== DIRTY-STATE TRIAGE REQUIRED ==="
@@ -202,16 +206,17 @@ else
   pass "Repo is currently clean."
 fi
 
-declare -a edit_scope
+declare -a edit_scope=()
+edit_scope_count=0
 if [[ -n "$EDIT_SCOPE_RAW" ]]; then
   for p in $EDIT_SCOPE_RAW; do
     normalized="$(normalize_path "$p")"
-    [[ -n "$normalized" ]] && edit_scope+=("$normalized")
+    if [[ -n "$normalized" ]]; then edit_scope+=("$normalized"); edit_scope_count=$((edit_scope_count + 1)); fi
   done
 fi
 
 echo
-if [[ "${#edit_scope[@]}" -gt 0 ]]; then
+if [[ "$edit_scope_count" -gt 0 ]]; then
   echo "declared_edit_scope:"
   for p in "${edit_scope[@]}"; do
     echo "  - $p"
@@ -221,7 +226,7 @@ else
   info "No overlap decision can be made yet. Before editing, declare scope with --edit-scope \"path1 path2\"."
 fi
 
-if [[ "${#edit_scope[@]}" -gt 0 && "$dirty_count" -gt 0 ]]; then
+if [[ "$edit_scope_count" -gt 0 && "$dirty_count" -gt 0 ]]; then
   overlap_count=0
   risky_overlap_count=0
   for dirty in ${tracked_files[@]+"${tracked_files[@]}"} ${untracked_files[@]+"${untracked_files[@]}"}; do

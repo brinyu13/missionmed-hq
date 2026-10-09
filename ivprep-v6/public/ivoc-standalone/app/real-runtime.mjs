@@ -14,6 +14,14 @@ const FACE_BASELINE_MAXIMUM_MS = 12_000;
 const FACE_BASELINE_MAXIMUM_GAP_MS = 2_000;
 const OVERLAY_STALE_AFTER_MS = 1_500;
 
+// Same centered object-fit rectangle as the displayed video, in CSS pixels.
+function overlayVideoRect(sourceWidth, sourceHeight, width, height, fit = 'contain') {
+  if (![sourceWidth, sourceHeight, width, height].every(v => Number.isFinite(v) && v > 0)) return null;
+  const scale = fit === 'cover' ? Math.max(width / sourceWidth, height / sourceHeight) : Math.min(width / sourceWidth, height / sourceHeight);
+  const drawWidth = sourceWidth * scale, drawHeight = sourceHeight * scale;
+  return { left: (width - drawWidth) / 2, top: (height - drawHeight) / 2, width: drawWidth, height: drawHeight };
+}
+
 function corridorScore(value, [lo, hi]) {
   if (!Number.isFinite(value)) return null;
   const mid = (lo + hi) / 2;
@@ -604,16 +612,25 @@ export class RealAnalyticsEngine extends EventTarget {
       this.clearOverlay();
       return;
     }
-    const dpr = Math.min(devicePixelRatio || 1, 1.5);
+    if (this.observedOverlay !== canvas) {
+      this.overlayResizeObserver?.disconnect();
+      this.observedOverlay = canvas;
+      if (typeof ResizeObserver === 'function') {
+        this.overlayResizeObserver = new ResizeObserver(() => this.clearOverlay());
+        this.overlayResizeObserver.observe(canvas);
+      }
+    }
+    const dpr = Math.max(1, Math.min(globalThis.devicePixelRatio || 1, 2));
     const width = Math.max(1, Math.round(canvas.clientWidth * dpr));
     const height = Math.max(1, Math.round(canvas.clientHeight * dpr));
     if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
     const context = canvas.getContext('2d');
     context.clearRect(0, 0, width, height);
-    const scale = Math.max(width / bitmap.width, height / bitmap.height);
-    const dw = bitmap.width * scale;
-    const dh = bitmap.height * scale;
-    context.drawImage(bitmap, (width - dw) / 2, (height - dh) / 2, dw, dh);
+    const fit = typeof getComputedStyle === 'function' ? getComputedStyle(this.video).objectFit : 'contain';
+    const rect = overlayVideoRect(this.video?.videoWidth || bitmap.width, this.video?.videoHeight || bitmap.height, width, height, fit);
+    if (!rect) return;
+    // Video and canvas share the same centered box and no independent mirror.
+    context.drawImage(bitmap, rect.left, rect.top, rect.width, rect.height);
     clearTimeout(this.overlayFreshnessTimer);
     this.overlayFreshnessTimer = setTimeout(() => this.clearOverlay(), OVERLAY_STALE_AFTER_MS);
   }
@@ -648,6 +665,9 @@ export class RealAnalyticsEngine extends EventTarget {
   }
 
   destroy({ releaseMedia = true } = {}) {
+    this.overlayResizeObserver?.disconnect();
+    this.overlayResizeObserver = null;
+    this.observedOverlay = null;
     this.transcript.stop();
     if (this.faceBaselineState.capturing) this.cancelFaceBaseline('FACE_BASELINE_CAPTURE_DESTROYED');
     this.pipeline?.removeEventListener?.('diagnostic', this.onDiagnostic);

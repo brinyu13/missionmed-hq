@@ -19,11 +19,12 @@ test('calibration center cannot grow into the voice rail from intrinsic prompt/m
   assert.match(center,/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(cockpit,/\.cal > \*, \.cal-stage-col > \*\s*\{[^}]*min-width:\s*0/);
 });
-test('extra readiness controls use implicit auto rows, not an obsolete fourth 150px row',()=>{
+test('calibration has one primary scroll owner and natural rows, not nested locked regions',()=>{
   const center=rule('.cal-stage-col');
-  assert.match(center,/grid-template-rows:\s*auto minmax\(180px,\s*1fr\);/);
   assert.match(center,/grid-auto-rows:\s*auto/);
-  assert.match(center,/overflow:\s*auto/);
+  assert.match(center,/overflow:\s*visible/);
+  assert.match(rule('.cal-screen'),/height:\s*auto/);
+  assert.match(rule('.cal-lower-wrap[open]'),/overflow:\s*visible/);
   assert.doesNotMatch(center,/grid-template-rows:[^;]*150px/);
 });
 test('stacked rehearsal grows naturally instead of stranding controls below a viewport-locked row',()=>{

@@ -213,13 +213,16 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         deviceSwitching=value;$('start-session').disabled=value||!ready||avatarBlocked();$('connect-real').disabled=value;
         $('stage').dataset.previewReady=String(!value&&ready);
         $('enter-note').textContent=value?'Checking your selected camera and microphone…':ready?'Preview visible · microphone connected. Nothing is recorded until you start.':'The selected devices are not ready. Check the message below, choose another device, or check the preview again.';
-        if(!value&&ready){applyOverlays();}
+        if(!value&&ready){captureReadiness();applyOverlays();}
       },onReadinessChanged:readiness=>{
         if(!current()||starting||saving||finished)return;
         if(started){$('room-preference-note').hidden=false;$('room-preference-note').textContent=readiness.message;return;}
         $('start-session').disabled=true;$('stage').dataset.previewReady='false';
         $('enter-note').textContent=readiness.message;$('connect-real').disabled=false;
       },onChanged:()=>{state.calibration=null;commit();}});
+  function captureReadiness(){
+    session.preflight={account,durable,subject:account.subject,engine,stream:controller.stream,camera:controller.stream?.getVideoTracks?.()[0],microphone:controller.stream?.getAudioTracks?.()[0],previewVerified:true};
+  }
   async function connect(){
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
     $('stage').dataset.previewReady='false';$('start-session').disabled=true;
@@ -240,6 +243,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       assertMicrophoneReady(controller.stream,engine.audioContext);
       $('stage').dataset.previewReady='true';
       $('start-session').disabled=avatarBlocked();$('enter-note').textContent=avatarBlocked()?AVATAR_UNAVAILABLE:'Preview visible · microphone connected. Nothing is recorded until you start.';
+      captureReadiness();
       startPreviewAnalytics();applyOverlays();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
     finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;await disposeDevices?.refresh?.().catch(()=>{});}}
@@ -258,7 +262,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     if(!f.cue)lastCueId=null;
     $('presence-state').textContent=interviewPresenceCue({interviewerSpeaking,candidateSpeaking:f.speaking,avatar:Boolean(founderQa)});
   };
-  const onState=e=>{if(saving||disposed)return;const d=e.detail||{};if(['partial','recovering','unavailable'].includes(d.state)){roomFault={message:d.subsystem==='audio'?'Check microphone':'Check camera',detail:d.message||''};if(started)mark('gap',d.subsystem||'Signal unavailable');}else if(['recovered','running'].includes(d.state))roomFault=null;};
+  const onState=e=>{if(saving||disposed)return;const d=e.detail||{};if(['partial','recovering','unavailable'].includes(d.state)){if(!roomFault||roomFault.subsystem)roomFault={message:d.subsystem==='audio'?'Check microphone':'Check camera',detail:d.message||'',subsystem:d.subsystem};if(started)mark('gap',d.subsystem||'Signal unavailable');}else if(d.state==='recovered'&&roomFault?.subsystem&&((d.subsystem==='visibility'&&roomFault.detail==='document_hidden')||d.subsystem===roomFault.subsystem))roomFault=null;else if(d.state==='running'&&roomFault?.subsystem)roomFault=null;};
   const onWord=e=>{if(current()&&e.detail?.state==='unavailable')$('pace-basis').textContent='Timed-word pace unavailable';};
   function startPreviewAnalytics(){
     engine.events.addEventListener('frame',onFrame);engine.events.addEventListener('state',onState);engine.events.addEventListener('word-timing',onWord);
@@ -271,7 +275,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   async function start(){
     if(!current()||starting||started||deviceSwitching)return;
-    if(!preInterviewReady(session.preflight,controller)){location.hash='#/devices?return=room&mode='+mode;return;}
+    if(!preInterviewReady(session.preflight,controller)){void connect();return;}
     if(avatarBlocked()){$('enter-note').textContent=AVATAR_UNAVAILABLE;$('start-session').disabled=true;return;}
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
     initialPresentationMode=density==='interview'?'interview':'coached';setDensityControls(true);

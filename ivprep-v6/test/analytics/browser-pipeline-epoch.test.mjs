@@ -362,6 +362,28 @@ test('hidden or disconnected vision invalidates every older reply and closes its
   pipeline.destroy();
 });
 
+test('document_hidden warning clears only on a fresh current-epoch frame, never visibility alone',()=>{
+  let now=0;const pipeline=new BrowserAnalyticsPipeline({bridge:{media:{}},now:()=>now});
+  const states=[];pipeline.addEventListener('state',e=>states.push(e.detail));
+  try{
+    pipeline.beginAnswer({answerId:'visibility'});
+    document.hidden=true;now=100;pipeline.onVisibilityChange();
+    assert.equal(pipeline.visibilityRecoveryPending,true);
+    assert.ok(states.some(s=>s.message==='document_hidden'));
+    document.hidden=false;now=200;pipeline.onVisibilityChange();
+    assert.equal(states.filter(s=>s.subsystem==='visibility'&&s.state==='recovered').length,0);
+    const epoch=pipeline.visionEpoch;
+    pipeline.inFlightVision={generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:epoch,frameId:1,timestampMs:200,captureStartedAt:200};
+    pipeline.frameInFlight=true;
+    const message={type:'geometry',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:epoch,frameId:1,timestampMs:200,expectedFrameMs:125,geometry:{faceCount:0,face:{present:false},pose:{torsoPresent:false},hands:{}}};
+    pipeline.onWorkerMessage({...message,visionEpoch:epoch-1},pipeline.generation);
+    assert.equal(pipeline.visibilityRecoveryPending,true);
+    pipeline.onWorkerMessage(message,pipeline.generation);
+    assert.equal(pipeline.visibilityRecoveryPending,false);
+    assert.equal(states.filter(s=>s.subsystem==='visibility'&&s.state==='recovered').length,1);
+  }finally{document.hidden=false;pipeline.destroy();}
+});
+
 test('a Holistic frame error is observed as unavailable and cannot inflate analyzable coverage',()=>{
   let now=0;const pipeline=new BrowserAnalyticsPipeline({bridge:{media:{}},now:()=>now});
   pipeline.beginAnswer({answerId:'frame-error'});

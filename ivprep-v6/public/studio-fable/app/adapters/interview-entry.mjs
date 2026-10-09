@@ -16,12 +16,12 @@ export function mockCalibrationRoute(params,retry=params?.get('retry')) {
 }
 
 // Ephemeral evidence belongs to this capture owner and authenticated subject.
-// Reload/account/device replacement requires a new rehearsal, never localStorage.
+// Reload/account/device replacement requires fresh media proof, not exercises.
 export function preInterviewReady(receipt,controller) {
   return Boolean(receipt&&receipt.subject===controller.account?.subject&&
     receipt.account===controller.account&&receipt.durable===controller.durable&&
     receipt.engine===controller.engine&&receipt.stream===controller.stream&&
-    controller.phase==='READY'&&receipt.exercisesAttempted===true&&
+    controller.phase==='READY'&&receipt.previewVerified===true&&
     receipt.camera===controller.stream?.getVideoTracks?.()[0]&&
     receipt.microphone===controller.stream?.getAudioTracks?.()[0]&&
     [receipt.camera,receipt.microphone].every(t=>t?.readyState==='live'&&t.enabled&&!t.muted));

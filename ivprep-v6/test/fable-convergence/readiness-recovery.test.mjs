@@ -17,11 +17,11 @@ function fixture(){
   const elements=new Map();
   const element=id=>{if(!elements.has(id))elements.set(id,{dataset:{},hidden:false,disabled:false,textContent:'',removed:0,remove(){this.removed++;}});return elements.get(id);};
   const selects=[{disabled:false,options:[{}]},{disabled:false,options:[{}]}];
-  const host={hidden:true},stream={getAudioTracks:()=>[{readyState:'live',enabled:true,muted:false}]};
+  const host={hidden:true},camera={readyState:'live',enabled:true,muted:false},microphone={...camera},stream={getVideoTracks:()=>[camera],getAudioTracks:()=>[microphone]};
   let options=null,current=true,visible=false,acquires=0;
   const engine={audioContext:{state:'running'},events:{adds:0,addEventListener(){this.adds++;}},begins:0,beginAnswer(){this.begins++;},setOverlayVisibility(){}};
   const scope={current:()=>current,$:element,main:{querySelector:()=>host,querySelectorAll:()=>selects},
-    account:{subject:'wp:fixture'},durable:{},controller:{account:{subject:'wp:fixture'},phase:'READY',stream,mountVideo:()=>({}),acquire:async()=>{acquires++;return engine;},switchDevice:async()=>{}},
+    session:{},account:{subject:'wp:fixture'},durable:{},controller:{account:{subject:'wp:fixture'},phase:'READY',stream,mountVideo:()=>({}),acquire:async()=>{acquires++;return engine;},switchDevice:async()=>{}},
     mountDeviceControls:async(_host,input)=>{options=input;host.hidden=false;return()=>{};},
     awaitVisibleCamera:async()=>{if(!visible)throw new Error(black);},assertMicrophoneReady,bindPrimaryRecovery:()=>()=>{},
     engine:null,disposePrimary:null,disposeDevices:null,verifiedCapture:null,deviceReadiness:{refresh(){},reset(){}},deviceSwitching:false,starting:false,started:false,saving:false,finished:false,disposed:false,connecting:false,
@@ -33,7 +33,7 @@ function fixture(){
 async function roomFixture(){
   const f=fixture();
   await vm.runInContext('(async()=>{'+section(room,"  disposeDevices=await mountDeviceControls",'  async function connect(){')+'})()',f.scope);
-  vm.runInContext(section(room,'  async function connect(){','  const onFrame=')+';this.connect=connect;',f.scope);
+  vm.runInContext(section(room,'  function captureReadiness(){','  const onFrame=')+';this.connect=connect;',f.scope);
   return f;
 }
 test('actual Room connect exposes camera selection after black preview, with Start still disabled',async()=>{
@@ -45,6 +45,7 @@ test('actual Room connect exposes camera selection after black preview, with Sta
   f.options().onChanged();assert.equal(f.scope.state.calibration,null);
   f.options().onSwitching(false,false);assert.equal(f.element('start-session').disabled,true);
   f.options().onSwitching(false,true);assert.equal(f.element('start-session').disabled,false);
+  const receipt=f.scope.session.preflight;assert.equal(receipt.account,f.scope.account);assert.equal(receipt.durable,f.scope.durable);assert.equal(receipt.engine,f.engine);assert.equal(receipt.stream,f.scope.controller.stream);assert.equal(receipt.camera,f.scope.controller.stream.getVideoTracks()[0]);assert.equal(receipt.microphone,f.scope.controller.stream.getAudioTracks()[0]);assert.equal(receipt.previewVerified,true);assert.equal(receipt.exercisesAttempted,undefined);
   assert.equal(f.element('stage').dataset.previewReady,'true');assert.match(f.element('enter-note').textContent,/Preview visible/);
 });
 test('actual Room stale connect cannot publish readiness after the camera wait',async()=>{

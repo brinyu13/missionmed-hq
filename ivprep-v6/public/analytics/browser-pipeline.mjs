@@ -253,6 +253,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.pitchTrack.reset({ preserveCalibration: true });
     this.pitchCalibrationCapturing = false;
     this.hiddenAt = document.hidden ? this.answer.startedAtMs : null;
+    this.visibilityRecoveryPending = document.hidden;
     this.visionDisconnectedAt = null;
     this.audioDisconnectedAt = null;
     try {
@@ -931,6 +932,12 @@ export class BrowserAnalyticsPipeline extends EventTarget {
           inferenceMs: pipelineMs,
           expectedFrameMs: message.expectedFrameMs,
         });
+        // Visibility alone is not evidence: the current epoch must ingest a
+        // fresh frame successfully before its warning can be cleared.
+        if (this.visibilityRecoveryPending && !document.hidden) {
+          this.visibilityRecoveryPending = false;
+          this.dispatch('state', { state: 'recovered', subsystem: 'visibility', atMs: message.timestampMs });
+        }
         this.visionRecoveryAttempts = 0;
         // Y1-Y2-CAM-V6-3508: the overlay felt detached because this floor was 2 FPS -
         // a 500ms update interval, which reads as lag even though frames are never
@@ -1117,7 +1124,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     if (!this.answer || this.answerSealed) return;
     const at = this.session.clock.sessionMs();
     if (document.hidden) {
-      this.hiddenAt = at;
+      if (this.hiddenAt === null) this.hiddenAt = at;
+      this.visibilityRecoveryPending = true;
       this.invalidateVision('document_hidden', { subsystem: 'all', atMs: at });
     }
     else if (this.hiddenAt !== null) {

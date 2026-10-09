@@ -41,17 +41,17 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
     <div class="cal-screen">
     <div class="screen-head"><div><a class="btn btn-quiet" href="#/mock" id="return-setup" hidden>Return to interview setup ▸</a><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Check devices. <em>Try your instruments.</em></h1><p class="t-edit">Choose your camera and microphone, then smile, nod, gesture and speak to check the real measurements. This is not recorded. If an instrument cannot respond, mark it unavailable; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
     <div class="cal">
-      <aside class="housing panel"><div class="t-label" style="margin-bottom:10px">Rehearsal</div><div class="cal-steps" id="cal-steps"></div></aside>
+      <aside class="housing panel"><details class="advanced"><summary>Choose an exercise · 11 optional checks</summary><div class="cal-steps" id="cal-steps"></div></details></aside>
       <div class="cal-stage-col">
         <section class="housing cal-prompt" id="cal-prompt"></section>
+        <div class="cal-actions"><button class="btn btn-quiet" type="button" id="back-step">Back</button><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Skip step</button><button class="btn btn-primary" type="button" id="continue-interview">Continue to Interview ▸</button><span class="t-tech" id="step-state" role="status" aria-live="polite">Waiting</span></div>
         <div class="stage" id="stage" data-guides="true"><canvas id="overlay"></canvas><div class="frame-guide" aria-hidden="true"></div><span class="tag"><i style="background:var(--cyan);animation:none"></i>Calibration · not recorded</span>
           <div class="stage-enter" id="enter"><div><div class="t-kick gold">Step 1 · Devices</div><h2 class="t-h2" style="margin:8px 0 6px">Connect to begin</h2><p>Raw frames never leave your browser. This rehearsal is not recorded or saved as a rep.</p><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic ▸</button></div></div></div>
         </div>
         <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
         <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
         ${deviceControlsMarkup()}
-        ${deviceReadinessMarkup({fullPanels:true})}
-        <div class="cal-actions"><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Mark unavailable &amp; continue</button><span class="t-tech" id="step-state">Waiting</span><span style="flex:1"></span><button class="btn btn-primary" type="button" id="continue-interview" ${beforeInterview?'disabled':'hidden'}>Ready for interview ▸</button></div>
+        <details class="advanced"><summary>Detailed instrument feedback</summary>${deviceReadinessMarkup({fullPanels:true})}</details>
         <section class="recorder" id="recorder" data-mode="live" style="height:150px">${recorderMarkup({ mode: 'live' })}</section>
       </div>
       <aside class="rail" id="rail-right" aria-label="Voice rail">${rightRailMarkup()}</aside>
@@ -62,7 +62,6 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
     </div></details>
     </div>`;
   const $ = (id) => main.querySelector(`#${id}`);
-  if(beforeInterview)$('cal-lower').open=true;
   if(returnToMock){$('return-setup').hidden=false;$('return-setup').href=returnHash;}
   if(beforeInterview){$('return-setup').hidden=false;$('return-setup').href=returnHash;}
   const rails = new RailsController(main);
@@ -84,7 +83,11 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
   }
 
   function renderSteps() {
-    $('cal-steps').innerHTML = steps.map((s, i) => `<div class="cal-step" data-state="${i < stepIndex ? (s.skipped ? 'partial' : 'resolved') : i === stepIndex ? 'current' : ''}"><i>${i < stepIndex ? (s.skipped ? '–' : '✓') : i + 1}</i><div><strong>${s.title}</strong><small>${s.resolves.map((r) => INSTRUMENTS[r]).join(' · ') || 'summary'}</small></div><span class="res">${i < stepIndex ? (s.skipped ? 'skipped' : 'done') : i === stepIndex ? 'now' : ''}</span></div>`).join('');
+    $('cal-steps').innerHTML = steps.map((s, i) => {
+      const measured=s.resolves.length>0&&s.resolves.every(key=>resolved[key]==='resolved');
+      return `<button type="button" class="cal-step" data-step="${i}" data-state="${i===stepIndex?'current':measured?'resolved':s.skipped?'partial':''}" ${i===stepIndex?'aria-current="step"':''}><i>${measured?'✓':s.skipped?'–':i+1}</i><div><strong>${s.title}</strong><small>${s.resolves.map(r=>INSTRUMENTS[r]).join(' · ')||'summary'}</small></div><span class="res">${i===stepIndex?'now':measured?'measured':s.skipped?'skipped':''}</span></button>`;
+    }).join('');
+    $('back-step').disabled=stepIndex===0||deviceSwitching;
     const s = steps[stepIndex];
     $('cal-prompt').innerHTML = `<div class="t-kick gold">Step ${stepIndex + 1} of ${steps.length}</div><h2>${s.title}</h2><p>${s.do}</p>${s.passage ? `<div class="passage">${esc(PASSAGE)}</div>` : ''}${s.id === 'seal' ? `<div class="resolve-list" style="margin-top:10px">${Object.keys(INSTRUMENTS).map((k) => `<div class="resolve" data-state="${resolved[k] || 'not'}"><span>${INSTRUMENTS[k]}</span><span class="r">${resolved[k] === 'resolved' ? 'Resolved' : resolved[k] === 'partial' ? 'Partial' : 'Not resolved'}</span></div>`).join('')}</div>` : ''}`;
     $('resolve-list').innerHTML = Object.keys(INSTRUMENTS).map((k) => `<div class="resolve" data-state="${resolved[k] || 'not'}"><span>${INSTRUMENTS[k]}</span><span class="r">${resolved[k] === 'resolved' ? 'Resolved' : resolved[k] === 'partial' ? 'Partial' : 'Not resolved'}</span></div>`).join('');
@@ -101,7 +104,8 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
   function evaluate() {
     const s = steps[stepIndex]; const pass = Boolean(ctx.started && s.check(latest, ctx));
     $('next-step').disabled = deviceSwitching || !ctx.started || !(pass || s.id === 'seal');
-    $('continue-interview').disabled=deviceSwitching||!ctx.started||s.id!=='seal'||!verifiedCapture||verifiedCapture.stream!==controller.stream;
+    // Optional rehearsal never gates returning to setup; Room rechecks real media.
+    $('continue-interview').disabled=false;
     $('step-state').textContent = s.id === 'seal' ? calibrationStatus() : pass ? 'Responded · pass' : ctx.started ? 'Watching for the response…' : 'Waiting';
     if (pass) for (const r of s.resolves) resolved[r] = 'resolved';
   }
@@ -173,17 +177,7 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
     if (s.id === 'passage' && f.speedWpm?.available === false && f.speaking && /unavailable|unreachable|same_origin|csrf/i.test(String(f.speedWpm.holdReason || ''))) resolved.pace = 'not';
   }
   $('connect-real').addEventListener('click',()=>void begin());
-  $('continue-interview').addEventListener('click',async()=>{
-    if(!beforeInterview||stepIndex!==steps.length-1||deviceSwitching||!ctx.started)return;
-    $('continue-interview').disabled=true;
-    try{
-      await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
-      assertMicrophoneReady(controller.stream,engine.audioContext);
-      if(!current())return;
-      if(!verifiedCapture||verifiedCapture.engine!==controller.engine||verifiedCapture.stream!==controller.stream||verifiedCapture.camera!==controller.stream.getVideoTracks()[0]||verifiedCapture.microphone!==controller.stream.getAudioTracks()[0])throw new Error('Your devices changed. Repeat the device check before your interview.');
-      onReady({...verifiedCapture,exercisesAttempted:true});
-    }catch(error){if(current()){$('step-state').textContent=error.message;evaluate();}}
-  });
+  $('continue-interview').addEventListener('click',()=>{if(current())location.hash=returnHash;});
   function enterStep() {
     ctx.smileBase=latest?.headFace?.smileEvents??0;ctx.nodBase=latest?.headFace?.nods??0;ctx.gestureBase=latest?.bodyHands?.gestures??0;
     ctx.pauseStartedAt=null;ctx.pauseLastAt=null;ctx.pauseMs=0;ctx.paceHeld=false;
@@ -208,10 +202,16 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
   });
   $('skip-step').addEventListener('click',()=>{
     if(deviceSwitching)return;
-    const step=steps[stepIndex];if(step.id==='seal'||!ctx.started)return;
+    const step=steps[stepIndex];if(step.id==='seal')return;
     step.skipped=true;for(const key of step.resolves)if(!resolved[key])resolved[key]='not';
     if(step.id==='neutral')engine?.endFaceBaseline();
     stepIndex=Math.min(steps.length-1,stepIndex+1);enterStep();
+  });
+  $('back-step').addEventListener('click',()=>{if(deviceSwitching||stepIndex===0)return;if(steps[stepIndex].id==='neutral')engine?.endFaceBaseline();stepIndex--;enterStep();});
+  $('cal-steps').addEventListener('click',event=>{
+    const button=event.target.closest('[data-step]');if(!button||deviceSwitching)return;
+    const next=Number(button.dataset.step);if(!Number.isInteger(next)||next<0||next>=steps.length)return;
+    if(steps[stepIndex].id==='neutral')engine?.endFaceBaseline();stepIndex=next;enterStep();
   });
   renderSteps(); evaluate();
   // Keep capture only. Rehearsal evidence is abandoned before a recording begins.

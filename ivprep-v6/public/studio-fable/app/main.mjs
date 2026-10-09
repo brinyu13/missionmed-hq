@@ -7,7 +7,7 @@ import { EASY_PRESETS, PRACTICE_GOALS, ROLES, STYLES, CURIOSITY, PACING, default
 import { controller } from './controller/session-controller.mjs';
 import { accountLabel } from './adapters/account-adapter.mjs';
 import { searchPrograms, resolveGeneralProgram } from './adapters/context-adapter.mjs';
-import {mockSetupRoute,mockCalibrationRoute,preInterviewReady} from './adapters/interview-entry.mjs';
+import {mockSetupRoute,mockCalibrationRoute} from './adapters/interview-entry.mjs';
 import { mountRoom } from './room.mjs';
 import { mountResults, mountFilm, mountCompare } from './results.mjs';
 import { mountCalibration } from './calibration.mjs';
@@ -167,7 +167,7 @@ async function renderPractice(params, isCurrent = guarded) {
       </div>`;
     main.querySelector('.q-list').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; if(selected!==b.dataset.q)retryOf=null;selected = b.dataset.q; session.questionId = selected; draw(); });
     main.querySelector('#open-selector').addEventListener('click', () => { const one = [q]; openSelector({ questions, store, set: one, attempts, single: true, max: 1, onDone: () => { const next=one[0]?.question_id || selected;if(next!==selected)retryOf=null;selected=next;session.questionId = selected; draw(); } }); });
-    main.querySelector('#go-room').addEventListener('click', () => { session.mode = 'practice'; session.questionId = q.question_id; session.retryOf = retryOf?.id || null; session.retry = retryOf || null; session.priority = priority; session.preflight=null;location.hash = '#/devices?return=room&mode=practice'; });
+    main.querySelector('#go-room').addEventListener('click', () => { session.mode = 'practice'; session.questionId = q.question_id; session.retryOf = retryOf?.id || null; session.retry = retryOf || null; session.priority = priority; session.preflight=null;location.hash = '#/room?mode=practice'; });
   };
   draw();
 }
@@ -260,13 +260,13 @@ async function renderMock(params, isCurrent = guarded) {
             <ul class="checks" style="margin-top:12px"><li class="${state.calibration ? 'on' : 'warn'}"><i>${state.calibration ? '✓' : '!'}</i>${state.calibration ? 'Calibrated' : 'Not calibrated · global ranges'}</li><li class="${useProgram ? 'on' : ''}"><i>${useProgram ? '✓' : '·'}</i>${useProgram ? `Program: ${esc(useProgram.name)}` : 'No program context (general interview)'}</li><li class="${controller.account?.mode === 'REAL' ? 'on' : 'warn'}"><i>${controller.account?.mode === 'REAL' ? '✓' : '!'}</i>${controller.account?.mode === 'REAL' ? (controller.account.liveInterviewAvailable ? 'GPT-Live interviewer · saved to your account' : 'Live interviewer unavailable · choose Self Practice') : 'Sign in through Matrix'}</li></ul>
           </aside>
         </div>
-        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st,{interviewPolicy:policy}))}</strong><small>${selectedEnvironment(st,session.retry)}${selectedEnvironment(st,session.retry)==='MissionMed'?'':' simulation'} · Check camera, mic and instruments before entering the room. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="${mockCalibrationRoute(params,session.retry?.id||null)}">Calibration rehearsal</a><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Check devices & get ready ▸</button></div></div>
+        <div class="dock" id="dock"><div class="dock-state"><strong>${targetQuestions === set.length ? `${targetQuestions} questions` : `Target ${targetQuestions} · ${set.length} selected`} · ${esc(describeSettings(st,{interviewPolicy:policy}))}</strong><small>${selectedEnvironment(st,session.retry)}${selectedEnvironment(st,session.retry)==='MissionMed'?'':' simulation'} · Calibration is optional. Devices connect before Start; nothing is recorded yet. "Wrap up" still asks the closing question.</small></div><div class="dock-actions"><a class="btn btn-quiet" href="${mockCalibrationRoute(params,session.retry?.id||null)}">TEST CAMERA, MIC &amp; ANALYTICS</a><a class="btn btn-quiet" href="#/home">Back</a><button class="btn btn-primary btn-lg" type="button" id="go-room" ${set.length && controller.account?.liveInterviewAvailable ? '' : 'disabled'}>Ready for interview ▸</button></div></div>
       </div>`;
     const questionsChanged=()=>{if(session.retry&&(set.length!==1||set[0]?.question_id!==session.retry.questionId)){session.retry=null;session.retryOf=null;}draw();};
     mountTray(main.querySelector('#tray'), set, { onChange: questionsChanged });
     main.querySelector('#open-selector').addEventListener('click', () => openSelector({ questions, store, set, attempts, onDone: questionsChanged }));
     main.querySelector('#program-choice').innerHTML=(useProgram?esc(useProgram.name)+' · '+esc(useProgram.specialty):programChoice.state==='disabled'?'General interview · no program context':'SUNY Upstate Internal Medicine could not be uniquely verified. Choose a program or continue without program context.')+' <a href="#/prepare">Choose program</a>'+(useProgram?' · <a href="#/mock?program=none">Use no program context</a>':'');
-    main.querySelector('#go-room').addEventListener('click', () => { if(!current())return;session.mode = 'mock'; session.program = useProgram || null; session.setupReturnHash=mockSetupRoute(params,session.retry?.id||null);session.preflight=null; location.hash = '#/devices?return=room&mode=mock'; });
+    main.querySelector('#go-room').addEventListener('click', () => { if(!current())return;session.mode = 'mock'; session.program = useProgram || null; session.setupReturnHash=mockSetupRoute(params,session.retry?.id||null);session.preflight=null; location.hash = '#/room?mode=mock'; });
     main.querySelector('#arrival-delay').value=st.arrivalDelaySeconds===30?'30':'0';
     main.querySelector('#arrival-delay').addEventListener('change', e=>{if(current())st.arrivalDelaySeconds=e.target.value==='30'?30:0;});
     main.querySelector('#story-reveal').addEventListener('click', () => { storyRevealed = true; draw(); });
@@ -434,9 +434,6 @@ async function route() {
     const requestedMode=new URLSearchParams(entryQuery||'').get('mode');
     location.hash=requestedMode==='mock'?'#/mock?recover=room':requestedMode==='practice'?'#/practice?recover=room':'#/home';
     return;
-  }
-  if(entryPath==='room'&&!preInterviewReady(session.preflight,controller)){
-    location.hash='#/devices?return=room&mode='+session.mode;return;
   }
   const ticket=++generation,isCurrent=()=>ticket===generation;
   if(teardown){teardown();teardown=null;}
