@@ -30,11 +30,11 @@ export function createRiseOwner(config={},dependencies={}) {
     },
     async getProgramMedia(actor,id){if(config.programMediaEnabled!==true)throw invalid();const result=await request(actor,{kind:'detail',id}),program=identity(result);if(program.id!==id)throw invalid();return projectOwnerMedia(result.programMedia,program,now());},
     async getIntakeProgram(actor,id) {
-      const result=identity(await request(actor,{kind:'detail',id}),undefined,true);
+      const result=identity(await request(actor,{kind:'identity',id}),undefined,true);
       if(result.id!==id)throw invalid();return result;
     },
     async getProgram(actor,id) {
-      const result=identity(await request(actor,{kind:'detail',id}));
+      const result=identity(await request(actor,{kind:'identity',id}));
       if(result.id!==id)throw invalid();return result;
     },
     async getResearchCoverage(actor,id) {

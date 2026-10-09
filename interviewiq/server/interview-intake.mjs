@@ -1,5 +1,5 @@
 import * as v from './validation.mjs';
-import {requireValue,notFound} from './errors.mjs';
+import {AppError,requireValue,notFound} from './errors.mjs';
 import {interview,history,writeInterview,scheduleColumns} from './records.mjs';
 import {validDate} from './time.mjs';
 export const intakeCommands=new Set(['intake.create','intake.update','intake.read']);
@@ -63,7 +63,7 @@ export async function writeIntake(ctx){
  }
  requireValue(!ctx.interviewId,'intake_create_subject','A new intake cannot reuse an existing interview identifier.');
  let program=null;
- if(p.identity.programId){requireValue(typeof ctx.owners.getIntakeProgram==='function','intake_owner_unavailable','Current RISE identity is unavailable; retain an unresolved invitation instead.',503);program=await ctx.owners.getIntakeProgram(ctx.actor,p.identity.programId);requireValue(program?.id===p.identity.programId&&program.registryReleaseId===p.identity.registryReleaseId,'intake_registry_changed','RISE identity changed. Confirm the current exact program again.',409);}
+ if(p.identity.programId){requireValue(typeof ctx.owners.getIntakeProgram==='function','intake_owner_unavailable','Current RISE identity is unavailable; retain an unresolved invitation instead.',503);try{program=await ctx.owners.getIntakeProgram(ctx.actor,p.identity.programId);}catch(error){if(error?.code==='owner_service_unavailable')throw new AppError(503,'intake_identity_unavailable',"We couldn't save this interview. Your entered information is still here. Program identity verification is temporarily unavailable. Please try again, or review your program and explicitly save an unresolved invitation.",{saveState:'NOT_SAVED'});throw error;}requireValue(program?.id===p.identity.programId&&program.registryReleaseId===p.identity.registryReleaseId,'intake_registry_changed','RISE identity changed. Confirm the current exact program again.',409);}
  // Reuse the existing schedule/interview persistence without returning a research dispatch binding.
  const owner={...ctx.owners,getProgram:async()=>program},saved=await writeInterview({...ctx,command:'interview.create',data:{unresolved_input:p.identity.invitationLabel,program:program?.id??null,programName:program?.name??p.identity.invitationLabel,track:program?.track??p.track,deadline:p.deadline,schedule:p.schedule},owners:owner,config:{...ctx.config,coreOnly:true,deepResearch:{...ctx.config.deepResearch,enabled:false}}}),row=await interview(ctx.db,ctx.actor,saved.id,{lock:true});
  await appendDetails(ctx,row,{...p,program},1);

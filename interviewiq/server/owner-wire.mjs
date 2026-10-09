@@ -7,7 +7,7 @@ const PROGRAMS='/api/rise/v1/interviewiq/programs';
 const SAVED='/api/rise/v1/interviewiq/saved-programs';
 const MAX_BYTES=1048576;
 const sha=value=>createHash('sha256').update(value).digest('hex');
-const unavailable=()=>new AppError(503,'owner_service_unavailable','Program intelligence is temporarily unavailable. Your saved interview remains safe.');
+const unavailable=()=>new AppError(503,'owner_service_unavailable','Program intelligence is temporarily unavailable. Please try again.');
 const invalid=()=>new AppError(422,'invalid_owner_request','Choose a valid program or search.');
 export const validProgramId=id=>typeof id==='string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/.test(id) && !['.','..'].includes(id);
 function plain(value,keys) {
@@ -21,8 +21,8 @@ function route(operation) {
     if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(pageSize)||pageSize<1||pageSize>100||(page-1)*pageSize>=2000)throw invalid();
     return `${SAVED}?${new URLSearchParams({page:String(page),pageSize:String(pageSize)})}`;
   }
-  if(operation.kind==='detail' && Object.keys(operation).length===2 && validProgramId(operation.id))
-    return `${PROGRAMS}/${encodeURIComponent(operation.id)}`;
+  if(['detail','identity'].includes(operation.kind) && Object.keys(operation).length===2 && validProgramId(operation.id))
+    return `${PROGRAMS}/${encodeURIComponent(operation.id)}${operation.kind==='identity'?'/identity':''}`;
   if(operation.kind!=='search' || operation.id!==undefined || !plain(operation.query,['q','page','pageSize']))throw invalid();
   const {q='',page=1,pageSize=20}=operation.query;
   if(typeof q!=='string' || q.length>256 || /[\u0000-\u001f\u007f]/.test(q) ||

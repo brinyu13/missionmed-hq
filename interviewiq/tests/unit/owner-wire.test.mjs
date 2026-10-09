@@ -38,7 +38,7 @@ test('verified session context never appears in actor serialization, spread or i
 test('signed request matches exact DR-367 bytes and excludes browser credentials',async()=>{
   const h=await fixture();await h.client().getProgram(h.actor,program.id);
   const {url,options}=h.calls[0],headers=options.headers;
-  assert.equal(url,`${origin}/api/rise/v1/interviewiq/programs/rise%3AIM%3A1234567890`);
+  assert.equal(url,`${origin}/api/rise/v1/interviewiq/programs/rise%3AIM%3A1234567890/identity`);
   assert.equal(options.method,'GET');assert.equal(options.redirect,'error');assert.equal(options.credentials,'omit');assert.equal(options.body,undefined);
   const actorJson=Buffer.from(headers['X-MMED-IIQ-Actor'],'base64url').toString();
   assert.deepEqual(JSON.parse(actorJson),{subject:h.actor.id,wp_user_id:h.actor.wpUserId,session_verifier:h.claims.session_verifier,auth_role:'student',auth_tier:'360'});
@@ -213,3 +213,5 @@ test('malformed public labels cannot cross a signed canonical identity',async()=
   await assert.rejects(h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[wire],page:1,total:1})).searchPrograms(h.actor),{code:'invalid_owner_response'});
  }
 });
+
+test('intake identity uses bounded identity-only route; no research request',async()=>{const h=await fixture();const result=await h.client().getIntakeProgram(h.actor,program.id);assert.equal(result.id,program.id);assert.equal(new URL(h.calls[0].url).pathname,'/api/rise/v1/interviewiq/programs/rise%3AIM%3A1234567890/identity');});
