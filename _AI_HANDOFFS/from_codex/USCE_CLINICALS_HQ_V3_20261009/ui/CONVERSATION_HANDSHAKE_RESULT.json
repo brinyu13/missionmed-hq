@@ -1,0 +1,34 @@
+{
+  "status": "WORKER_DONE",
+  "scope": "send-result fix, exact parent/child conversation handshake, compact header and selected-message internal focus",
+  "hashes": {
+    "LIVE/usce_admin.html": "22c55eade97fe4fb4babde0ae68f811ae05e7c7ef50f4c82e889c6a58bed9d77",
+    "missionmed-hq/tests/usce-journey.test.mjs": "0175094aa5c032458317bbe1545128ad5e98adef3078c438ec863c2dd6c8d5b5",
+    "missionmed-hq/tests/usce-v3-communications-ui.test.mjs": "401eb6939cb0f9f2345011ea288561cafc3d9dda9d513fb840414818724434d9",
+    "_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/wordpress/page_5979_wrapper.html": "80dcf7cb6c46e75cc29802901a632a0c7ee43323c2658fa438e87b7562bc5d9d",
+    "_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/wordpress/conversation_handshake.test.mjs": "0651a8c69ee157a577c9a9accd1fb819032703133d68f748c432f3f969eab7f6"
+  },
+  "checks": {
+    "journey": 16,
+    "communications": 19,
+    "v3_ui": 7,
+    "parent_wrapper": 5,
+    "total_pass": 47,
+    "total_fail": 0,
+    "inline_script_node_check": "3 PASS",
+    "independent_review": "PASS exact final HTML and wrapper;35 Journey+Communications independently PASS"
+  },
+  "preserved": [
+    "Existing admin authentication and CSRF algorithms",
+    "Existing iframe source/cachebuster/auth relay behavior",
+    "Offer revision/approval/read-only/send protection",
+    "Full canonical conversation history including SYS records",
+    "Original wrapper CSS and navigation"
+  ],
+  "remaining": [
+    "Root publish/readback and actual iframe visual verification of compact header and selected-message focus",
+    "Live outer notification link handoff through existing WordPress wrapper/auth relay"
+  ],
+  "no_commit_no_deploy": true,
+  "no_provider_writes": true
+}

@@ -1,0 +1,23 @@
+{
+  "status": "WORKER_DONE",
+  "scope": "Offer send-result interpretation only; no visual/auth/API changes",
+  "preimage_html_sha256": "0ba1e91abf24876a5b2b516cb1cb36854382bfdc20093ac50bac1d135a9eddd7",
+  "html_sha256": "92a8ee436e12206789886a55e4523a6f6537028e7f5b6c74f3c7cd92075c00ca",
+  "journey_test_sha256": "0175094aa5c032458317bbe1545128ad5e98adef3078c438ec863c2dd6c8d5b5",
+  "diff": "HTML 2 additions/2 deletions; Journey tests14 added lines",
+  "checks": {
+    "journey_tests_pass": 16,
+    "journey_tests_fail": 0,
+    "new_route_shaped_result_cases": 6
+  },
+  "new_scenarios": [
+    "provider_accepted actual route outcome",
+    "idempotent accepted claim",
+    "history requires reconciliation",
+    "route-shaped dry run",
+    "queued",
+    "unknown live mode"
+  ],
+  "no_commit_no_deploy": true,
+  "pending_separate_scope": "parent-to-iframe exact-origin/source conversation ready handshake"
+}

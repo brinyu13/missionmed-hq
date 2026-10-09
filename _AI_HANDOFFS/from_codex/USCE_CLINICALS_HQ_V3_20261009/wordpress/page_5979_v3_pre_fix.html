@@ -56,18 +56,15 @@ body.page-id-5979 .mm-usce-admin-launcher iframe {
   </iframe>
 </div>
 <script>
-/* Nonsecret conversation handoff survives the existing cachebuster/auth relay iframe source changes. */
+/* Only the nonsecret canonical conversation ID crosses the existing app boundary.
+   The Clinicals API still requires the existing administrator session. */
 (function(){
   var ids=new URLSearchParams(window.location.search).getAll('conversation');
   if(ids.length!==1 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ids[0])) return;
   var frame=document.querySelector('.mm-usce-admin-launcher iframe[title="MissionMed USCE Admin"]');
   if(!frame) return;
-  var origin='https://cdn.missionmedinstitute.com';
-  function handoff(){if(frame.contentWindow)frame.contentWindow.postMessage({type:'mm-usce-conversation',conversation:ids[0].toLowerCase()},origin);}
-  window.addEventListener('message',function(event){
-    if(event.origin!==origin || event.source!==frame.contentWindow || !event.data || typeof event.data!=='object' || Array.isArray(event.data) || event.data.type!=='mm-usce-conversation-ready') return;
-    handoff();
-  });
-  frame.addEventListener('load',handoff);
+  var target=new URL('https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html');
+  target.searchParams.set('conversation',ids[0].toLowerCase());
+  frame.src=target.href;
 })();
 </script>

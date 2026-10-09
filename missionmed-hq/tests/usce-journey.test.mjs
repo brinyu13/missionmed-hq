@@ -94,3 +94,17 @@ check('inline replacement preserves edits until confirmed and rejects stale case
  $('mmJourneyBlank').click();$('mmJourneyReplaceConfirm').click();assert.equal($('mmJourneySubject').value,'');assert.equal($('mmJourneyMessage').value,'');assert.equal($('mmJourneyTo').textContent,recipient);assert.equal($('mmOfProgram').value,program);
  $('mmJourneyUseTemplate').click();$('mmJourneyReplaceConfirm').click();assert.ok($('mmJourneyMessage').value);assert.equal(calls.persist.length,0);assert.equal(calls.preview.length,0);assert.equal(calls.send.length,0);
 });
+
+for(const [name,response,expected] of [
+ ['provider outcome',{ok:true,mode:'live',dry_run:false,data:{provider_outcome:'provider_accepted',claim:{state:'provider_accepted',mode:'live'}}},'Email accepted by provider. Delivery is tracked in Activity.'],
+ ['idempotent accepted claim',{ok:true,mode:'live',idempotent:true,dry_run:false,data:{claim:{state:'provider_accepted',mode:'live'}}},'Email accepted by provider. Delivery is tracked in Activity.'],
+ ['history reconciliation',{ok:true,mode:'live',history_sync:'requires_reconciliation',dry_run:false,data:{provider_outcome:'provider_accepted',claim:{state:'provider_accepted',mode:'live'}}},'Email accepted by provider. History needs reconciliation; do not resend.'],
+ ['route dry run',{ok:true,mode:'live',dry_run:true,data:{provider_outcome:'dry_run',claim:{state:'dry_run',mode:'dry_run'}}},'Test recorded — no email sent.'],
+ ['queued',{ok:true,data:{status:'queued'}},'Message queued. Check Activity for its outcome.'],
+ ['unknown live mode',{ok:true,mode:'live',data:{}},'Send request recorded. Refresh Activity to verify the outcome.']
+])check('Journey reports '+name+' from route-shaped response without claiming delivery',async({a,$,approve,persist,preview,calls})=>{
+ a.mocks({persist,preview,send:async(...args)=>{calls.send.push(args);return response}});
+ a.openJourney();a.journeyStep(3);await a.prepareJourneyMessage();a.journeyStep(4);approve();await a.journeyNext();$('mmJourneySendNow').click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal($('mmJourneySendResult').textContent,expected);assert.equal($('mmJourneyState').textContent,expected);assert.equal(calls.send.length,1);assert.equal($('mmJourneySendNow').disabled,true);
+ $('mmJourneySendNow').click();await new Promise(resolve=>setImmediate(resolve));assert.equal(calls.send.length,1);assert.doesNotMatch($('mmJourneySendResult').textContent,/Delivery recorded|delivered/i);
+});
