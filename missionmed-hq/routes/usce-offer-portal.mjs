@@ -302,6 +302,7 @@ async function saveAdminOfferDraft(intakeRequestId, payload, session) {
 
   const offer = normalizeAdminOfferPayload(payload, { requireDraftFields: true });
   if (!offer.ok) return offer;
+  if (Number.isSafeInteger(payload.expected_revision) && payload.expected_revision > 0) offer.data.expected_revision = payload.expected_revision;
 
   return callOfferRpc({
     rpcName: ADMIN_DRAFT_RPC,
@@ -502,10 +503,12 @@ function buildBoundOfferEmail(offer, message) {
     'Format: ' + (offer.format || 'Not specified'),
     'Response deadline: ' + (offer.expires_at ? new Date(offer.expires_at).toISOString() + ' (UTC)' : 'Not specified'),
   ].join('\n');
-  const textBody = message.body + '\n\n' + details + '\n\nResponding to an offer is separate from payment and placement confirmation. Contact Clinicals with questions: clinicals@missionmedinstitute.com';
+  const optionDetails = Array.isArray(offer.options) && offer.options.length ? '\n\nChoose one of these options:\n' + offer.options.map((option,index) => ['Option ' + (index+1), 'Program: ' + option.program_type, 'Specialty: ' + option.specialty, 'Location: ' + option.location, 'Timing: ' + option.month_label, 'Duration: ' + option.duration_weeks + ' weeks', ...(option.date_window_start ? ['Start: ' + option.date_window_start] : []), ...(option.date_window_end ? ['End: ' + option.date_window_end] : [])].join('\n')).join('\n\n') : '';
+  const sharedDetails = optionDetails ? ['Offer revision: ' + offer.revision, 'Response deadline: ' + (offer.expires_at ? new Date(offer.expires_at).toISOString() + ' (UTC)' : 'Not specified')].join('\n') : details;
+  const textBody = message.body + '\n\n' + sharedDetails + optionDetails + '\n\nResponding to an offer is separate from payment and placement confirmation. Contact Clinicals with questions: clinicals@missionmedinstitute.com';
   const htmlBody=textToHtml(textBody);
   const sender = getPostmarkConfig();
-  return { from_name: POSTMARK_FROM_NAME, from_email: sender.fromEmail, reply_to: sender.replyTo,
+  return { offer_options: Array.isArray(offer.options) ? offer.options : [], from_name: POSTMARK_FROM_NAME, from_email: sender.fromEmail, reply_to: sender.replyTo,
     to_email: message.to_email, subject: message.subject, body: message.body, text_body: textBody, html_body: htmlBody,
     text_sha256:crypto.createHash('sha256').update(textBody).digest('hex'),
     html_sha256:crypto.createHash('sha256').update(htmlBody).digest('hex') };
@@ -640,6 +643,8 @@ async function submitStudentOfferResponse(rawToken, payload, request) {
     return badRequest('invalid_offer_response_action', 'Offer response action is not supported.');
   }
 
+  if (payload?.selected_option_id != null && !isUuid(payload.selected_option_id)) return badRequest('invalid_option_selection', 'Choose a current option.');
+  if (payload?.expected_revision != null && (!Number.isSafeInteger(payload.expected_revision) || payload.expected_revision < 1)) return badRequest('stale_revision', 'Reload the current offer.');
   const note = sanitizeText(payload?.note ?? payload?.student_response_note, MAX_NOTE_LENGTH);
   const consent = Boolean(payload?.consent);
 
@@ -652,6 +657,8 @@ async function submitStudentOfferResponse(rawToken, payload, request) {
       p_consent: consent,
       p_metadata: {
         source: 'usce_offer_portal',
+        selected_option_id: payload?.selected_option_id || null,
+        expected_revision: payload?.expected_revision || null,
         user_agent_hash: hashForLog(request.headers['user-agent'] || ''),
         ip_hash: hashForLog(getClientIp(request)),
       },
@@ -674,6 +681,16 @@ function normalizeAdminOfferPayload(payload, { requireDraftFields }) {
     metadata: sanitizeMetadata(payload?.metadata),
   };
 
+  if (Object.hasOwn(payload || {}, 'options')) {
+    const normalized = normalizeOfferOptions(payload.options);
+    if (!normalized.ok) return normalized;
+    data.options = normalized.options;
+    if (data.options.length) {
+      const first = data.options[0];
+      Object.assign(data, { specialty: first.specialty, location: first.location, timing: first.month_label, duration_weeks: first.duration_weeks, format: first.program_type });
+    }
+  }
+
   if (requireDraftFields) {
     const missing = [];
     if (!data.specialty) missing.push('specialty');
@@ -692,6 +709,27 @@ function normalizeAdminOfferPayload(payload, { requireDraftFields }) {
   }
 
   return { ok: true, data };
+}
+
+function normalizeOfferOptions(value) {
+  const invalid = () => badRequest('invalid_offer_options', 'Provide up to five complete options with unique IDs, a program, specialty, location, timing, and 1–24 weeks. End dates require a start date and cannot precede it.');
+  if (!Array.isArray(value) || value.length > 5) return invalid();
+  const ids = new Set(), options = [];
+  const date = v => v == null || v === '' ? null : typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0,10) === v ? v : false;
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object' || !isUuid(raw.id) || ids.has(raw.id.toLowerCase())) return invalid();
+    const item = { id: raw.id.toLowerCase() };
+    for (const [key, max] of [['program_type',160],['specialty',160],['location',180],['month_label',180]]) {
+      if (typeof raw[key] !== 'string' || !raw[key].trim() || raw[key].length > max || /[\x00-\x1f\x7f]/.test(raw[key])) return invalid();
+      item[key] = raw[key].trim();
+    }
+    if (typeof raw.duration_weeks !== 'number' || !normalizeDurationWeeks(raw.duration_weeks)) return invalid();
+    item.duration_weeks = raw.duration_weeks;
+    item.date_window_start = date(raw.date_window_start); item.date_window_end = date(raw.date_window_end);
+    if (item.date_window_start === false || item.date_window_end === false || (item.date_window_end && (!item.date_window_start || item.date_window_end < item.date_window_start))) return invalid();
+    ids.add(item.id); options.push(item);
+  }
+  return { ok: true, options };
 }
 
 function normalizeOfferMessagePayload(payload) {
@@ -890,6 +928,7 @@ function mapRpcError(payload, publicRequest) {
     invalid_state: 409,
     invalid_action: 400,
     stale_revision: 409,
+    option_selection_conflict: 409,
     stale_preview: 409,
     idempotency_conflict: 409,
     send_requires_reconciliation: 409,

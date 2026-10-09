@@ -377,6 +377,7 @@ a,button,input,select,textarea{touch-action:manipulation}
       </div>
 
       <div class="mm-card-body">
+        <fieldset id="offerOptions" hidden style="border:0;padding:0;margin:0 0 24px"><legend style="font-size:20px;font-weight:800;margin-bottom:12px">Choose your rotation option</legend><p>Select one option, then review your choice before accepting.</p><div id="offerOptionCards" style="display:grid;gap:12px"></div></fieldset>
         <div class="mm-grid cols-3" id="offerGrid">
           <div class="info"><small>Specialty</small><b id="offerSpecialty">Loading…</b></div>
           <div class="info"><small>Location</small><b id="offerLocation">Loading…</b></div>
@@ -409,6 +410,7 @@ a,button,input,select,textarea{touch-action:manipulation}
         </div>
 
         <div class="confirm-bar accept-confirm" id="acceptConfirm">
+          <p id="selectedOptionReview" hidden style="font-weight:700"></p>
           <p><b>Confirm acceptance.</b> This records your acceptance of the offer details and stated terms above. It does not take payment, reserve a seat, or confirm final placement. If any detail needs clarification or change, contact Clinicals before confirming.</p>
           <div class="row">
             <button class="btn accept" type="button" id="acceptConfirmBtn">Yes, accept this offer</button>
@@ -628,6 +630,7 @@ a,button,input,select,textarea{touch-action:manipulation}
 
   var els = {};
   var state = {
+    selectedOptionId: '',
     token: '',
     offer: null,
     response: 'pending',
@@ -648,6 +651,7 @@ a,button,input,select,textarea{touch-action:manipulation}
 
   function cacheEls(){
     [
+      'offerGrid','offerOptions','offerOptionCards','selectedOptionReview',
       'modeDot','modePill','heroTitle','heroSub','adapterStatus','offerStateBadge',
       'offerHeadline','offerSubhead','offerSpecialty','offerLocation','offerTiming',
       'offerDuration','offerFormat','offerReference','deadlineBox','deadlineLabel',
@@ -724,7 +728,7 @@ a,button,input,select,textarea{touch-action:manipulation}
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       credentials: 'omit',
-      body: JSON.stringify({ action: action, note: note || null, consent: true })
+      body: JSON.stringify({ action: action, note: note || null, consent: true, ...(action==='accept' && state.offer && state.offer.options.length ? {selected_option_id:state.selectedOptionId,expected_revision:state.offer.revision} : {}) })
     }).then(function(resp) {
       return resp.json().then(function(data) {
         data._httpStatus = resp.status;
@@ -791,6 +795,10 @@ a,button,input,select,textarea{touch-action:manipulation}
     var durationStr = dw ? dw + ' week' + (Number(dw) !== 1 ? 's' : '') : null;
     var exp = data.expires_at || data.expiresAt;
     return {
+      options: Array.isArray(data.options) ? data.options : [],
+      revision: data.revision,
+      selected_option_id: data.selected_option_id || '',
+      selected_option: data.selected_option || null,
       id: data.id || data.offer_id || null,
       offer_id: data.offer_id || data.id || null,
       specialty: data.specialty || null,
@@ -902,6 +910,9 @@ a,button,input,select,textarea{touch-action:manipulation}
   // ---- Offer rendering -------------------------------------------------------
 
   function applyOffer(offer){
+    if (!state.offer || state.offer.id !== offer.id || state.offer.revision !== offer.revision) state.selectedOptionId='';
+    if (offer.selected_option_id) state.selectedOptionId=offer.selected_option_id;
+    if (!offer.options.some(function(option){return option.id===state.selectedOptionId;})) state.selectedOptionId='';
     state.offer = offer;
     renderOffer();
   }
@@ -922,6 +933,7 @@ a,button,input,select,textarea{touch-action:manipulation}
     setText(els.paymentStatusText, readinessLabel('payment', o.paymentStatus));
     setText(els.paperworkStatusText, readinessLabel('paperwork', o.paperworkStatus));
     setText(els.learndashStatusText, readinessLabel('learndash', o.learndashStatus));
+    renderOfferOptions(o);
     updatePaymentHandoff(o);
     if (isExpired(o) && !canonicalResponse(o.responseStatus)) {
       showExpired();
@@ -929,6 +941,25 @@ a,button,input,select,textarea{touch-action:manipulation}
       setBadge('Pending', 'pending');
     }
   }
+
+  function optionSummary(option){
+    return [option.program_type,option.specialty,option.location,option.month_label,option.duration_weeks+' weeks',option.date_window_start ? 'Start: '+option.date_window_start : '',option.date_window_end ? 'End: '+option.date_window_end : ''].filter(Boolean).join(' · ');
+  }
+  function renderOfferOptions(offer){
+    var options=offer.options || [], completed=!!canonicalResponse(offer.responseStatus) || offer.responseStatus==='decline_pending';
+    els.offerOptions.hidden=!options.length;els.offerGrid.hidden=!!options.length;
+    els.offerOptionCards.replaceChildren();
+    options.forEach(function(option,index){
+      var label=document.createElement('label'),radio=document.createElement('input'),body=document.createElement('span'),title=document.createElement('strong'),detail=document.createElement('span');
+      label.style.cssText='display:flex;gap:14px;align-items:flex-start;padding:18px;border:1px solid #cbd5e1;border-radius:14px;background:#f8fafc;cursor:pointer';
+      radio.type='radio';radio.name='offer-option';radio.value=option.id;radio.checked=state.selectedOptionId===option.id;radio.disabled=completed;radio.style.marginTop='5px';
+      title.textContent='Option '+(index+1)+(offer.selected_option_id===option.id ? ' — Accepted' : '');
+      title.style.cssText='display:block;color:#123858;margin-bottom:5px';detail.textContent=optionSummary(option);detail.style.cssText='display:block;line-height:1.6';
+      body.append(title,detail);label.append(radio,body);els.offerOptionCards.append(label);
+      radio.addEventListener('change',function(){state.selectedOptionId=option.id;hideConfirmBars();setAdapterStatus('Option '+(index+1)+' selected. Review it before accepting.','live');});
+    });
+  }
+  function selectedOption(){return (state.offer && state.offer.options || []).find(function(option){return option.id===state.selectedOptionId;});}
 
   function isExpired(offer){
     if (!offer || !offer.expiresAt) return false;
@@ -944,7 +975,9 @@ a,button,input,select,textarea{touch-action:manipulation}
     hideConfirmBars();
     closeAltForm();
     state.confirmPending = action;
+    if (action === 'accepted' && state.offer && state.offer.options.length && !selectedOption()) { setAdapterStatus('Choose one rotation option before accepting.','blocked');var radio=els.offerOptionCards.querySelector('input');if(radio)radio.focus();return; }
     if (action === 'accepted' && els.acceptConfirm) {
+      var option=selectedOption();els.selectedOptionReview.hidden=!option;setText(els.selectedOptionReview,option ? 'Your selection: '+optionSummary(option) : '');
       els.acceptConfirm.classList.add('open');els.acceptConfirm.setAttribute('role','region');els.acceptConfirm.setAttribute('aria-label','Confirm acceptance');els.acceptConfirmBtn.focus();
       try { els.acceptConfirm.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(_e){}
     } else if (action === 'declined' && els.declineConfirm) {
@@ -998,6 +1031,7 @@ a,button,input,select,textarea{touch-action:manipulation}
     if(state.submitting||!state.token||CONFIG.liveAdapterEnabled!==true||(state.locked&&!(preference&&state.response==='decline_pending')))return;
     if(preference&&state.response!=='decline_pending')return;
     if(isExpired(state.offer)){showExpired();return;}
+    if(action==='accepted' && state.offer.options.length && !selectedOption()){setAdapterStatus('Choose one rotation option before accepting.','blocked');return;}
     var note=action==='alternate_requested'?String(els.altInput.value||'').trim().slice(0,ALT_MAX):'';
     var normalized=action==='accepted'?'accept':action==='declined'?'decline':action==='alternate_requested'?'request_alternate':action;
     state.submitting=true;lockActions('submitting');setAdapterStatus('Saving your response…','pending');
