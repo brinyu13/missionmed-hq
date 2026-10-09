@@ -1,0 +1,9 @@
+# Qualified USCE rollback
+
+Current runtime: isolated C21 manifest/runtime LIVE_READBACK.json; previous qualified C18 is `_AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/runtime_bundle/release_c`, all18 frozen hashes matched previous manifest. Previous deployment dd1ee4ed-b06b-4049-afb8-92bdaaadf5f0, image sha256:0c4b57f6fd7943e8d8633981d5100764c98e95dffca265482b0a6c44b30a4cb1.
+
+Before rollback, hold sending and disable USCE_MAIL_SYNC_ENABLED, USCE_MAIL_NOTIFICATIONS_ENABLED and USCE_MAIL_OFFER_HISTORY_ENABLED on the dedicated service only. Reconcile ambiguous claims before restoring sending. Redeploy qualified C18 closure only to the existing dedicated service, verify18 live hashes and health. Additive V3 schema remains; never delete/replay migration or canonical messages. Existing C18 claim/revision protection remains compatible. Do not roll back to pre-claim/shared-main runtime. Restore documented sender configuration only if restoring full V2 behavior is necessary; preserve provider boundaries.
+
+Original V2 UI: ui/rollback_usce_admin.html SHA256 f673584d90414f1577eee3ec8c031c0c79dc7d78fd67bbccb8b7fe26abee2c97. Guarded publisher restore requires current exact live preimage/ETag. Intermediate V3 UI is separately retained by hash. Original WP page5979 raw preimage SHA256 e92b89d97a2297c43d1ee4c0cc08ec48343019195849f1b5b15bda628044e63a; intermediate V3 wrapper f9b4e5f7bdcc8e6741567d75467147c1e2679e35d5191a5d3fdcdb580ac23aa3. Guarded transactional helpers verify exact page/capability/filter/preimage/readback. Restore intermediate wrapper first using apply_page_5979_fix.py restore, then original using apply_page_5979.py restore if fullV2 rollback required.
+
+Rollback artifacts and compatibility qualified; no unnecessary live rollback/re-send was performed during this V3 release. Applicant asset SHA256 05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614 remains unchanged.

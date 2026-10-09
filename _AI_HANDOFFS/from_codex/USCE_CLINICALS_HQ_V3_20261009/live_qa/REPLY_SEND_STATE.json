@@ -1,0 +1,14 @@
+{
+  "id": "66be3c1b-8520-488e-9002-d22923ecc076",
+  "from": "info+usce-v3-20261009@missionmedinstitute.com",
+  "to": "clinicals@missionmedinstitute.com",
+  "subject": "Re: [USCE QA TEST] Clinicals V3 controlled Offer workflow",
+  "in_reply_to": "<usce-offer-f7fb80d9-1721-48be-9395-0985b10208de@missionmedinstitute.com>",
+  "state": "provider_accepted",
+  "started_at": "2026-10-09T10:02:49.070Z",
+  "rfc": "<usce-v3-reply-66be3c1b-8520-488e-9002-d22923ecc076@missionmedinstitute.com>",
+  "provider_message_id": "1d28f0d5-6b39-4851-ba17-dc4f92c13260",
+  "http_status": 200,
+  "error_code": 0,
+  "completed_at": "2026-10-09T10:02:49.260Z"
+}

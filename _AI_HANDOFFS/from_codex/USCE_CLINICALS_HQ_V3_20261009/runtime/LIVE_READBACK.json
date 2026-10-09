@@ -1,0 +1,15 @@
+{
+  "deployment": "e080fe05-a775-42a7-9f6d-69b7c948c39c",
+  "status": "SUCCESS",
+  "image": "sha256:969e00e49cff01242b0bf1c9fee6dae36c0758cf2a82ee29cf4a54eed399fd1f",
+  "runtime_files_exact": 21,
+  "health_http": 200,
+  "safe_config": {
+    "USCE_POSTMARK_FROM_EMAIL": "clinicals@missionmedinstitute.com",
+    "USCE_POSTMARK_REPLY_TO_EMAIL": "clinicals@missionmedinstitute.com",
+    "USCE_MAIL_SYNC_ENABLED": "true",
+    "USCE_MAIL_NOTIFICATIONS_ENABLED": "true",
+    "USCE_MAIL_OFFER_HISTORY_ENABLED": "true"
+  },
+  "verified_at": "2026-10-09T10:06:56Z"
+}

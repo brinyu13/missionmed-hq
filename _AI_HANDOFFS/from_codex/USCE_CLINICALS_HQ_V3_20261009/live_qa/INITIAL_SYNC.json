@@ -1,0 +1,92 @@
+[
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 25,
+    "phase": "backfill",
+    "more": true
+  },
+  {
+    "ok": true,
+    "ingested": 4,
+    "phase": "backfill",
+    "more": false
+  },
+  {
+    "ok": true,
+    "ingested": 0,
+    "phase": "history",
+    "more": false
+  }
+]

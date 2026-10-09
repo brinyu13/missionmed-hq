@@ -1,0 +1,22 @@
+{
+  "id": "a1d84a86-1b7f-4316-bb33-f40c21bcf746",
+  "status": "Sent",
+  "from": "\"MMI Clinical Rotations\" <clinicals@missionmedinstitute.com>",
+  "to": [
+    "info+usce-v3-20261009@missionmedinstitute.com"
+  ],
+  "subject": "[USCE QA TEST] Clinicals V3 controlled Offer workflow",
+  "sandboxed": false,
+  "received_at": "2026-10-09T06:01:26.0000000-04:00",
+  "events": [
+    {
+      "type": "Delivered",
+      "received_at": "2026-10-09T06:01:27.0000000-04:00",
+      "recipient": "info+usce-v3-20261009@missionmedinstitute.com"
+    }
+  ],
+  "metadata": {
+    "usce_claim_id": "f7fb80d9-1721-48be-9395-0985b10208de",
+    "usce_revision": "3"
+  }
+}

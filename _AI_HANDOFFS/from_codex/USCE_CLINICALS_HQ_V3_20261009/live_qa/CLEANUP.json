@@ -1,0 +1,11 @@
+{
+  "intake_id": "973db15b-f349-4fb6-8048-a288a4dab23e",
+  "offer_id": "9a7e014a-a9b9-4288-ae92-a492160c181f",
+  "intake_status": "archived",
+  "offer_status": "archived",
+  "method": "existing revision-fenced update_usce_offer_draft and update_usce_public_intake_request_status",
+  "audit_preserved": true,
+  "portal_response_blocked_by_archived_status": true,
+  "saved_unsent_QA_draft_retained": "e1671c14-e885-4417-9ecb-066ea2c94627",
+  "no_real_student_changes": true
+}

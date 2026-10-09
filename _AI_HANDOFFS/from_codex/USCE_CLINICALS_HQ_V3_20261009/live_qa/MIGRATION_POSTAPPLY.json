@@ -1,0 +1,146 @@
+{
+  "readback": {
+    "comms": {
+      "md5": "9f5033bbfb1aef16f23b32b1c91d1f24",
+      "count": 242
+    },
+    "offers": {
+      "md5": "020bb99d60e1f0d85ae44bd20219d991",
+      "count": 75
+    },
+    "outbox": {
+      "md5": null,
+      "count": 0
+    },
+    "tables": [
+      {
+        "acl": null,
+        "rls": true,
+        "name": "usce_comms",
+        "owner": "postgres"
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres}",
+        "rls": true,
+        "name": "usce_mail_sync_state",
+        "owner": "postgres"
+      },
+      {
+        "acl": null,
+        "rls": true,
+        "name": "usce_outbox",
+        "owner": "postgres"
+      },
+      {
+        "acl": "{postgres=arwdDxtm/postgres}",
+        "rls": true,
+        "name": "usce_send_claims",
+        "owner": "postgres"
+      }
+    ],
+    "intakes": {
+      "md5": "d94bf44a10ba0568e20303ab7563cc69",
+      "count": 98
+    },
+    "rpc_acl": [
+      {
+        "anon": false,
+        "name": "usce_mail_bind_offer",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "name": "usce_mail_claim_send",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "name": "usce_mail_dispatch",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "name": "usce_mail_edit",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "name": "usce_mail_ingest",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "name": "usce_mail_prepare_offer",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "name": "usce_mail_read",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "name": "usce_mail_sync",
+        "definer": true,
+        "service": true,
+        "settings": [
+          "search_path=\"\""
+        ],
+        "authenticated": false
+      }
+    ],
+    "migration": {
+      "name": "usce_v3_communications",
+      "version": "20261009054154",
+      "statement_md5": "d10a399f3c091692b599619da5b394e7",
+      "statement_count": 1
+    }
+  },
+  "history": {
+    "historical_count": 75,
+    "all_exact": true,
+    "current_count": 76,
+    "new_versions": [
+      {
+        "version": "20261009054154",
+        "name": "usce_v3_communications",
+        "statement_md5": "b08a1af6ecc7612fa106f8b3249c8538"
+      }
+    ]
+  }
+}

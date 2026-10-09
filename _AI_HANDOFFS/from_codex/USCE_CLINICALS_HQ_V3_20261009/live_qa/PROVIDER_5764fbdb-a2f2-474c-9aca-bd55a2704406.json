@@ -1,0 +1,22 @@
+{
+  "id": "5764fbdb-a2f2-474c-9aca-bd55a2704406",
+  "status": "Sent",
+  "from": "\"MissionMed Clinicals\" <clinicals@missionmedinstitute.com>",
+  "to": [
+    "philaperri@gmail.com"
+  ],
+  "subject": "New USCE student reply — USCE V3 QA — Alex Morgan",
+  "sandboxed": false,
+  "received_at": "2026-10-09T06:03:09.0000000-04:00",
+  "events": [
+    {
+      "type": "Delivered",
+      "received_at": "2026-10-09T06:03:10.0000000-04:00",
+      "recipient": "philaperri@gmail.com"
+    }
+  ],
+  "metadata": {
+    "usce_dispatch_id": "6e5edd58-0dd7-4b7e-b963-2bedcfba9b2b",
+    "usce_message_id": "a6c46fba-1d95-43a5-aef8-2ebb21c3f02e"
+  }
+}

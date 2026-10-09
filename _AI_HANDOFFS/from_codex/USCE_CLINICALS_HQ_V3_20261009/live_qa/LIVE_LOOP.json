@@ -1,0 +1,37 @@
+{
+  "intake_id": "973db15b-f349-4fb6-8048-a288a4dab23e",
+  "offer_claim": "f7fb80d9-1721-48be-9395-0985b10208de",
+  "offer_provider_id": "a1d84a86-1b7f-4316-bb33-f40c21bcf746",
+  "offer_provider_delivery": true,
+  "incoming_canonical_id": "a6c46fba-1d95-43a5-aef8-2ebb21c3f02e",
+  "incoming_gmail_id": "1a1201d8acd10269",
+  "association": "verified_reference",
+  "notification_outbox": "6e5edd58-0dd7-4b7e-b963-2bedcfba9b2b",
+  "notification_provider_id": "5764fbdb-a2f2-474c-9aca-bd55a2704406",
+  "notification_recipient": "philaperri@gmail.com",
+  "notification_provider_delivery": true,
+  "notification_read_confirmation": false,
+  "duplicate_ingest": {
+    "inserted": false,
+    "notification_enqueued": false,
+    "same_message_id": true,
+    "fence_released": true
+  },
+  "browser_approval_required_before_send": true,
+  "browser_composer_edit_blank_template": true,
+  "deep_link_initial_result": "FAIL: existing WordPress relay replaces iframe query; bounded handshake fix underway",
+  "scope": "MissionMed controlled synthetic test only; no applicant/placement/payment obligations",
+  "generic_reply_draft": {
+    "id": "e1671c14-e885-4417-9ecb-066ea2c94627",
+    "saved_revision": 2,
+    "reviewed_exact": true,
+    "approved": false,
+    "sent": false,
+    "reply_reference_preserved": true
+  },
+  "deep_link_final_result": "PASS: actual authenticated Chrome outer URL opens canonical incoming reply through exact origin/source handshake",
+  "selected_message_visible": true,
+  "compact_case_header_no_overlap": true,
+  "final_ui_sha256": "22c55eade97fe4fb4babde0ae68f811ae05e7c7ef50f4c82e889c6a58bed9d77",
+  "final_wrapper_sha256": "80dcf7cb6c46e75cc29802901a632a0c7ee43323c2658fa438e87b7562bc5d9d"
+}

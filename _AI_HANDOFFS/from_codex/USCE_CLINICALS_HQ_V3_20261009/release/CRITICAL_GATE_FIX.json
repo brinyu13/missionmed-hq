@@ -1,0 +1,150 @@
+[
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: LIVE/usce_admin.html"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: LIVE/usce_offer.html"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: _AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/MIGRATION_LEDGER.md"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: _AI_HANDOFFS/from_codex/USCE_PHIL_FIRST_RENOVATION_20261002/RUNTIME_BUNDLE_C.md"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/lib/usce-postmark-qa-guard.mjs"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/lib/usce-session-token.mjs"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/routes/usce-offer-portal.mjs"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/routes/usce-public-intake.mjs"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/routes/usce-status-tracker.mjs"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/server.mjs"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/usce-gateway-policy.mjs"
+  },
+  {
+    "check": "protected_path_clean",
+    "details": {},
+    "level": "PASS",
+    "message": "Tracked and clean: missionmed-hq/usce-gateway.mjs"
+  },
+  {
+    "check": "node_check",
+    "details": {},
+    "level": "PASS",
+    "message": "node --check passed for missionmed-hq/usce-gateway.mjs"
+  },
+  {
+    "check": "relative_import_scan",
+    "details": {},
+    "level": "PASS",
+    "message": "Scanned 2 local JS/MJS files for relative imports"
+  },
+  {
+    "check": "local_asset",
+    "details": {
+      "path": "LIVE/usce_admin.html",
+      "sha256": "22c55eade97fe4fb4babde0ae68f811ae05e7c7ef50f4c82e889c6a58bed9d77"
+    },
+    "level": "PASS",
+    "message": "cdn_usce_admin_v3_candidate local source passed SHA256 and marker checks"
+  },
+  {
+    "check": "local_asset",
+    "details": {
+      "path": "LIVE/usce_offer.html",
+      "sha256": "05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614"
+    },
+    "level": "PASS",
+    "message": "cdn_usce_offer_live local source passed SHA256 and marker checks"
+  },
+  {
+    "check": "route",
+    "details": {},
+    "level": "PASS",
+    "message": "usce_admin_auth_relay passed with status 302"
+  },
+  {
+    "check": "route",
+    "details": {},
+    "level": "PASS",
+    "message": "usce_admin_public_intake_unauth passed with status 401"
+  },
+  {
+    "check": "route",
+    "details": {},
+    "level": "PASS",
+    "message": "wordpress_usce_admin_wrapper passed with status 200"
+  },
+  {
+    "check": "route",
+    "details": {},
+    "level": "PASS",
+    "message": "usce_gateway_rejects_sibling_path passed with status 404"
+  },
+  {
+    "check": "asset",
+    "details": {
+      "sha256": "22c55eade97fe4fb4babde0ae68f811ae05e7c7ef50f4c82e889c6a58bed9d77"
+    },
+    "level": "PASS",
+    "message": "cdn_usce_admin_v3_candidate passed SHA256 and marker checks"
+  },
+  {
+    "check": "asset",
+    "details": {
+      "sha256": "05f460fa3af85e826a37d404869d8605843b18bca79dd9e8356f5cb3300a7614"
+    },
+    "level": "PASS",
+    "message": "cdn_usce_offer_live passed SHA256 and marker checks"
+  },
+  {
+    "check": "browser_journeys",
+    "details": {},
+    "level": "WARN",
+    "message": "2 browser journeys require Browser/Playwright validation outside this report-only script"
+  }
+]
