@@ -60,12 +60,12 @@ test('actual Room mounts the lines after its instruments, disposes them on leave
   assert.ok(room.includes("${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}"));
   const mount=room.indexOf("const disposeReadinessLines=mountReadinessLines($('readiness-lines'),{room,stage:$('stage'),note:$('enter-note'),connect:$('connect-real'),devices:$('room-devices'),mode,liveInterviewAvailable:account?.liveInterviewAvailable===true});");
   assert.ok(mount>room.indexOf('  applyOverlays();renderPlan();renderTranscript();'));
-  assert.ok(room.includes('return ()=>{disposed=true;disposeReadinessLines();disposeEnvironment();'));
+  assert.ok(room.includes('return ()=>{disposed=true;entryAbort?.abort();disposeReadinessLines();disposeEnvironment();'));
   // Start stays disabled until the real visible frame and microphone are admitted; the lines only read that state.
   const connect=room.slice(room.indexOf('  async function connect(){'),room.indexOf('  const onFrame='));
   assert.ok(connect.includes("$('stage').dataset.previewReady='false';$('start-session').disabled=true;"));
   assert.ok(connect.includes("await awaitVisibleCamera(video,controller.stream,{isCurrent:current});"));
-  assert.ok(connect.includes("assertMicrophoneReady(controller.stream,engine.audioContext);\n      $('stage').dataset.previewReady='true';\n      $('start-session').disabled=false;"));
+  assert.ok(connect.includes("assertMicrophoneReady(controller.stream,engine.audioContext);\n      $('stage').dataset.previewReady='true';\n      $('start-session').disabled=avatarBlocked();"));
   const start=room.slice(room.indexOf('  async function start(){'),room.indexOf("  $('connect-real').addEventListener"));
   assert.ok(start.includes('await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});'));
   assert.ok(start.includes('assertMicrophoneReady(controller.stream,engine.audioContext);'));
