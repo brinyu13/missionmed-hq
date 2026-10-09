@@ -11,7 +11,7 @@ const count=(source,needle)=>source.split(needle).length-1;
 test('the Room renders exactly one device-controls node, mounted by exactly one owner, outside the settings drawer and under the preview',()=>{
   assert.equal(count(markup,'deviceControlsMarkup('),1);
   assert.equal(count(room,'mountDeviceControls('),1);
-  assert.ok(markup.includes(`<div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices open><summary>Camera &amp; mic</summary>\${deviceControlsMarkup({variant:'room'})}</details>`));
+  assert.ok(markup.includes(`<div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices><summary>Camera &amp; mic</summary>\${deviceControlsMarkup({variant:'room'})}</details>`));
   const stage=markup.indexOf('<div class="stage" id="stage"'),note=markup.indexOf('id="enter-note"'),under=markup.indexOf('<div class="under-stage" id="under-stage">'),dock=markup.indexOf('data-readiness-dock'),settings=markup.indexOf('<details class="room-settings" id="room-settings">'),panelEnd=markup.indexOf('</div></details>',settings);
   assert.ok(stage>0&&note>stage&&under>note&&dock>under&&settings>dock,'dock sits under the stage/under-stage row, before the settings drawer');
   assert.equal(markup.slice(settings,panelEnd).includes('deviceControlsMarkup('),false,'settings drawer no longer hosts a second device section');
@@ -44,16 +44,16 @@ test('room variant markup keeps both labelled selects and the status line; the d
   assert.ok(calibration.includes('${deviceControlsMarkup()}'));
 });
 
-test('readiness: pickers are an inline row under the preview; live: one click on Devices opens the same selects beside Settings',()=>{
-  assert.match(css,/\.room\[data-phase="readiness"\] \.room-devices \{ position: static; \}/);
-  assert.match(css,/\.room\[data-phase="readiness"\] \.room-devices > summary \{ display: none; \}/);
-  assert.match(css,/\.room\[data-phase="readiness"\] \.room-devices > \[data-device-controls\] \{ position: static;[^}]*padding: 8px 12px;/);
+test('Ready and live both expose one-click device selection; required calibration lives before the Room',()=>{
+  assert.match(css,/\.room\[data-phase="readiness"\] \.room-devices \{ position: absolute; \}/);
+  assert.match(css,/\.room\[data-phase="readiness"\] \.room-devices > summary \{ display: flex; \}/);
+  assert.match(css,/\.room\[data-phase="readiness"\] \.room-devices > \[data-device-controls\] \{ position: absolute;[^}]*padding: 14px;/);
   assert.match(css,/\.room\[data-phase="readiness"\] \.room-devices \.field \{ display: grid; grid-template-columns: auto minmax\(0, 1fr\);/);
   assert.match(css,/\.room-devices \{ position: absolute; right: 108px; bottom: 0; z-index: 8; \}/);
   assert.match(css,/\.room-devices > summary \{ cursor: pointer;[^}]*min-height: 40px;/);
   assert.match(css,/\.room-devices > \[data-device-controls\] \{ position: absolute; right: 0; bottom: 48px; width: min\(440px, calc\(100vw - 32px\)\);/);
   assert.match(css,/\.room-devices \[data-device-controls\] select \{ min-width: 0; width: 100%; \}/);
-  assert.match(css,/\.room:not\(\[data-phase="readiness"\]\) \.under-stage \{ padding-right: 214px; \}/);
+  assert.match(css,/\.room \.under-stage \{ padding-right: 214px; \}/);
   assert.match(css,/\.room-settings \{ position: absolute; right: 0; bottom: 0; z-index: 8; \}/);
 });
 

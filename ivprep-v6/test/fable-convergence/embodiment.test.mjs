@@ -70,7 +70,7 @@ test('early cancellation terminates the exact reserved session even before a tic
   assert.equal(calls.length,2);assert.equal(calls[1].body.id,'late-attempt');
   assert.ok(calls.every(c=>c.url.endsWith('/command')));
 });
-test('audio-driven avatar returns its stable silent output before generated A/V, allowing the sole opening turn',async()=>{
+test('native PCM is bound and transmitted during a slow LiveKit join; stable output still owns the sole opening',async()=>{
   const commands=[],nodes=[];
   const node=()=>({connect(){},disconnect(){}});
   const output={id:'stable-rendered'};
@@ -83,7 +83,8 @@ test('audio-driven avatar returns its stable silent output before generated A/V,
     createAnalyser(){return {...node(),getFloatTimeDomainData:a=>a.fill(0)};}
   }
   class Worklet{port={onmessage:null};constructor(){nodes.push(this);}connect(){}disconnect(){}}
-  class Room{handlers={};on(event,callback){this.handlers[event]=callback;}async connect(){}async disconnect(){}}
+  const joined=deferred(),joining=deferred();
+  class Room{handlers={};on(event,callback){this.handlers[event]=callback;}async connect(){joining.resolve();await joined.promise;}async disconnect(){}}
   const host={dataset:{},replaceChildren(){}};
   const oldDocument=globalThis.document,oldStream=globalThis.MediaStream,avatar=videoFixture();
   const pulls=[],returnedPlay=deferred();
@@ -92,7 +93,15 @@ test('audio-driven avatar returns its stable silent output before generated A/V,
     loadSdk:async()=>({Room,RoomEvent:{TrackSubscribed:'track',Disconnected:'closed'}}),
     fetchImpl:async(url,options)=>{const body=options.body?JSON.parse(options.body):null;commands.push({url,body});return {ok:true,json:async()=>url.endsWith('/start')?{id:'attempt',publisherIdentity:'publisher',deadlineMs:Date.now()+45000}:url.includes('/status')?{closed:false}:{accepted:true}};}});
   try{
-    assert.equal(await renderer.render({id:'native'},{ivocSessionId:'canonical'}),output);
+    const rendering=renderer.render({id:'native'},{ivocSessionId:'canonical'});
+    await joining.promise;
+    assert.equal(renderer.inputBound,true,'viewer connection cannot gate native input');
+    assert.equal(nodes.length,1);
+    for(let i=0;i<3;i++)nodes[0].port.onmessage({data:{rms:0,pcm:new Int16Array(1280).buffer,generation:1}});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(commands.some(c=>c.body?.command==='audio'),true,'real quiet PCM reaches transport before viewer join');
+    assert.equal(renderer.signalEvidence.inputPeakRms,0,'quiet input is not promoted to spoken acceptance');
+    joined.resolve();assert.equal(await rendering,output);
     assert.equal(pulls.length,1);assert.equal(pulls[0].srcObject.id,'native');assert.equal(pulls[0].played,true);
     assert.equal(host.dataset.avatarState,'connecting');assert.equal(renderer.video,undefined);
     for(let i=0;i<3;i++)nodes[0].port.onmessage({data:{rms:0.04,pcm:new Int16Array(1280).fill(1).buffer,generation:1}});

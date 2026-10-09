@@ -126,6 +126,10 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .ctl-icon[aria-pressed="true"] { background: var(--warn); color: #221400; }
 .stage-enter { position: absolute; inset: 0; display: grid; place-items: safe center; overflow: auto; background: #04070fd9; z-index: 3; text-align: center; padding: 24px; }
 .stage-enter .count { font: 800 italic 120px/1 var(--font-display); color: var(--gold-flat); }
+.entry-countdown { position:absolute; inset:0; z-index:5; display:grid; place-content:center; justify-items:center; gap:16px; background:#04070fe8; pointer-events:none; }
+.entry-countdown[hidden] { display:none; }
+.entry-countdown .count { font:800 italic clamp(90px,12vw,180px)/1 var(--font-display); color:var(--gold-flat); font-variant-numeric:tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .entry-countdown .count { animation:none; } }
 .stage-enter p { font-family: var(--font-editorial); color: var(--ink2); max-width: 44ch; margin: 8px 0 0; }
 /* Readiness errors belong in document flow, never inside a clipped video stage. */
 .readiness-status { margin: 0; }
@@ -436,6 +440,12 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
   .room[data-cockpit="true"][data-density="interview"] .stage-col, .room[data-cockpit="true"][data-density="interview"] .recorder { grid-column: 1; }
   .room[data-cockpit="true"][data-density="interview"] .recorder { grid-template-rows: 1fr; }
   .room[data-cockpit="true"][data-density="interview"] .recorder-body, .room[data-cockpit="true"][data-density="interview"] .recorder-events { display: none; }
+  /* Before Start, show real device measurements even for Interview-only mode.
+     The chosen live density resumes when canonical startup reaches LIVE. */
+  .room[data-cockpit="true"][data-density="interview"][data-phase="readiness"] { grid-template-columns:var(--left-w) minmax(0,1fr) var(--right-w); }
+  .room[data-cockpit="true"][data-density="interview"][data-phase="readiness"] .rail { display:grid; }
+  .room[data-cockpit="true"][data-density="interview"][data-phase="readiness"] .stage-col { grid-column:2; }
+  .room[data-cockpit="true"][data-density="interview"][data-phase="readiness"] .recorder { grid-column:1 / -1; }
   .room[data-cockpit="true"] .plate, .room[data-cockpit="true"] .inst { padding: 10px 12px; gap: 6px; min-height: 0; }
   .room[data-cockpit="true"] .plate { grid-template-rows: auto minmax(0,1fr) auto; }
   .room[data-cockpit="true"] .scan { aspect-ratio: auto; min-height: 0; }
@@ -489,7 +499,7 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
    (1fr) + 8 + under-stage 40 + 8 + dock ≤84 (8px padding ×2 + 40px selects + 6 + ~22px status),
    so the stage keeps ≈594−140−presence(≈113)−10 ≈ 331px ≥ its 280px readiness floor; the body
    stays overflow hidden at 1440×900, 1512×982 and 1728×1117. */
-.readiness-dock { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .9fr); gap: 10px; align-items: stretch; min-width: 0; }
+.readiness-dock { display: contents; }
 .readiness-dock > * { min-width: 0; }
 .room[data-phase="readiness"] .readiness-dock:has(> .room-devices > [data-device-controls][hidden]) { grid-template-columns: minmax(0, 1fr); }
 .room[data-phase="readiness"] .readiness-dock:has(> .room-devices > [data-device-controls][hidden]) .readiness-lines { display: flex; flex-wrap: wrap; gap: 6px 18px; }
@@ -508,11 +518,12 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .room-devices [data-device-controls] .two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .room-devices [data-device-controls] select { min-width: 0; width: 100%; }
 .room-devices [data-device-status] { margin: 8px 0 0; }
-.room[data-phase="readiness"] .room-devices { position: static; }
-.room[data-phase="readiness"] .room-devices > summary { display: none; }
+.room[data-phase="readiness"] .room-devices { position: absolute; }
+.room[data-phase="readiness"] .room-devices > summary { display: flex; }
 .room[data-phase="readiness"] .room-devices:has(> [data-device-controls][hidden]) { display: none; }
-.room[data-phase="readiness"] .room-devices > [data-device-controls] { position: static; width: auto; padding: 8px 12px; border-color: var(--line); box-shadow: none; }
+.room[data-phase="readiness"] .room-devices > [data-device-controls] { position: absolute; width: min(440px, calc(100vw - 32px)); padding: 14px; }
 .room[data-phase="readiness"] .room-devices .field { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--dim); }
 .room[data-phase="readiness"] .room-devices [data-device-status] { margin: 6px 0 0; }
-.room:not([data-phase="readiness"]) .under-stage { padding-right: 214px; }
+.room .under-stage { padding-right: 214px; }
+.room[data-phase="readiness"] .readiness-lines { display:none; }
 @media (max-width: 760px) { .room-devices { right: 96px; } .room:not([data-phase="readiness"]) .under-stage { padding-right: 0; } .readiness-dock { grid-template-columns: minmax(0, 1fr); } }

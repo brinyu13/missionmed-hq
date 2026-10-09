@@ -21,22 +21,23 @@ function fixture(){
   let options=null,current=true,visible=false,acquires=0;
   const engine={audioContext:{state:'running'},events:{adds:0,addEventListener(){this.adds++;}},begins:0,beginAnswer(){this.begins++;},setOverlayVisibility(){}};
   const scope={current:()=>current,$:element,main:{querySelector:()=>host,querySelectorAll:()=>selects},
-    controller:{phase:'READY',stream,mountVideo:()=>({}),acquire:async()=>{acquires++;return engine;},switchDevice:async()=>{}},
+    account:{subject:'wp:fixture'},durable:{},controller:{account:{subject:'wp:fixture'},phase:'READY',stream,mountVideo:()=>({}),acquire:async()=>{acquires++;return engine;},switchDevice:async()=>{}},
     mountDeviceControls:async(_host,input)=>{options=input;host.hidden=false;return()=>{};},
     awaitVisibleCamera:async()=>{if(!visible)throw new Error(black);},assertMicrophoneReady,bindPrimaryRecovery:()=>()=>{},
     engine:null,disposePrimary:null,disposeDevices:null,verifiedCapture:null,deviceReadiness:{refresh(){},reset(){}},deviceSwitching:false,starting:false,started:false,saving:false,finished:false,disposed:false,connecting:false,
-    state:{calibration:{old:true}},commit(){},setDensityControls(){},applyOverlays(){},
+    state:{calibration:{old:true}},commit(){},setDensityControls(){},applyOverlays(){},startPreviewAnalytics(){},avatarBlocked:()=>false,
   };
   vm.createContext(scope);
   return{scope,element,selects,host,engine,options:()=>options,setVisible:value=>{visible=value;},setCurrent:value=>{current=value;},acquires:()=>acquires};
 }
-function roomFixture(){
+async function roomFixture(){
   const f=fixture();
+  await vm.runInContext('(async()=>{'+section(room,"  disposeDevices=await mountDeviceControls",'  async function connect(){')+'})()',f.scope);
   vm.runInContext(section(room,'  async function connect(){','  const onFrame=')+';this.connect=connect;',f.scope);
   return f;
 }
 test('actual Room connect exposes camera selection after black preview, with Start still disabled',async()=>{
-  const f=roomFixture();await f.scope.connect();
+  const f=await roomFixture();await f.scope.connect();
   assert.equal(f.host.hidden,false);assert.ok(f.options());assert.equal(f.element('start-session').disabled,true);
   assert.equal(f.element('stage').dataset.previewReady,'false');assert.equal(f.element('enter-note').textContent,black);
   assert.ok(f.selects.every(select=>!select.disabled));assert.equal(f.options().canSwitch(),true);
@@ -47,28 +48,28 @@ test('actual Room connect exposes camera selection after black preview, with Sta
   assert.equal(f.element('stage').dataset.previewReady,'true');assert.match(f.element('enter-note').textContent,/Preview visible/);
 });
 test('actual Room stale connect cannot publish readiness after the camera wait',async()=>{
-  const f=roomFixture();f.scope.awaitVisibleCamera=async()=>{f.setCurrent(false);};await f.scope.connect();
+  const f=await roomFixture();f.scope.awaitVisibleCamera=async()=>{f.setCurrent(false);};await f.scope.connect();
   assert.equal(f.element('start-session').disabled,true);assert.equal(f.element('stage').dataset.previewReady,'false');
 });
 test('actual Room readiness callback disables Start with recovery copy, but never rewinds a live session',async()=>{
-  const f=roomFixture();f.setVisible(true);await f.scope.connect();assert.equal(f.element('start-session').disabled,false);
+  const f=await roomFixture();f.setVisible(true);await f.scope.connect();assert.equal(f.element('start-session').disabled,false);
   f.options().onReadinessChanged({ready:false,message:'Your microphone disconnected. Reconnect it.'});
   assert.equal(f.element('start-session').disabled,true);assert.equal(f.element('stage').dataset.previewReady,'false');assert.match(f.element('enter-note').textContent,/microphone disconnected/);
   f.scope.started=true;f.element('stage').dataset.previewReady='true';f.element('enter-note').textContent='Live interview';
   f.options().onReadinessChanged({ready:false,message:'Disconnected'});assert.equal(f.element('stage').dataset.previewReady,'true');assert.equal(f.element('enter-note').textContent,'Live interview');
 });
-function calibrationFixture(){
+async function calibrationFixture(){
   const f=fixture();Object.assign(f.scope,{ctx:{started:false,volSeen:new Set()},resolved:{},steps:[
     {id:'devices',resolves:['readiness'],check:(_frame,ctx)=>ctx.started},
     {id:'frame',resolves:['framing'],check:frame=>frame?.tracked===true},
     {id:'seal',resolves:[],check:()=>true}],stepIndex:0,latest:null,lastT:0,timer:null,
     frameListener(){},history:{samples:[],lastT:-Infinity},recorder:{setData(){},tick(){}},
     renderCalibrationRecord(){},renderSteps(){},calibrationStatus:()=>'',intervals:0,setInterval:()=>++f.scope.intervals});
-  vm.runInContext(section(calibration,'  function evaluate() {','  const frameListener=')+';this.begin=begin;this.evaluate=evaluate;evaluate();',f.scope);
+  await vm.runInContext('(async()=>{'+section(calibration,'  function evaluate() {','  const frameListener=')+';this.begin=begin;this.evaluate=evaluate;evaluate();})()',f.scope);
   return f;
 }
 test('actual Calibration initial black recovery starts measurement once, only after verified switch',async()=>{
-  const f=calibrationFixture();await f.scope.begin();
+  const f=await calibrationFixture();await f.scope.begin();
   assert.equal(f.host.hidden,false);assert.equal(f.element('next-step').disabled,true);assert.equal(f.scope.ctx.started,false);
   assert.equal(f.scope.intervals,0);assert.equal(f.engine.begins,0);assert.equal(f.options().canSwitch(),true);
   f.options().onSwitching(true);f.options().onChanged();f.options().onSwitching(false,false);
@@ -81,7 +82,7 @@ test('actual Calibration initial black recovery starts measurement once, only af
   assert.equal(f.scope.intervals,1);assert.equal(f.engine.events.adds,1);assert.equal(f.engine.begins,2);
 });
 test('Calibration cannot advance from stale instrument success when a replacement device failed',async()=>{
-  const f=calibrationFixture();f.setVisible(true);await f.scope.begin();
+  const f=await calibrationFixture();f.setVisible(true);await f.scope.begin();
   f.scope.latest={tracked:true};f.scope.evaluate();assert.equal(f.element('next-step').disabled,false);
   f.options().onSwitching(true);f.options().onSwitching(false,false);f.scope.evaluate();
   assert.equal(f.element('next-step').disabled,true);assert.equal(f.scope.ctx.started,false);
@@ -197,7 +198,7 @@ test('preview status uses the existing local pixel aggregate; no dimensions-only
 });
 test('actual Calibration mounts the read-only view before pixel verification; only authenticated Admin gets diagnostic copy',async()=>{
   assert.match(calibration,/\$\{deviceReadinessMarkup\(\{fullPanels:true\}\)\}/);
-  const f=calibrationFixture();let captured;
+  const f=await calibrationFixture();let captured;
   f.scope.mountDeviceReadiness=(_host,options)=>{captured=options;return f.scope.deviceReadiness;};
   vm.runInContext(section(calibration,'  const deviceReadiness=','  function renderCalibrationRecord()'),f.scope);
   f.scope.deviceReadiness.reset=()=>captured.onCaptureInvalidated();

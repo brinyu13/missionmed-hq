@@ -1,10 +1,10 @@
-// Calibration Cockpit — an instrumentation rehearsal, not a tech check.
+// Device check and calibration use the real analytics engine without an interview.
 // Each step names what the student does and which instrument must respond; pass conditions are
 // read from the real producer response. Nothing is saved
 // as a rep. The result is a personal calibration record used for corridors in the room.
 import { state, commit } from './state.mjs';
 import { controller } from './controller/session-controller.mjs';
-import { awaitVisibleCamera } from './adapters/media-readiness.mjs';
+import { awaitVisibleCamera,assertMicrophoneReady } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
 import {mountDeviceReadiness,deviceReadinessMarkup,readinessCapabilities} from './adapters/device-readiness.mjs';
 import {bindPrimaryRecovery} from './adapters/engine-adapter.mjs';
@@ -30,15 +30,16 @@ const STEPS = [
 ];
 const INSTRUMENTS = { readiness: 'Camera + mic', framing: 'Framing', faceBaseline: 'Face baseline', smile: 'Smile pattern', nods: 'Head nods', hands: 'Hand visibility', gesture: 'Gesture units', volume: 'Volume (LUFS-K)', pitch: 'Pitch (F0)', pace: 'Pace (timed words)', volumeRange: 'Volume range', pauseHold: 'Pace hold law', paceRange: 'Pace range' };
 
-export async function mountCalibration(main, { isCurrent = () => true, returnToMock = false, returnHash = '#/mock' } = {}) {
+export async function mountCalibration(main, { isCurrent = () => true, returnToMock = false, returnHash = '#/mock',beforeInterview=false,onReady=()=>{} } = {}) {
   const steps = STEPS.map(step => ({...step}));
   let disposed = false, connecting = false, deviceSwitching=false;
-  const current = () => !disposed && isCurrent();
+  const account=controller.account,durable=controller.durable;
+  const current = () => !disposed && isCurrent()&&controller.account===account&&controller.durable===durable;
   const ctx = { started: false, neutralMs: 0, smileBase: 0, nodBase: 0, gestureBase: 0, volSeen: new Set(), pauseMs: 0, pauseStartedAt: null, pauseLastAt: null, paceHeld: false, wpmMax: -Infinity, wpmMin: Infinity };
   let stepIndex = 0; const resolved = {}; let engine = null; let timer = null; let latest = null; let lastT = 0;let disposeDevices=null,disposePrimary=null,verifiedCapture=null;
   main.innerHTML = `
     <div class="cal-screen">
-    <div class="screen-head"><div><a class="btn btn-quiet" href="#/mock" id="return-setup" hidden>Return to interview setup ▸</a><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Instrument <em>rehearsal.</em></h1><p class="t-edit">Not a tech check. You smile, nod, gesture, read, vary your volume and pace, and watch every instrument respond truthfully before any interview. Unresolved instruments stay dark; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
+    <div class="screen-head"><div><a class="btn btn-quiet" href="#/mock" id="return-setup" hidden>Return to interview setup ▸</a><div class="t-kick gold">Devices &amp; calibration</div><h1 class="t-hero">Check devices. <em>Try your instruments.</em></h1><p class="t-edit">Choose your camera and microphone, then smile, nod, gesture and speak to check the real measurements. This is not recorded. If an instrument cannot respond, mark it unavailable; nothing is invented.</p></div><div style="display:flex;gap:8px;align-items:center"><span class="chip warn" id="calibration-record-state">Connect devices to verify saved calibration</span></div></div>
     <div class="cal">
       <aside class="housing panel"><div class="t-label" style="margin-bottom:10px">Rehearsal</div><div class="cal-steps" id="cal-steps"></div></aside>
       <div class="cal-stage-col">
@@ -50,7 +51,7 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
         <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
         ${deviceControlsMarkup()}
         ${deviceReadinessMarkup({fullPanels:true})}
-        <div class="cal-actions"><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Skip this step</button><span class="t-tech" id="step-state">Waiting</span><span style="flex:1"></span></div>
+        <div class="cal-actions"><button class="btn btn-primary" type="button" id="next-step" disabled>Next step ▸</button><button class="btn btn-quiet" type="button" id="skip-step">Mark unavailable &amp; continue</button><span class="t-tech" id="step-state">Waiting</span><span style="flex:1"></span><button class="btn btn-primary" type="button" id="continue-interview" ${beforeInterview?'disabled':'hidden'}>Ready for interview ▸</button></div>
         <section class="recorder" id="recorder" data-mode="live" style="height:150px">${recorderMarkup({ mode: 'live' })}</section>
       </div>
       <aside class="rail" id="rail-right" aria-label="Voice rail">${rightRailMarkup()}</aside>
@@ -61,7 +62,9 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
     </div></details>
     </div>`;
   const $ = (id) => main.querySelector(`#${id}`);
+  if(beforeInterview)$('cal-lower').open=true;
   if(returnToMock){$('return-setup').hidden=false;$('return-setup').href=returnHash;}
+  if(beforeInterview){$('return-setup').hidden=false;$('return-setup').href=returnHash;}
   const rails = new RailsController(main);
   const recorder = new LiveRecorder($('recorder'), { window: '1M' });
   const history = new TraceHistory();
@@ -98,6 +101,7 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
   function evaluate() {
     const s = steps[stepIndex]; const pass = Boolean(ctx.started && s.check(latest, ctx));
     $('next-step').disabled = deviceSwitching || !ctx.started || !(pass || s.id === 'seal');
+    $('continue-interview').disabled=deviceSwitching||!ctx.started||s.id!=='seal'||!verifiedCapture||verifiedCapture.stream!==controller.stream;
     $('step-state').textContent = s.id === 'seal' ? calibrationStatus() : pass ? 'Responded · pass' : ctx.started ? 'Watching for the response…' : 'Waiting';
     if (pass) for (const r of s.resolves) resolved[r] = 'resolved';
   }
@@ -110,7 +114,7 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
   function completeReadiness(){
     if(!current())return;
     deviceReadiness.refresh(); // invalidate any previous capture before its new pixel receipt
-    verifiedCapture={stream:controller.stream,video:controller.video,track:controller.stream?.getVideoTracks?.()[0]};deviceReadiness.refresh();
+    verifiedCapture={account,durable,subject:account.subject,engine,stream:controller.stream,video:controller.video,track:controller.stream?.getVideoTracks?.()[0],camera:controller.stream?.getVideoTracks?.()[0],microphone:controller.stream?.getAudioTracks?.()[0]};deviceReadiness.refresh();
     renderCalibrationRecord();ctx.started=true;resolved.readiness='resolved';$('enter')?.remove();$('enter-note').hidden=true;
     engine.beginAnswer();engine.setOverlayVisibility({face:true,hands:true,body:true,position:true});
     // Initial black-preview recovery must initialize rehearsal exactly once.
@@ -169,6 +173,17 @@ export async function mountCalibration(main, { isCurrent = () => true, returnToM
     if (s.id === 'passage' && f.speedWpm?.available === false && f.speaking && /unavailable|unreachable|same_origin|csrf/i.test(String(f.speedWpm.holdReason || ''))) resolved.pace = 'not';
   }
   $('connect-real').addEventListener('click',()=>void begin());
+  $('continue-interview').addEventListener('click',async()=>{
+    if(!beforeInterview||stepIndex!==steps.length-1||deviceSwitching||!ctx.started)return;
+    $('continue-interview').disabled=true;
+    try{
+      await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
+      assertMicrophoneReady(controller.stream,engine.audioContext);
+      if(!current())return;
+      if(!verifiedCapture||verifiedCapture.engine!==controller.engine||verifiedCapture.stream!==controller.stream||verifiedCapture.camera!==controller.stream.getVideoTracks()[0]||verifiedCapture.microphone!==controller.stream.getAudioTracks()[0])throw new Error('Your devices changed. Repeat the device check before your interview.');
+      onReady({...verifiedCapture,exercisesAttempted:true});
+    }catch(error){if(current()){$('step-state').textContent=error.message;evaluate();}}
+  });
   function enterStep() {
     ctx.smileBase=latest?.headFace?.smileEvents??0;ctx.nodBase=latest?.headFace?.nods??0;ctx.gestureBase=latest?.bodyHands?.gestures??0;
     ctx.pauseStartedAt=null;ctx.pauseLastAt=null;ctx.pauseMs=0;ctx.paceHeld=false;

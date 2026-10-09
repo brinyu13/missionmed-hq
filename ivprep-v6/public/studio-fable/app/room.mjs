@@ -4,7 +4,7 @@ import { loadQuestions } from './questions.mjs';
 import { controller } from './controller/session-controller.mjs';
 import { conductorConfig, toWizard, defaultSettings, resolveMockQuestionTarget, VOICES, selectedAdminVoice } from './settings/interviewer.mjs';
 import { liveContext } from './adapters/context-adapter.mjs';
-import {arrivalDelaySeconds,waitForInterviewEntry} from './adapters/interview-entry.mjs';
+import {arrivalDelaySeconds,waitForInterviewEntry,preInterviewReady} from './adapters/interview-entry.mjs';
 import { awaitVisibleCamera,assertMicrophoneReady } from './adapters/media-readiness.mjs';
 import {mountDeviceControls,deviceControlsMarkup} from './adapters/device-controls.mjs';
 import {projectReadinessLines,readinessLinesMarkup,mountReadinessLines} from './adapters/readiness-status.mjs';
@@ -85,16 +85,17 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
             ${mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?`<details class="expert" style="margin-top:10px;text-align:left"><summary>Admin voice audition</summary><label class="field"><span class="t-label">Native interviewer voice</span><select id="admin-live-voice">${VOICES.map(voice=>`<option value="${voice}" ${selectedAdminVoice(settings,account,mode)===voice?'selected':''}>${voice}</option>`).join('')}</select></label><small class="note">The same real interview and recording path; only the voice changes. Select before Start. Student default remains marin. No external TTS.</small></details>`:''}
             ${avatarCanary&&!founderQa?'<label class="field avatar-canary"><input type="checkbox" id="avatar-canary"> Authorized avatar canary · one 45-second session</label>':''}
             ${founderQa?`<p class="note" data-qa-limit role="status">${!avatarBlocked()?`Founder avatar QA: up to ${fmt(avatarDurationSeconds)} including connection time, then finish and save. ${esc(founderQa.usage?.creditLimit||0)} prepaid credits TOTAL; cleanup is reserved separately inside that allowance. No overage or automatic retry. Use headphones. Wait until you hear the full question before answering; interruptions currently end avatar playback.`:AVATAR_UNAVAILABLE}</p>`:''}
-            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button class="btn btn-primary btn-lg" type="button" id="connect-real">Connect camera + mic</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button type="button" id="connect-real" hidden>Reconnect devices</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
           </div>
         </div>
+        <div class="entry-countdown" id="entry-countdown" role="status" aria-live="polite" hidden><span class="count" id="entry-count"></span><span id="entry-count-label">Get ready</span></div>
       </div>
       </div>
       <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       ${profile.simulated?'<div class="environment-controls" data-environment-controls></div>':''}
       <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button>${!profile.simulated?'<button type="button" class="btn btn-quiet" data-self-view aria-pressed="true" disabled>Hide self view</button>':''}</div>
-      <div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices open><summary>Camera &amp; mic</summary>${deviceControlsMarkup({variant:'room'})}</details>${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}</div>
+      <div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices><summary>Camera &amp; mic</summary>${deviceControlsMarkup({variant:'room'})}</details>${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}</div>
       <details class="room-settings" id="room-settings"><summary aria-label="Room settings">⚙ Settings</summary><div class="room-settings-panel">
       <p class="note" id="room-preference-note" role="status" hidden></p>
       ${founderQa?'<details class="expert"><summary>Founder avatar QA</summary><p class="note" data-qa-usage></p><p class="note">Founder only. One avatar session per deliberate Mock. Budget reservations are conservative, not a provider invoice. Interruptions may safely end avatar playback; seamless resume is not verified.</p><button type="button" class="btn btn-quiet" data-qa-kill>Disable avatar QA</button><span role="status" data-qa-status></span></details>':''}
@@ -212,7 +213,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         deviceSwitching=value;$('start-session').disabled=value||!ready||avatarBlocked();$('connect-real').disabled=value;
         $('stage').dataset.previewReady=String(!value&&ready);
         $('enter-note').textContent=value?'Checking your selected camera and microphone…':ready?'Preview visible · microphone connected. Nothing is recorded until you start.':'The selected devices are not ready. Check the message below, choose another device, or check the preview again.';
-        if(!value&&ready){$('connect-real').textContent='Check preview again';applyOverlays();}
+        if(!value&&ready){applyOverlays();}
       },onReadinessChanged:readiness=>{
         if(!current()||starting||saving||finished)return;
         if(started){$('room-preference-note').hidden=false;$('room-preference-note').textContent=readiness.message;return;}
@@ -239,14 +240,16 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       assertMicrophoneReady(controller.stream,engine.audioContext);
       $('stage').dataset.previewReady='true';
       $('start-session').disabled=avatarBlocked();$('enter-note').textContent=avatarBlocked()?AVATAR_UNAVAILABLE:'Preview visible · microphone connected. Nothing is recorded until you start.';
-      $('connect-real').textContent='Check preview again';applyOverlays();
+      startPreviewAnalytics();applyOverlays();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
     finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;await disposeDevices?.refresh?.().catch(()=>{});}}
   }
   const onFrame=e=>{
-    if(!started||saving||disposed)return;
+    if(!engine||deviceSwitching||saving||disposed)return;
     const f=roomFault?{...e.detail,fault:roomFault}:e.detail;
-    rails.ingest(f);history.push(f);
+    rails.ingest(f);
+    if(!started)return; // readiness measurements never enter the saved attempt
+    history.push(f);
     if(f.bodyHands?.framing&&f.bodyHands.framing!==lastFraming){lastFraming=f.bodyHands.framing;events.push({t:f.t,kind:'framing',label:lastFraming,state:f.state});}
     for(const [field,value,kind,label]of [['smiles',f.headFace?.smileEvents,'smile','Smile pattern'],['nods',f.headFace?.nods,'nod','Head nod'],['gestures',f.bodyHands?.gestures,'gesture','Gesture unit']]){
       if(Number.isFinite(value)&&value>counts[field]){counts[field]=value;events.push({t:f.t,kind,label,state:f.state});}
@@ -255,14 +258,20 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     if(!f.cue)lastCueId=null;
     $('presence-state').textContent=interviewPresenceCue({interviewerSpeaking,candidateSpeaking:f.speaking,avatar:Boolean(founderQa)});
   };
-  const onState=e=>{if(!started||saving||disposed)return;const d=e.detail||{};if(['partial','recovering','unavailable'].includes(d.state)){roomFault={message:d.subsystem==='audio'?'Check microphone':'Check camera',detail:d.message||''};mark('gap',d.subsystem||'Signal unavailable');}else if(['recovered','running'].includes(d.state))roomFault=null;};
+  const onState=e=>{if(saving||disposed)return;const d=e.detail||{};if(['partial','recovering','unavailable'].includes(d.state)){roomFault={message:d.subsystem==='audio'?'Check microphone':'Check camera',detail:d.message||''};if(started)mark('gap',d.subsystem||'Signal unavailable');}else if(['recovered','running'].includes(d.state))roomFault=null;};
   const onWord=e=>{if(current()&&e.detail?.state==='unavailable')$('pace-basis').textContent='Timed-word pace unavailable';};
+  function startPreviewAnalytics(){
+    engine.events.addEventListener('frame',onFrame);engine.events.addEventListener('state',onState);engine.events.addEventListener('word-timing',onWord);
+    engine.beginAnswer();$('engine-label').textContent='Live device measurements · not recorded';
+  }
   function restoreReadinessPresence(){
     room.dataset.phase='readiness';$('presence').dataset.speaking='false';$('presence-state').textContent='waiting';
     $('presence-sub').textContent=mode==='mock'?'Your interview has not started.':'Your answer recording has not started.';
     $('presence-line').textContent=mode==='mock'?'The interviewer will begin only after startup succeeds.':practiceQ.canonical_text;
   }
   async function start(){
+    if(!current()||starting||started||deviceSwitching)return;
+    if(!preInterviewReady(session.preflight,controller)){location.hash='#/devices?return=room&mode='+mode;return;}
     if(avatarBlocked()){$('enter-note').textContent=AVATAR_UNAVAILABLE;$('start-session').disabled=true;return;}
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
     initialPresentationMode=density==='interview'?'interview':'coached';setDensityControls(true);
@@ -275,16 +284,22 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       await waitForInterviewEntry({delaySeconds:mode==='mock'?arrivalDelaySeconds(settings):0,signal:entryAbort.signal,isCurrent:current,onTick:({phase,seconds})=>{
         room.dataset.entryPhase=phase;
         $('presence-state').textContent=phase==='waiting'?'arriving':'get ready';
+        $('entry-countdown').hidden=false;
+        const number=$('entry-count');
+        if(number.textContent!==String(seconds)){number.textContent=String(seconds);if(!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)number.animate?.([{transform:'scale(1.35)',opacity:.45},{transform:'scale(1)',opacity:1}],{duration:500,easing:'ease-out'});}
+        $('entry-count-label').textContent=phase==='waiting'?'Your interviewer is arriving':'Get ready';
         $('enter-note').textContent=phase==='waiting'
           ?'Your interviewer arrives in '+seconds+' seconds. Nothing is recording yet. Leave to cancel.'
           :'Starting in '+seconds+'… Nothing is recording yet. Leave to cancel.';
       }});
       if(!current())return;
+      $('entry-countdown').hidden=true;
       // Devices can end during the waiting period. Revalidate before any session,
       // recording or paid embodiment reservation is created.
       await awaitVisibleCamera(controller.video,controller.stream,{isCurrent:current});
       assertMicrophoneReady(controller.stream,engine.audioContext);
       if(!current())return;
+      if(!preInterviewReady(session.preflight,controller))throw new Error('Your devices changed. Return to device check before starting.');
       // Non-creating, fresh admission before recording, GPT or Actor CREATE.
       // Existing server recovery may clean up a stale session during this GET.
       // Never turn an exhausted/stale avatar test into a voice-only interview.
@@ -316,8 +331,9 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
     }catch(error){if(current()){restoreReadinessPresence();$('stage').dataset.previewReady='false';$('enter-note').textContent=error?.diagnostics?.category==='CLIENT_NETWORK'?'Your connection changed before the interviewer was ready. The interview did not start.':error.message;
       if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href=session.setupReturnHash||'#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
-      $('start-session').disabled=true;$('connect-real').disabled=false;}engine?.events.removeEventListener('frame',onFrame);engine?.events.removeEventListener('state',onState);engine?.events.removeEventListener('word-timing',onWord);}
-    finally{entryAbort=null;starting=false;if(current()){setDensityControls(false);disposeEnvironment.refresh();await disposeDevices?.refresh?.().catch(()=>{});}}
+      $('start-session').disabled=true;$('connect-real').disabled=false;
+      const back=document.createElement('a');back.href='#/devices?return=room&mode='+mode;back.textContent=' Return to device check';$('enter-note').append(back);}}
+    finally{entryAbort=null;starting=false;if(current()){$('entry-countdown').hidden=true;setDensityControls(false);disposeEnvironment.refresh();await disposeDevices?.refresh?.().catch(()=>{});}}
   }
   $('connect-real').addEventListener('click',()=>void connect());$('start-session').addEventListener('click',()=>void start());
   $('end').disabled=true;$('primary-action').hidden=true;
@@ -366,6 +382,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   applyOverlays();renderPlan();renderTranscript();
   // Presentation only: the three readiness lines mirror the room's existing gating state (preview-ready attribute, Connect button, readiness note); Start gating is unchanged.
-  const disposeReadinessLines=mountReadinessLines($('readiness-lines'),{room,stage:$('stage'),note:$('enter-note'),connect:$('connect-real'),devices:$('room-devices'),mode,liveInterviewAvailable:account?.liveInterviewAvailable===true});
-  return ()=>{disposed=true;entryAbort?.abort();disposeReadinessLines();disposeEnvironment();disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked)void controller.release('route_change');};
+  const disposeReadinessLines=mountReadinessLines($('readiness-lines'),{room,stage:$('stage'),note:$('enter-note'),connect:$('connect-real'),devices:null,mode,liveInterviewAvailable:account?.liveInterviewAvailable===true});
+  void connect(); // reuse the single calibrated capture; return cleanup before any media wait
+  return ()=>{disposed=true;entryAbort?.abort();disposeReadinessLines();disposeEnvironment();disposeDevices?.();disposePrimary?.();detach();recorder.destroy();document.querySelector('.sheet-backdrop')?.remove();if(!finished&&!controller.navigationLocked&&engine&&controller.engine===engine&&controller.account===account&&controller.durable===durable)void controller.release('route_change');};
 }

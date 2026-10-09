@@ -1,13 +1,20 @@
 # IVOC final AAA production megarun state
 
-Updated: 2026-10-06 America/New_York
+Updated: 2026-10-09 America/New_York
 Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor), `DR-392` (bounded preflight/closing repair), `DR-394` (no-spend secure Modal transport recovery); `DR-393` single canary CONSUMED, `DR-340` QA grant revoked
-Branch: `codex/ivoc-claude-takeover-20261006` (Claude Code engineering Foreman worktree; successor of `codex/ivoc-foreman-9200`, which remains the deployed-source lineage)
+Branch: `codex/ivoc-followup-device-recovery-20261007` (bounded current repair; historical branches below are evidence, not current source authority)
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `INTERVIEW DIRECTOR RECOVERY CANDIDATE COMMITTED ON codex/ivoc-claude-takeover-20261006 (DIRECTOR TURN POLICY ON STRONG STEER PATH, LONE-CANDIDATE TRACKING LOCK REPAIR, HOME COMMAND SURFACE, VISIBLE DEVICE PICKERS, CONCISE READINESS) — NOT DEPLOYED; PRODUCTION UNCHANGED AT 9da9f4b/074bbebe OFF; INDEPENDENT ADMISSION → PROTECTED RELEASE → FOUNDER SPOKEN POV STILL AHEAD; NOT PRODUCT COMPLETE`
+Current continuation boundary: `PRE-INTERVIEW TECH CHECK / INDEPENDENT ANALYTICS / PCM-BEFORE-VIEWER-JOIN REPAIR REVIEWED; EXACT PROVIDER-OFF RELEASE NEXT; NO PAID ACCEPTANCE OR QA REARM AUTHORIZED; NOT PRODUCT COMPLETE`
 
-Current runtime: source `89a9235e4150db66be82a1e8d80f668f5ac229c1`, deployment `85abc7a8-fae3-4cce-a490-ae6a5f39967b` SUCCESS; image `sha256:48cdd366f3447b4562fd31a4880db93ae9d17df0ec90e689afc073e5cf2dd472`. Independently verified exact runtime/module hash, OFF and unchanged consumed reservation; health200/ok and anonymous product/bootstrap401. This is the current healthy infrastructure rollback baseline, not full product acceptance. Previous healthy OFF source `ba1094842e7283632ba4e3e2851e555e09818c27` / deployment `f0e29ddc-af9c-4993-a8ad-249a6fd49ab7` / image `sha256:a8f88ab997e3525d02dadfdd4bd301f97d4d19e8025dec20d5dd02dbc26017df` retained as historical identity; provider now marks it REMOVED. Do NOT restore a spent canary's ON configuration. Use sanctioned exact OFF redeploy when terminal rather than assume ID rollback is available.
+Current runtime / rollback baseline: source `76118eb0c704cc4cd86ba6621c6590ac87e31fef`, deployment `4737655e-950b-4b5e-9086-3b3d229e964b` SUCCESS; image `sha256:aa928beb2f71ebf5f5f6f4baaf8e84ae750834ff0d310f692e388dee2eb90efe`. Health200 and anonymous product/bootstrap401. Release manifest `3da08cbebaebd98db3fdb03391427f00a1e3903a615750ce223f860f436a3473`, compressed artifact `3bcd77d4a4b058726f8f082bc95ef7c34fbf7e648f564d230435449cd0d0de84`. Provider QA disabled/consumed revision40; legacy canary OFF. No rearm or credit reset. This is infrastructure recovery, not spoken/avatar acceptance. Exact OFF artifact redeploy is the fallback if the old deployment cannot be rolled back; runtime rollback never rewrites source.
+
+## 2026-10-09 — bounded fencing and pre-interview repair
+
+- Two prior source leases (542b6452 / ed08f726) had successful heartbeats followed by `URLError` caused by `TimeoutError`, not owner conflict. Canonical 3-second RPC timeout/client unchanged. On restored Wi-Fi, sanctioned leases remained valid: 1c40de68 epoch5602 for157 heartbeats, then e0dc1731 epoch5613 for110; each normally released. Exact source claims expanded only for directly affected regression fixtures; no fencing bypass.
+- Practice/Mock now enter existing Devices & Calibration before Ready. Real camera pixels/mic are required, exercises distinguish resolved/partial/unavailable, receipt binds exact tracks/engine/account/durable custody. Analytics run during rehearsal and Ready without GPT/Actor startup; rehearsal frames never enter a saved attempt. Ready offers Start with10-second animated countdown; existing30-second arrival option and device popover retained. Owner reads already completed in setup are not repeated between rehearsal and Ready.
+- Embodiment worklet and authoritative native quiet PCM bind before viewer LiveKit join. Latest failed provider session9f2dc514 had zero input PCM and LIVEKIT_FAILURE; this fixes deterministic input starvation, not the unproven real transport disconnect. Actual decoded-frame gate, secure transport validation, sole GPT/audio/recording authority and conservative interruption fallback unchanged. No provider call/spend.
+- Fresh read-only review approved after capture/actor and stale-disposer regressions were repaired.74 affected checks PASS; relevant integration run559/566 PASS, seven stale fixture failures corrected and affected15/15 PASS. Mandatory build69 PASS. Exact release/readback follows; no Founder retest requested.
 
 This is the one living requirement ledger required by the final Founder
 completion directive. A status of `LIVE UNVERIFIED` means the capability is

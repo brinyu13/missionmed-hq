@@ -58,7 +58,7 @@ test('mounted lines repaint from the room DOM, keep readiness pickers open, neve
 test('actual Room mounts the lines after its instruments, disposes them on leave, and keeps the gating predicates',()=>{
   assert.ok(room.includes("import {projectReadinessLines,readinessLinesMarkup,mountReadinessLines} from './adapters/readiness-status.mjs';"));
   assert.ok(room.includes("${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}"));
-  const mount=room.indexOf("const disposeReadinessLines=mountReadinessLines($('readiness-lines'),{room,stage:$('stage'),note:$('enter-note'),connect:$('connect-real'),devices:$('room-devices'),mode,liveInterviewAvailable:account?.liveInterviewAvailable===true});");
+  const mount=room.indexOf("const disposeReadinessLines=mountReadinessLines($('readiness-lines'),{room,stage:$('stage'),note:$('enter-note'),connect:$('connect-real'),devices:null,mode,liveInterviewAvailable:account?.liveInterviewAvailable===true});");
   assert.ok(mount>room.indexOf('  applyOverlays();renderPlan();renderTranscript();'));
   assert.ok(room.includes('return ()=>{disposed=true;entryAbort?.abort();disposeReadinessLines();disposeEnvironment();'));
   // Start stays disabled until the real visible frame and microphone are admitted; the lines only read that state.
@@ -76,7 +76,7 @@ test('enter overlay copy is short: priority line plus the two actions; the conne
   const markup=room.slice(room.indexOf('<div class="stage-enter" id="enter">'),room.indexOf('<p class="note readiness-status" id="enter-note"'));
   assert.equal(markup.includes('Connect your camera and microphone. Check your visible preview'),false);
   assert.match(markup,/<p>\$\{mode === 'mock' \? `Priority: /);
-  assert.ok(markup.includes('id="connect-real">Connect camera + mic</button>'));
+  assert.ok(markup.includes('id="connect-real" hidden>Reconnect devices</button>'));
   assert.ok(markup.includes('id="start-session" disabled>'));
   assert.ok(markup.includes("mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?"),'admin voice audition stays collapsed in its details');
   assert.match(css,/\.room:not\(\[data-phase="readiness"\]\) \.readiness-lines \{ display: none; \}/);

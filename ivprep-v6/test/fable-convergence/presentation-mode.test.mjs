@@ -19,10 +19,10 @@ function roomFixture(density,{mode='practice',target=null,goal='Guided Mock IV P
   element('reset-density').addEventListener=(_type,fn)=>{handler.reset=fn;};
   const events=[],samples=[{t:1,vol:4,signalGap:false}];let filed=null,resolveCamera,launched=null,contextInput=null;
   const plan=[{question_id:'CORE-01',canonical_text:'Tell me about yourself.'}];
-  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true,voice}},mode,plan,defaultSettings,resolveMockQuestionTarget,environmentProfile,selectedEnvironment});
+  const setup=vm.runInNewContext(section('  const cfg=session.config||{};',"  let density=" )+'\n({settings,targetQuestions})',{avatarCanary:null,session:{config:{targetQuestions:target},settings:{...defaultSettings(),goal,practiceFocus:focus,pressure:true,voice}},mode,plan,defaultSettings,resolveMockQuestionTarget,environmentProfile,selectedEnvironment});
   const {settings,targetQuestions}=setup;
   const camera=new Promise(resolve=>{resolveCamera=resolve;});
-  const context={density,initialPresentationMode:null,avatarCanary:null,practiceQ:plan[0],starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
+  const context={density,initialPresentationMode:null,avatarCanary:null,founderQa:null,avatarBlocked:()=>false,preInterviewReady:()=>true,entryAbort:null,AbortController,arrivalDelaySeconds:()=>0,waitForInterviewEntry:async()=>{},practiceQ:plan[0],starting:false,started:false,saving:false,finished:false,disposed:false,deviceSwitching:false,
     current:()=>true,account:{mode:'REAL',role},selectedAdminVoice,$:element,room,main:{querySelectorAll:()=>[],querySelector:()=>({remove(){}})},
     controller:{video:{},stream:{getAudioTracks:()=>[{readyState:'live',enabled:true,muted:false}]},elapsed:2,interviewPolicy,startSession:async input=>{launched=input;return{interviewer:{}};},finishSession:async({record})=>{filed=record;return{saveError:'retry retained'};}},
     engine:{audioContext:{state:'running'},events:{addEventListener(){},removeEventListener(){}},personalCalibration:null},settings,session:{priority},mode,targetQuestions,plan,

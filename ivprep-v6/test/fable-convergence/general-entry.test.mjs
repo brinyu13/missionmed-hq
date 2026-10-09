@@ -27,17 +27,17 @@ function clock(options={}){
     schedule:fn=>(timer=fn,1),cancel:()=>{timer=null;},onTick:value=>ticks.push(value)});
   return {promise,ticks,abort,advance(ms){now+=ms;const next=timer;timer=null;next?.();},leave(){live=false;},pending:()=>Boolean(timer)};
 }
-test('immediate arrival still has a deliberate 3-second countdown',async()=>{
-  const c=clock();assert.deepEqual(c.ticks[0],{phase:'countdown',seconds:3});
-  c.advance(1000);assert.equal(c.ticks.at(-1).seconds,2);
-  c.advance(1999);assert.equal(c.ticks.at(-1).seconds,1);
+test('immediate arrival has the required deliberate 10-second countdown',async()=>{
+  const c=clock();assert.deepEqual(c.ticks[0],{phase:'countdown',seconds:10});
+  c.advance(1000);assert.equal(c.ticks.at(-1).seconds,9);
+  c.advance(8999);assert.equal(c.ticks.at(-1).seconds,1);
   c.advance(1);await c.promise;assert.equal(c.pending(),false);
 });
 test('delayed arrival waits exactly 30 seconds before the same countdown',async()=>{
   const c=clock({delaySeconds:30});assert.deepEqual(c.ticks[0],{phase:'waiting',seconds:30});
   c.advance(29999);assert.equal(c.ticks.at(-1).seconds,1);
-  c.advance(1);assert.deepEqual(c.ticks.at(-1),{phase:'countdown',seconds:3});
-  c.advance(3000);await c.promise;assert.equal(c.pending(),false);
+  c.advance(1);assert.deepEqual(c.ticks.at(-1),{phase:'countdown',seconds:10});
+  c.advance(10000);await c.promise;assert.equal(c.pending(),false);
 });
 test('leaving, aborting, or an account change cancels without starting',async()=>{
   for(const action of ['abort','leave']){

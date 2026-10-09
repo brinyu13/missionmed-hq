@@ -167,6 +167,9 @@ export class EmbodimentRenderer {
     // Prove the native pull can start BEFORE any paid Actor creation.
     await this.bindSilentRemotePlayout(stream);
     if(!current())throw stageError('CLIENT_ABORT','IVOC_CLIENT');
+    // Deterministic processor loading must succeed before a paid reservation.
+    await this.context.audioWorklet.addModule('/iv-prep-on-call/assets/capabilities/embodiment-pcm-worklet.mjs');
+    if(!current())throw stageError('CLIENT_ABORT','IVOC_CLIENT');
     let sdk;try{sdk=await this.loadSdk();}catch{throw stageError('LIVEKIT_FAILURE','SDK_LOAD');}if(!current())throw stageError('CLIENT_ABORT','IVOC_CLIENT');
     this.transition('EMBODIMENT_CREATE_REQUEST','IVOC_CLIENT','GPT_REMOTE_TRACK_AND_SDK_READY');
     this.startRequested=true;
@@ -215,18 +218,6 @@ export class EmbodimentRenderer {
       });
     this.room.on(sdk.RoomEvent.Disconnected,()=>{if(current())this.fail(stageError('LIVEKIT_FAILURE','LIVEKIT_CONNECTED'));});
     this.room.on(sdk.RoomEvent.TrackUnsubscribed,(track,publication,participant)=>{if(current()&&participant?.identity===this.ticket.publisherIdentity)this.fail(stageError('TRACK_SUBSCRIPTION_FAILURE','LIVEKIT_CONNECTED'));});
-    this.transition('LIVEKIT_CONNECTING','LIVEKIT_CLIENT','SCOPED_VIEWER_TICKET');
-    try{await this.room.connect(this.ticket.livekitUrl,this.ticket.viewerToken,{autoSubscribe:true});}
-    catch{throw stageError('LIVEKIT_FAILURE','LIVEKIT_CONNECTING');}
-    if(!current()){
-      // stop's first disconnect may precede this in-flight join completing.
-      await this.room.disconnect().catch(()=>{});
-      throw new Error('Avatar startup cancelled.');
-    }
-    // Tracks can arrive during connect(); don't overwrite a later media phase.
-    if(this.transitions.at(-1)?.state==='LIVEKIT_CONNECTING')this.transition('LIVEKIT_CONNECTED','LIVEKIT_CLIENT','ROOM_CONNECT_RESOLVED');
-    await this.context.audioWorklet.addModule('/iv-prep-on-call/assets/capabilities/embodiment-pcm-worklet.mjs');
-    if(!current())throw new Error('Avatar startup cancelled.');
     const native=this.context.createMediaStreamSource(stream);this.sources.push(native);
     this.extractor=new this.Worklet(this.context,'ivoc-interviewer-pcm');native.connect(this.extractor);
     this.inputBound=true;maybeReady();
@@ -253,6 +244,18 @@ export class EmbodimentRenderer {
         if(this.silentMs>=400){this.speaking=false;this.silentMs=0;this.batcher.flush();this.signalEvidence.audioEnds++;void this.queue.push('audio_end').catch(()=>{});}
       }
     };
+    // Bind the actual native track before viewer join. Its real quiet PCM is
+    // retained too; no invented heartbeat audio, second brain or audible pull.
+    // A slow region/join request must not leave the Actor with zero input until
+    // its unchanged 15-second idle cleanup closes the socket.
+    this.transition('LIVEKIT_CONNECTING','LIVEKIT_CLIENT','SCOPED_VIEWER_TICKET_WITH_NATIVE_INPUT_BOUND');
+    try{await this.room.connect(this.ticket.livekitUrl,this.ticket.viewerToken,{autoSubscribe:true});}
+    catch{throw stageError('LIVEKIT_FAILURE','LIVEKIT_CONNECTING');}
+    if(!current()){
+      await this.room.disconnect().catch(()=>{});
+      throw new Error('Avatar startup cancelled.');
+    }
+    if(this.transitions.at(-1)?.state==='LIVEKIT_CONNECTING')this.transition('LIVEKIT_CONNECTED','LIVEKIT_CLIENT','ROOM_CONNECT_RESOLVED');
     // Local microphone VAD only interrupts the visual Actor. It never sends
     // candidate speech to LemonSlice or replaces GPT-Live's native barge-in.
     if(microphoneTrack){const mic=this.context.createMediaStreamSource(new MediaStream([microphoneTrack]));this.sources.push(mic);this.micAnalyser=this.context.createAnalyser();this.micAnalyser.fftSize=512;mic.connect(this.micAnalyser);

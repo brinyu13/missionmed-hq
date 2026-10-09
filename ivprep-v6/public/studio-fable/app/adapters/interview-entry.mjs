@@ -15,6 +15,18 @@ export function mockCalibrationRoute(params,retry=params?.get('retry')) {
   return '#/devices?return=mock'+(query?'&'+query:'');
 }
 
+// Ephemeral evidence belongs to this capture owner and authenticated subject.
+// Reload/account/device replacement requires a new rehearsal, never localStorage.
+export function preInterviewReady(receipt,controller) {
+  return Boolean(receipt&&receipt.subject===controller.account?.subject&&
+    receipt.account===controller.account&&receipt.durable===controller.durable&&
+    receipt.engine===controller.engine&&receipt.stream===controller.stream&&
+    controller.phase==='READY'&&receipt.exercisesAttempted===true&&
+    receipt.camera===controller.stream?.getVideoTracks?.()[0]&&
+    receipt.microphone===controller.stream?.getAudioTracks?.()[0]&&
+    [receipt.camera,receipt.microphone].every(t=>t?.readyState==='live'&&t.enabled&&!t.muted));
+}
+
 export function waitForInterviewEntry({delaySeconds=0,signal,isCurrent=()=>true,onTick=()=>{},
   now=()=>performance.now(),schedule=setTimeout,cancel=clearTimeout}={}) {
   return new Promise((resolve,reject)=>{
@@ -29,11 +41,11 @@ export function waitForInterviewEntry({delaySeconds=0,signal,isCurrent=()=>true,
     const tick=()=>{
       if(signal?.aborted||!isCurrent())return abort();
       const elapsed=Math.max(0,now()-begun);
-      if(elapsed>=delay+3000)return finish();
+      if(elapsed>=delay+10000)return finish();
       try{
         onTick(elapsed<delay
           ?{phase:'waiting',seconds:Math.ceil((delay-elapsed)/1000)}
-          :{phase:'countdown',seconds:Math.ceil((delay+3000-elapsed)/1000)});
+          :{phase:'countdown',seconds:Math.ceil((delay+10000-elapsed)/1000)});
       }catch(error){return finish(error);}
       if(!settled)timer=schedule(tick,100);
     };
