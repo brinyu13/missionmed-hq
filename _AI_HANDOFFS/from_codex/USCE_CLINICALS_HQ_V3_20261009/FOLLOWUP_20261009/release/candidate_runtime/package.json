@@ -1,0 +1,12 @@
+{
+  "name": "missionmed-usce-isolated-runtime",
+  "private": true,
+  "version": "2026.10.2",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "start": "node missionmed-hq/usce-gateway.mjs"
+  }
+}

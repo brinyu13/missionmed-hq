@@ -1,0 +1,20 @@
+{
+  "id": "74bfe95c-a7da-441a-bcc5-5f3a842cc910",
+  "status": "Sent",
+  "from": "\"MMI Clinical Rotations\" <clinicals@missionmedinstitute.com>",
+  "to": [
+    "info@missionmedinstitute.com"
+  ],
+  "subject": "[USCE QA TEST] Your MissionMed offer \u2014 legacy HTML + progress tracker",
+  "html_sha256": "64c8a9768ce1c337e88fe6feb1e429e0c52d00bf4244645ced399aaf00b22e49",
+  "html_bytes": 14004,
+  "branded_tracker": true,
+  "progress_stages": true,
+  "review_button": true,
+  "events": [
+    {
+      "type": "Delivered",
+      "at": "2026-10-09T10:46:59.0000000-04:00"
+    }
+  ]
+}

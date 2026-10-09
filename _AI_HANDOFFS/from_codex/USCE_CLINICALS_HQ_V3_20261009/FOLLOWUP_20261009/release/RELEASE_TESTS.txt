@@ -1,0 +1,402 @@
+✔ Clinicals sender is fail closed until dedicated config matches (2.483584ms)
+✔ preview binds sender, exact text, revision and reply headers (1.952166ms)
+✔ generic correspondence cannot carry secure Offer link around approved Offer path (0.082792ms)
+✔ Postmark send uses Clinicals sender, bound reply references and durable dispatch metadata (1.976125ms)
+✔ timeout holds uncertain outcome after exactly one attempt (0.367208ms)
+✔ server failure holds uncertain outcome after exactly one attempt (0.124583ms)
+✔ invalid successful response holds uncertain outcome after exactly one attempt (0.107375ms)
+✔ explicit provider rejection is failed, not delivered (0.11225ms)
+✔ header injection is blocked before provider attempt (0.090625ms)
+✔ stale preview cannot claim or send (0.1785ms)
+✔ duplicate claimed dispatch cannot hit provider again (0.213ms)
+✔ failure recording accepted attempt reports reconciliation, never blind retry (3.504959ms)
+✔ notification is fixed recipient and contains secure entry link, no student body (7.512667ms)
+✔ notification waits for configured sender without consuming a claim (0.117417ms)
+✔ provider reconciliation rejects ambiguous search and mismatched content (0.480833ms)
+✔ RPC target cannot leave pinned USCE project (0.136209ms)
+✔ route refuses absent admin gate before storage access (0.342291ms)
+✔ composer draft strips client recipient, sender and arbitrary provider fields (1.280417ms)
+✔ send route requires explicit reviewed confirmation (0.347ms)
+✔ malformed input and oversized JSON are bounded (0.5335ms)
+✔ matching provider evidence is recorded against the same held attempt only (0.182416ms)
+✔ definite Postmark rejection is distinguished from an ambiguous provider outage for retry (0.139708ms)
+✔ retry never reaches provider unless database proves prior non-acceptance (0.080791ms)
+✔ dispatch recovery routes require explicit retry confirmation and expose only RPC projection (0.3875ms)
+✔ unexpected 4xx/3xx without explicit Postmark rejection remains reconcilable ambiguity (0.14325ms)
+✔ unique moved controls; open/progress/back/save-close never sends (384.883375ms)
+✔ responded offer locks terms and blocks save/open/send (188.574834ms)
+✔ editable email, blank and template invalidate approval and require new preview (351.981375ms)
+✔ changed content/proof/sender/case cannot send; exact approved version sends once (239.988666ms)
+✔ saved custom composer reopens when backend returns stored subject/body (241.021708ms)
+✔ deferred save rejects case race; deferred preview rejects message race (194.767334ms)
+✔ untouched template follows current terms without duplicated stale terms (187.705083ms)
+✔ responded offer retains coordinator records; case actions close native details before prompt (156.29475ms)
+✔ default email uses newly edited student-facing instructions (173.078125ms)
+✔ inline replacement preserves edits until confirmed and rejects stale case/message (180.57475ms)
+✔ Journey reports provider outcome from route-shaped response without claiming delivery (218.023417ms)
+✔ Journey reports idempotent accepted claim from route-shaped response without claiming delivery (209.770167ms)
+✔ Journey reports history reconciliation from route-shaped response without claiming delivery (197.952584ms)
+✔ Journey reports route dry run from route-shaped response without claiming delivery (194.576834ms)
+✔ Journey reports queued from route-shaped response without claiming delivery (193.714375ms)
+✔ Journey reports unknown live mode from route-shaped response without claiming delivery (190.535167ms)
+✔ parser preserves plain text and never fetches or embeds attachments (3.471917ms)
+✔ HTML fallback removes executable markup and is still plain text (0.322583ms)
+✔ large body is explicitly flagged as truncated (1.599042ms)
+✔ automatic messages are classified to prevent personal notification loops (0.113916ms)
+✔ baseline is persisted before historical listing and import cannot notify via history phase (1.33175ms)
+✔ history duplicates are ingested once per page and cursor advances after persistence (0.255709ms)
+✔ partial history page preserves starting cursor and persists continuation (0.317083ms)
+✔ storage failure prevents advancing cursor and releases sync lease (0.309625ms)
+✔ expired history triggers explicit recovery baseline rather than claiming current (0.133792ms)
+✔ draft/spam/trash Gmail events do not become incoming messages or sent copies (0.175083ms)
+✔ no concurrent worker operates when durable claim is unavailable (0.090625ms)
+✔ background worker cannot start in shared HQ or when disabled (1.2545ms)
+✔ Gmail reader pins actual Clinicals mailbox and only reads (0.328959ms)
+✔ unnamed text body attachmentId is fetched while named student documents never are (0.653375ms)
+✔ oversized or unavailable text bodies are explicitly incomplete rather than empty-complete (0.142959ms)
+✔ body-part read failure prevents cursor advance (0.162208ms)
+✔ options persist through existing update and derive primary scalar compatibility (14.396459ms)
+✔ legacy payload omission does not clear options and explicit empty list remains legacy (1.096917ms)
+✔ rejects malformed, duplicate, excessive and inconsistent option fields without persistence (1.75575ms)
+✔ preview renders every independent option and binds canonical snapshot in hash (1.719916ms)
+✔ applicant only forwards validated ID and revision, never a client selected snapshot (1.071042ms)
+✔ applicant requires explicit option, safely renders text, reviews chosen dates and resets stale choice (160.286458ms)
+✔ payment status-only request fails before RPC (4.599375ms)
+✔ paperwork status-only request fails before RPC (15.821959ms)
+✔ learndash status-only request fails before RPC (1.3135ms)
+✔ evidence_source undefined fails required typed provenance before RPC (0.744541ms)
+✔ reason undefined fails required typed provenance before RPC (0.597917ms)
+✔ evidence_source  	  fails required typed provenance before RPC (0.899625ms)
+✔ reason  
+  fails required typed provenance before RPC (0.28075ms)
+✔ evidence_source true fails required typed provenance before RPC (0.467333ms)
+✔ reason 42 fails required typed provenance before RPC (0.573708ms)
+✔ evidence_source [object Object] fails required typed provenance before RPC (0.3325ms)
+✔ reason  fails required typed provenance before RPC (0.209542ms)
+✔ invalid expected_revision undefined fails before RPC (0.234292ms)
+✔ invalid expected_revision null fails before RPC (0.194833ms)
+✔ invalid expected_revision 7 fails before RPC (0.778875ms)
+✔ invalid expected_revision true fails before RPC (0.635208ms)
+✔ invalid expected_revision 0 fails before RPC (0.2125ms)
+✔ invalid expected_revision -1 fails before RPC (0.202959ms)
+✔ invalid expected_revision 1.5 fails before RPC (2.411333ms)
+✔ invalid expected_revision 9007199254740992 fails before RPC (0.733292ms)
+✔ payment forwards a manual source/reason/current revision with server actor (24.034458ms)
+✔ paperwork forwards a manual source/reason/current revision with server actor (0.50675ms)
+✔ learndash forwards a manual source/reason/current revision with server actor (0.400167ms)
+✔ required evidence trims whitespace and optional note may be omitted (0.333833ms)
+✔ payment existing status domain remains enforced (0.195833ms)
+✔ paperwork existing status domain remains enforced (0.148542ms)
+✔ learndash existing status domain remains enforced (0.147542ms)
+✔ operations mutation still rejects wrong HTTP method (0.079208ms)
+✔ approved labeled recipient reaches one durable claim and provider call (40.201334ms)
+✔ approved case and whitespace normalization preserves the exact controlled inbox (6.435625ms)
+✔ blocked applicant recipient fails before any RPC, claim or provider (1.913042ms)
+✔ recipient comma list is blocked before claim/provider (0.402417ms)
+✔ recipient semicolon list is blocked before claim/provider (0.34ms)
+✔ recipient display-name address is blocked before claim/provider (0.285083ms)
+✔ recipient CRLF header content is blocked before claim/provider (0.240875ms)
+✔ recipient lookalike domain is blocked before claim/provider (0.235583ms)
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"fd37ac86-b267-4d68-905c-a457f3c9427e","emailHash":"8fb66fa358b7","notificationStatus":"partial_or_failed","notificationDryRun":false,"adminRecipientCount":3}
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"493d13de-b643-4226-b01c-f1322050f6b4","emailHash":"67a0a2c9c99a","notificationStatus":"partial_or_failed","notificationDryRun":false,"adminRecipientCount":3}
+✔ recipient Unicode lookalike local part is blocked before claim/provider (0.649291ms)
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"3deed680-8fe9-4e08-b2cc-01234870371e","emailHash":"945934b3b116","notificationStatus":"dry_run","notificationDryRun":true,"adminRecipientCount":3}
+[USCE_PUBLIC_INTAKE] accepted_supabase {"requestId":"44bbfdb3-b190-4176-8b81-d7258e4e8e50","emailHash":"18540cb88097","notificationStatus":"sent","notificationDryRun":false,"adminRecipientCount":3}
+✔ configured empty allowlist fails closed before claim/provider (0.392417ms)
+✔ configured whitespace allowlist fails closed before claim/provider (0.228708ms)
+✔ configured wildcard allowlist fails closed before claim/provider (2.876167ms)
+✔ configured other address allowlist fails closed before claim/provider (1.037333ms)
+✔ configured CSV list allowlist fails closed before claim/provider (0.266958ms)
+✔ configured duplicate CSV allowlist fails closed before claim/provider (0.179375ms)
+✔ configured JSON list allowlist fails closed before claim/provider (0.154875ms)
+✔ configured CRLF allowlist fails closed before claim/provider (0.156625ms)
+✔ configured malformed allowlist fails closed before claim/provider (0.145042ms)
+✔ configured lookalike domain allowlist fails closed before claim/provider (0.138667ms)
+✔ spoofed approved recipient cannot send an offer belonging to another email (0.357958ms)
+✔ QA subject requires the explicit label before claim/provider (0.1685ms)
+✔ QA body requires the explicit label before claim/provider (0.168917ms)
+✔ request-provided allowlist cannot bypass configured recipient restriction (0.168375ms)
+✔ policy is rechecked at provider boundary after a durable claim (3.343916ms)
+✔ dry run remains provider-free for an unapproved synthetic recipient (5.405333ms)
+✔ intentional variable deletion restores unchanged ordinary live-send behavior (6.14175ms)
+✔ absent policy does not alter legacy recipient or label validation contract (0.127083ms)
+✔ public intake cannot send admin or unlabeled acknowledgement emails during QA (20.382ms)
+✔ invalid QA configuration blocks every intake provider attempt (0.909833ms)
+✔ public intake force-dry-run remains an independent outbound fence (0.400125ms)
+✔ intentional variable deletion preserves ordinary public-intake notification behavior (1.330416ms)
+{
+  "mode": "integrated-runtime",
+  "passed": 50,
+  "total": 50,
+  "results": [
+    {
+      "name": "gateway health",
+      "pass": true
+    },
+    {
+      "name": "authorized administrator queue GET",
+      "pass": true
+    },
+    {
+      "name": "anonymous queue denied",
+      "pass": true
+    },
+    {
+      "name": "malformed bearer denied",
+      "pass": true
+    },
+    {
+      "name": "expired bearer denied",
+      "pass": true
+    },
+    {
+      "name": "missing expiry denied",
+      "pass": true
+    },
+    {
+      "name": "future issue time denied",
+      "pass": true
+    },
+    {
+      "name": "explicit sibling session audience denied",
+      "pass": true
+    },
+    {
+      "name": "invalid payload version denied",
+      "pass": true
+    },
+    {
+      "name": "whitespace authAudience cannot hide sibling audience",
+      "pass": true
+    },
+    {
+      "name": "USCE authAudience cannot hide sibling audience",
+      "pass": true
+    },
+    {
+      "name": "sibling authAudience cannot hide USCE audience",
+      "pass": true
+    },
+    {
+      "name": "boolean user ID denied",
+      "pass": true
+    },
+    {
+      "name": "array user ID denied",
+      "pass": true
+    },
+    {
+      "name": "object user ID denied",
+      "pass": true
+    },
+    {
+      "name": "decimal-point string user ID denied",
+      "pass": true
+    },
+    {
+      "name": "positive decimal-digit string user ID accepted",
+      "pass": true
+    },
+    {
+      "name": "nonadministrator queue denied",
+      "pass": true
+    },
+    {
+      "name": "missing CSRF mutation denied before RPC",
+      "pass": true
+    },
+    {
+      "name": "invalid CSRF mutation denied before RPC",
+      "pass": true
+    },
+    {
+      "name": "invalid bearer does not fall back to valid cookie",
+      "pass": true
+    },
+    {
+      "name": "valid legacy administrator cookie works",
+      "pass": true
+    },
+    {
+      "name": "anonymous session readback",
+      "pass": true
+    },
+    {
+      "name": "expired session readback unauthenticated",
+      "pass": true
+    },
+    {
+      "name": "valid legacy signed administrator handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "accepted WordPress USCE relay legacy aud hq handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "valid explicit USCE signed administrator handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "explicit sibling signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "subscriber signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "expired signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "nonUSCE login audience rejected",
+      "pass": true
+    },
+    {
+      "name": "frontend legacy hq audience rejected without weakening USCE gate",
+      "pass": true
+    },
+    {
+      "name": "invalid CSRF logout denied",
+      "pass": true
+    },
+    {
+      "name": "valid CSRF logout clears cookie",
+      "pass": true
+    },
+    {
+      "name": "relay exact CDN target and fragment-only",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /hq",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/hq/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/auth/bootstrap",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/admin/../analytics/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/admin/%2e%2e/analytics/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/adminx/public-intake-requests",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/integrations/gmail/comms-review-write",
+      "pass": true
+    },
+    {
+      "name": "shared generic sibling handoff/body USCE hint baseline preserved",
+      "pass": true
+    },
+    {
+      "name": "shared generic expired session behavior baseline preserved",
+      "pass": true
+    },
+    {
+      "name": "direct shared USCE expired session denied",
+      "pass": true
+    },
+    {
+      "name": "isolated inner exchange sibling handoff/body USCE hint rejected",
+      "pass": true
+    },
+    {
+      "name": "no external request escaped interception",
+      "pass": true
+    },
+    {
+      "name": "no raw session, handoff or generated key in logs",
+      "pass": true
+    }
+  ]
+}
+✔ missionmed-hq/tests/usce-runtime.test.mjs (488.662084ms)
+✔ review binds full rendering and redacts durable bearer tokens (44.094208ms)
+✔ bearer token in subject is rejected before storage (1.833791ms)
+✔ percent-encoded bearer prefix is redacted from every stored rendering (2.851541ms)
+✔ ordinary percent prose cannot bypass percent-encoded bearer redaction (2.157ms)
+✔ changed subject or recipient cannot reuse approval (9.126583ms)
+✔ concurrent duplicate send contacts provider exactly once (27.99575ms)
+✔ ambiguous provider outcome never retries blindly (32.860375ms)
+✔ provider acceptance followed by failed readback remains durably held (26.758125ms)
+✔ dry run uses no provider and returns ready business stage (2.692709ms)
+✔ revision changed after preview requires renewed review (3.237167ms)
+✔ review and durable preview include configured safe sender identity without token (53.545916ms)
+✔ provider sender, reply address, subject and rendered bodies equal the approved preview (9.808584ms)
+✔ USCE_POSTMARK_FROM_EMAIL drift after review rejects the old approval before claim/provider (4.525417ms)
+✔ USCE_POSTMARK_REPLY_TO_EMAIL drift after review rejects the old approval before claim/provider (5.044792ms)
+✔ configuration change during claim uses frozen approved identity (17.273833ms)
+✔ mismatched durable from_name holds the claim without provider attempt (8.604416ms)
+✔ mismatched durable from_email holds the claim without provider attempt (11.232917ms)
+✔ mismatched durable reply_to holds the claim without provider attempt (2.312ms)
+✔ missing durable sender proof fails closed (2.327708ms)
+✔ default preview identity matches default provider header (2.441417ms)
+✔ client-supplied sender fields cannot override the preview or provider (2.385208ms)
+✔ new identity binding preserves provider-free dry run (3.201625ms)
+✔ general Communications is available without selecting a case; folders use the same endpoint (309.7ms)
+✔ sender not ready permits draft saving and blocks review and send (165.987583ms)
+✔ exact generic preview approval is invalidated by edits; recipient and sender remain verified (192.002125ms)
+✔ ambiguous send is attempted once and held for reconciliation; generic mail never calls Offer APIs (220.231542ms)
+✔ case history and unified thread share message records and render inbound body as text (124.955959ms)
+✔ template uses recorded preferences and never claims confirmed availability (143.122083ms)
+✔ mismatched server recipient proof prevents sending and retains composer text (140.490584ms)
+✔ canonical message deep link opens the unified conversation through authenticated API (142.856875ms)
+✔ exact older deep-linked message remains the reply target outside newest thread page (120.567542ms)
+✔ delivery attention offers readback for ambiguous and retry only for confirmed-unsent failure (129.263333ms)
+✔ unavailable inbound body is marked incomplete and links to Clinicals Gmail (108.588083ms)
+✔ linked reply and draft outside filtered queue use current trusted recipient without inventing preferences (154.8535ms)
+✔ archived linked case permits correspondence without reopening case or changing Offer (134.135084ms)
+✔ draft save conflict remains actionable inside composer after finally and preserves text (152.934084ms)
+✔ untrusted parent origin/source/shape/UUID cannot initiate a conversation (115.119791ms)
+✔ ready handshake queues exact parent message until protected admin read and consumes duplicate once (140.058416ms)
+✔ duplicate child conversation query parameters do not navigate after authentication (114.274833ms)
+✔ selected incoming message receives focus and only internal thread scroll while SYS history remains (109.876ms)
+✔ pending conversation stays unread when the existing protected admin read denies access (106.089959ms)
+✔ new Offer transport durably prepares RFC identity before provider and binds canonical history after acceptance (53.049ms)
+✔ failed transport preparation keeps claim held and never calls provider (3.661416ms)
+✔ history binding failure truthfully retains provider acceptance and duplicate send cannot redeliver (25.609375ms)
+✔ ambiguous provider outcome never binds history or blindly retries (26.884166ms)
+✔ dry run does not mark live RFC transport or bind correspondence (2.409583ms)
+✔ dashboard creates real independent case and next action buttons without nested buttons (384.974625ms)
+✔ pipeline reflects same queue in four exact lanes and preserves exceptional records (151.123459ms)
+✔ cancelled case switch does not enter Journey or replace existing case (231.216917ms)
+✔ responded offer card opens the case without entering editable Journey (174.234959ms)
+✔ Journey retains unique existing controls, top save and six-step rail (118.6235ms)
+✔ workspace navigation asks once and preserves cancelled dirty case (173.509875ms)
+✔ foundation sidebar Pipeline survives Journey exit and Dashboard return (237.967125ms)
+✔ left rail is the only app navigation and Overview without a selected case is functional (286.738208ms)
+✔ KPI filters clear incompatible state and include every recorded status alias (204.861458ms)
+✔ legacy stays empty until Add; independent dates and stable IDs persist through save exit and reload (424.148959ms)
+✔ max five options; remove primary promotes exact next option and invalidates approval (327.513292ms)
+✔ incomplete options, invalid duration and date order block saving without sends (248.667625ms)
+✔ server checked preview and grouped review contain every saved option; later edits invalidate approval (241.663375ms)
+✔ accepted option two is clearly shown while both original alternatives remain visible (191.102875ms)
+ℹ tests 182
+ℹ suites 0
+ℹ pass 182
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4012.909583

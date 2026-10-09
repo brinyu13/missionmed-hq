@@ -1,0 +1,392 @@
+{
+  "offers": {
+    "count": 76,
+    "fingerprint": "4ca2efdfe231f9eb69438b1cf0b29da3"
+  },
+  "history": [
+    {
+      "name": "mr_904a_crm_email_schema",
+      "version": "20260324190000",
+      "statements_hash": "7aee878d9ca90430eb5b9d868a0e34c4"
+    },
+    {
+      "name": "mr_903a_command_center_phase1",
+      "version": "20260324223000",
+      "statements_hash": "87bfaf261890608dbc21a974adfa80a6"
+    },
+    {
+      "name": "remote_schema",
+      "version": "20260325120110",
+      "statements_hash": "8b2b4f2b98dd2783b30c0af6c2a9b7c9"
+    },
+    {
+      "name": "mr_903b_command_center_rest_views",
+      "version": "20260325153000",
+      "statements_hash": "5948e80cf676f1333aadcfa73d14e252"
+    },
+    {
+      "name": "mac_6_command_center_core_infrastructure",
+      "version": "20260327195500",
+      "statements_hash": "cd0c70f6fd48068c9e357411a8b87fc8"
+    },
+    {
+      "name": "mac_6_1_command_center_integration_layer",
+      "version": "20260327213000",
+      "statements_hash": "aaa1bb3e338dcf975c4f390407e1c440"
+    },
+    {
+      "name": "mcc_402_read_write_rpc",
+      "version": "20260328120000",
+      "statements_hash": "a5b023068440cb2144d593c692272a64"
+    },
+    {
+      "name": "mr_te_951_testimonial_engine_additions",
+      "version": "20260329235500",
+      "statements_hash": "c13c2a1df31acebfd2168bdbbeb52690"
+    },
+    {
+      "name": "nmcc_2d_hq_rpc_reads",
+      "version": "20260330163000",
+      "statements_hash": "8554650b6c2d89f7754f3bcde55f8b02"
+    },
+    {
+      "name": "nmcc_3b_task_linked_entities",
+      "version": "20260330170000",
+      "statements_hash": "988c9ea30dd06ceea60d6bbf51e06a0a"
+    },
+    {
+      "name": "nmcc_2e_command_center_backfill_rpc",
+      "version": "20260330190000",
+      "statements_hash": "ef1a3b24b0adef75e38bdfd6c06aef9d"
+    },
+    {
+      "name": "nmcc_2e_backfill_anchor_support",
+      "version": "20260330193000",
+      "statements_hash": "aecc22324e5413e51dd2a56634e8b02d"
+    },
+    {
+      "name": "nmcc_4_hq_live_crud_rpc",
+      "version": "20260330204500",
+      "statements_hash": "f0bccc05f47a377d600b6ede259414d5"
+    },
+    {
+      "name": "vrs9d_media_system_schema",
+      "version": "20260402021500",
+      "statements_hash": "bd1058c1f9d9a86b1f2c81ff313592f7"
+    },
+    {
+      "name": "vdrl_080_drill_registry",
+      "version": "20260406120000",
+      "statements_hash": "f62a357ddf7ba8387aba2f6c3dff3bda"
+    },
+    {
+      "name": "vdrl_081_drill_registry_control_layer",
+      "version": "20260411103300",
+      "statements_hash": "09ada6b61ff0854e77cd90cc3c7e40d0"
+    },
+    {
+      "name": "vdrl_082_menu_categories",
+      "version": "20260411153000",
+      "statements_hash": "c239d9feedd66cac3ca2c0a4bd1c9667"
+    },
+    {
+      "name": "vdrl_083_drill_menu_write_rls",
+      "version": "20260411164000",
+      "statements_hash": "18a82898f34b9037659bdc7e5df6e40a"
+    },
+    {
+      "name": "tournamed_qstat_core_async",
+      "version": "20260415120000",
+      "statements_hash": "8767309c894c468864347fb4cc226f7d"
+    },
+    {
+      "name": "stat_private_generate_bot_attempt_digest_schema_fix",
+      "version": "20260416153000",
+      "statements_hash": "0ba2ed1d1c1def0c75aa06f07ba4bf1b"
+    },
+    {
+      "name": "stat_canon_schema",
+      "version": "20260420110000",
+      "statements_hash": "68ccd545852d0f69f0f3d0fcaca774c2"
+    },
+    {
+      "name": "stat_dataset_ingest",
+      "version": "20260420111000",
+      "statements_hash": "ef6ba702669e5b6a7c9943f40f2e9ffa"
+    },
+    {
+      "name": "stat_canon_helpers",
+      "version": "20260420112000",
+      "statements_hash": "92776c52ccd9073ac494f747c85fcaee"
+    },
+    {
+      "name": "stat_canon_rpcs",
+      "version": "20260420113000",
+      "statements_hash": "7a57b6ecd54d3aff138bf27e953451fd"
+    },
+    {
+      "name": "stat_backfill",
+      "version": "20260420114000",
+      "statements_hash": "43a0fefbcee0be44ec9d933f27278e2a"
+    },
+    {
+      "name": "avatar_locker_identity_stat",
+      "version": "20260422123000",
+      "statements_hash": "dfb550faaea96fcad27d1fcca6b8fe8f"
+    },
+    {
+      "name": "stat_tier_a_supabase_staging_safe_mode",
+      "version": "20260422124500",
+      "statements_hash": "37fdb6ea787269f29e2b22244db66583"
+    },
+    {
+      "name": "avatar_hardening_rls_rpc",
+      "version": "20260423213000",
+      "statements_hash": "adba3ada4cf85fa148c17ce6499c662d"
+    },
+    {
+      "name": "e3_stat_beta_tables",
+      "version": "20260423220000",
+      "statements_hash": "a8861350f44feed02e663e9704d09c4d"
+    },
+    {
+      "name": "e3_stat_beta_rls",
+      "version": "20260423223000",
+      "statements_hash": "92d3f44a74ee912c61739f4cf080ee58"
+    },
+    {
+      "name": "e3_stat_session_match_rpcs",
+      "version": "20260423230000",
+      "statements_hash": "d32fb2833d70c30ac38a8c620cb547e2"
+    },
+    {
+      "name": "e3_stat_telemetry_rpcs",
+      "version": "20260423233000",
+      "statements_hash": "8f3d59fb0ec1ac21b092ed0ce39f870c"
+    },
+    {
+      "name": "remote_schema",
+      "version": "20260424111407",
+      "statements_hash": "1aaea87c801d7cd8524ba4d548091426"
+    },
+    {
+      "name": "create_bootstrap_match_rpc",
+      "version": "20260424121038",
+      "statements_hash": "e2377dfea5be522d007d1368e0e8f3e2"
+    },
+    {
+      "name": "usce_portal_guard",
+      "version": "20260424130000",
+      "statements_hash": "45708f0260367440084be3a445874b5d"
+    },
+    {
+      "name": "usce_rls_policies",
+      "version": "20260424150000",
+      "statements_hash": "fdee9c3c2b3e809491e7a33f763bc3d9"
+    },
+    {
+      "name": "stat_avatar_snapshot_replay_bridge",
+      "version": "20260424164000",
+      "statements_hash": "61abe4715ff0f1de4c6bfc1c80de270b"
+    },
+    {
+      "name": "e3_stat_write_order_repair",
+      "version": "20260426123000",
+      "statements_hash": "65487dfddb0ecebcbb1973e94263ad5c"
+    },
+    {
+      "name": "usce_portal_rpc",
+      "version": "20260426140000",
+      "statements_hash": "0f2ba3d0de4df31564b330c402309057"
+    },
+    {
+      "name": "usce_search_indexes",
+      "version": "20260426141000",
+      "statements_hash": "709d590368e9a45aa4e49cd4482286a5"
+    },
+    {
+      "name": "usce_cron_jobs",
+      "version": "20260426142000",
+      "statements_hash": "f2b54608629aa3d4f034818730dcc9d4"
+    },
+    {
+      "name": "usce_seed_programs",
+      "version": "20260426143000",
+      "statements_hash": "86d2ea702075d32d47d4db21ab736af9"
+    },
+    {
+      "name": "e3_stat_write_order_schema_compat",
+      "version": "20260426150000",
+      "statements_hash": "9c6e02bdf6f8a7f7337028e0e0a995fa"
+    },
+    {
+      "name": "dboc_iv_schema",
+      "version": "20260426161000",
+      "statements_hash": "88f73e5c6b40fbeaee2f4fb2a6f7ade0"
+    },
+    {
+      "name": "dboc_iv_rls",
+      "version": "20260426162000",
+      "statements_hash": "3ec5ece447d70f0f0158248b8afb657e"
+    },
+    {
+      "name": "mmos_arena_intel_question_metadata",
+      "version": "20260426170000",
+      "statements_hash": "2e26f94c13e0b46a52f55fb2c750ed76"
+    },
+    {
+      "name": "mmos_arena_intel_qstat_answers_v1_view",
+      "version": "20260426171000",
+      "statements_hash": "d21b8be1153188787a3b705dd12d15ae"
+    },
+    {
+      "name": "mmos_arena_intel_student_profiles_enrollment",
+      "version": "20260426172000",
+      "statements_hash": "e22c12a8f8f49838f82ca320f9c33545"
+    },
+    {
+      "name": "mmos_arena_intel_pipeline_core",
+      "version": "20260426173000",
+      "statements_hash": "1c256df2dd68cd76e6cc6e72162496fa"
+    },
+    {
+      "name": "mmos_arena_intel_performance_snapshots",
+      "version": "20260426174000",
+      "statements_hash": "31fe8f971a61c9ed535acca43c2fa7eb"
+    },
+    {
+      "name": "mmos_arena_intel_diagnostic_plan_engine",
+      "version": "20260426175000",
+      "statements_hash": "277fc12c5b710febf006578ae2cccb81"
+    },
+    {
+      "name": "mmos_arena_intel_complete_study_task_rpc",
+      "version": "20260426183000",
+      "statements_hash": "73fa550a0ceabcb25d4f97411ca205e6"
+    },
+    {
+      "name": "mr_stat_human_async_duel_contract_repair_035",
+      "version": "20260427131000",
+      "statements_hash": "a7da359670b225261df3edec6b621e3b"
+    },
+    {
+      "name": "stat_player_search_public_cards",
+      "version": "20260501183000",
+      "statements_hash": "0bcf1726f4d457f8cf56d626cdf50368"
+    },
+    {
+      "name": "usce_public_intake_requests",
+      "version": "20260503101000",
+      "statements_hash": "8e4d9bc8bcda12f0aff1e1a20c347285"
+    },
+    {
+      "name": "usce_public_intake_rpc",
+      "version": "20260503123000",
+      "statements_hash": "a8517f2c151b8a907293e51fc1e0a744"
+    },
+    {
+      "name": "usce_public_intake_admin_read_rpc",
+      "version": "20260503170000",
+      "statements_hash": "ed37ccbe7e56d0850147cd226d4d041c"
+    },
+    {
+      "name": "usce_full_offer_engine_automation",
+      "version": "20260505120000",
+      "statements_hash": "3dc09a3ccbe07b568a44da2b72762040"
+    },
+    {
+      "name": "gmail_metadata_comms_review_write",
+      "version": "20260505215000",
+      "statements_hash": "8a1aafc53170b9bcb5fa73dacea18261"
+    },
+    {
+      "name": "stat_diagnostic_snapshot_job_layer",
+      "version": "20260507143000",
+      "statements_hash": "66a7a6ab991bc662e2e5e9ae3a274909"
+    },
+    {
+      "name": "ahp_013_profile_rls_identity_hardening",
+      "version": "20260512152258",
+      "statements_hash": "991f14ac3dc521fc278edde1700a5f0a"
+    },
+    {
+      "name": "ahp_014_registration_profile_contract",
+      "version": "20260512201200",
+      "statements_hash": "6e7d0625ae0392ae38929236dee6b3cd"
+    },
+    {
+      "name": "ahp_015_registration_matchpoints_bonus",
+      "version": "20260513064500",
+      "statements_hash": "c68d83f1a1da9339509180ca7e53ba54"
+    },
+    {
+      "name": "ahp_016_registration_pressure_bonus_update",
+      "version": "20260513115000",
+      "statements_hash": "2414d8910de6f67fd40006b654b72862"
+    },
+    {
+      "name": "mm_sched_012_scheduler_v1_foundation",
+      "version": "20260514120412",
+      "statements_hash": "cbfca754af9c54e9115fa63a667129b2"
+    },
+    {
+      "name": "statv3_ai_rivals",
+      "version": "20260514160000",
+      "statements_hash": "388df6aa16c83c17fb80a61e46a5bb9b"
+    },
+    {
+      "name": "statv3_human_roster_search_avatar_repair_056",
+      "version": "20260517194712",
+      "statements_hash": "de69abe54546c851a84a750d6d9013e5"
+    },
+    {
+      "name": "arena_beta_access_gating",
+      "version": "20260526123000",
+      "statements_hash": "a3a50e4d7357643cdde2f0243d5aad51"
+    },
+    {
+      "name": "e9_stat_v3_classmate_avatar_roster",
+      "version": "20260531221500",
+      "statements_hash": "300513c592af1d37c9c85dedbc43ee37"
+    },
+    {
+      "name": "e9_stat_v3_classmate_profile_avatar_fallback",
+      "version": "20260531223600",
+      "statements_hash": "9d1a06d45b3051b6aca9de8871288336"
+    },
+    {
+      "name": "usce_offer_decline_action_contract",
+      "version": "20260619164000",
+      "statements_hash": "42ddad7a7061e8762817a4138f47efcb"
+    },
+    {
+      "name": "hb_360a_005r_x_ranklist_resolver_lockdown",
+      "version": "20260905221718",
+      "statements_hash": "02bf250db11b21cfc4ff8c36fd227773"
+    },
+    {
+      "name": "usce_phil_first_safety",
+      "version": "20261002131800",
+      "statements_hash": "7e28e0ff10e519d52c6a4147731866bf"
+    },
+    {
+      "name": "usce_phil_first_fix_forward",
+      "version": "20261002142841",
+      "statements_hash": "2374c79d7881c2012248ed509678a2d4"
+    },
+    {
+      "name": "usce_phil_first_operations_handoff",
+      "version": "20261002162044",
+      "statements_hash": "2f4dec446a2bf10e0e3da619aec66f8a"
+    },
+    {
+      "name": "usce_v3_communications",
+      "version": "20261009054154",
+      "statements_hash": "b08a1af6ecc7612fa106f8b3249c8538"
+    }
+  ],
+  "intakes": {
+    "count": 98,
+    "fingerprint": "418aa076da9803400b8438620568ca33"
+  }
+}
