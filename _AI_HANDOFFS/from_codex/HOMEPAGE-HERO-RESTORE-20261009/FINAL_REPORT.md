@@ -43,7 +43,7 @@ Diff: 4 files, 49 insertions/24 deletions including a focused 3-test file. No Mi
 | CLS | PASS: desktop 0.00142, mobile 0.01398–0.01492; no major shift |
 | LCP | **OBSERVED, CAUTION**: cold anonymous Chrome runs 3.28–4.28s desktop and 3.43–3.86s mobile. The LCP element is the restored approved `mr-application.webp`; image/preload/loading strategy was not changed. Response completion alone took 2.12–2.86s in those runs, so this record cannot prove the historical 1.42–1.90s site timing still holds. Do not present this as a measured before/after regression pass. |
 
-The independent browser context used for anonymous public QA had no WordPress admin toolbar. Verification was performed by this sole Foreman per the earlier Founder single-thread override; no separate agent verdict is claimed.
+The primary browser QA used a public page without a WordPress admin toolbar, plus separate no-cookie HTTP and fresh headless runs. A fresh read-only verifier independently returned **PASS** after cycling all eight frames at 1440×900 and 390×844, finding loaded images, correct CTAs and no overflow or visible contrast collision. Its browser inherited a signed-in session, so its anonymous confirmation came from a separate no-cookie HTTP request; it did not independently test autoplay or formal contrast ratios. It made no changes.
 
 ## Evidence
 
@@ -51,6 +51,6 @@ The independent browser context used for anonymous public QA had no WordPress ad
 
 ## Rollback and state closeout
 
-Rollback target is the exact private `preimage/` PHP, CSS and JS set above. Under a fresh authorized OS PATH lease, compare all three live SHA-256 hashes to this deployment record, atomically copy back the three preimages with original ownership/modes, clear Kinsta site cache, and verify anonymous readback. Do not roll back the full site or unrelated business/runtime data. The restoration lease expired after deployment. A later unrelated GLOBAL lease prevented a fresh protected-repository evidence write, so this report and screenshots were saved in the Codex artifact workspace without touching production. Production remains on the restored candidate.
+Rollback target is the exact private `preimage/` PHP, CSS and JS set above. Under a fresh authorized OS PATH lease, compare all three live SHA-256 hashes to this deployment record, atomically copy back the three preimages with original ownership/modes, clear Kinsta site cache, and verify anonymous readback. Do not roll back the full site or unrelated business/runtime data. The deployment lease expired afterward. Following expiry of an unrelated GLOBAL lease, the QA report and captures were committed to the protected source branch as evidence-only commits `855270f` and `a2abe52`; no further production files were changed. Production remains on deployment commit `cfc8d21`.
 
 MissionMed Brain should only ingest the verified facts in this report. No generated Brain product context pack or registry was rewritten for this surgical release.
