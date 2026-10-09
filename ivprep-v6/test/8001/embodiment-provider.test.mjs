@@ -195,6 +195,17 @@ test('aggregate PCM cannot exceed 45 seconds even if the clock has not advanced'
   await assert.rejects(h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'audio',generation:1,sequence:151,audio}),/input_limit/);
   assert.equal(h.receipts[0].reason,'input_budget');assert.equal(h.calls.filter(c=>c.body?.transport_type).length,1);
 });
+test('bounded catch-up HTTP audio preserves exact PCM and 80ms provider frames',async()=>{
+  const h=harness(),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  const command=body=>h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,generation:1,...body});
+  const pcm=Buffer.alloc(23040);for(let i=0;i<pcm.length;i++)pcm[i]=i%251;
+  await command({command:'audio',sequence:3,audio:pcm.toString('base64')});
+  assert.equal(h.commands.length,9);assert.ok(h.commands.every(c=>c.sampleRate===16000&&c.encoding==='PCM16'&&Buffer.from(c.audio,'base64').length===2560));
+  assert.deepEqual(Buffer.concat(h.commands.map(c=>Buffer.from(c.audio,'base64'))),pcm);
+  await assert.rejects(command({command:'audio',sequence:4,audio:Buffer.alloc(23042).toString('base64')}),/frame_invalid/);
+  await command({command:'audio_end',sequence:4});assert.equal(h.commands.at(-1).command,'audio_end');
+  await command({command:'terminate'});assert.equal(h.receipts.at(-1).providerConfirmed,true);
+});
 test('a new generation is fenced until interrupted playback is actually acknowledged',async()=>{
   let socket;
   class DelayedSocket extends EventEmitter{readyState=1;bufferedAmount=0;constructor(){super();queueMicrotask(()=>this.emit('open'));}send(){}close(){this.readyState=3;}}

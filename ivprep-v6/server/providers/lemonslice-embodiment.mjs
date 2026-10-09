@@ -333,12 +333,12 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
       }
       if(generation!==Math.max(1,a.generation) || sequence<=a.sequence)throw fail('ivoc_embodiment_stale_frame');
       if(command==='audio'){
-        if(typeof audio!=='string'||audio.length>13700||!/^[A-Za-z0-9+/]+={0,2}$/.test(audio))throw fail('ivoc_embodiment_frame_invalid',400);
+        if(typeof audio!=='string'||audio.length>30720||!/^[A-Za-z0-9+/]+={0,2}$/.test(audio))throw fail('ivoc_embodiment_frame_invalid',400);
         const bytes=Buffer.from(audio,'base64');
-        if(bytes.length===0||bytes.length%2||bytes.length>9600)throw fail('ivoc_embodiment_frame_invalid',400);
+        if(bytes.length===0||bytes.length%2||bytes.length>23040)throw fail('ivoc_embodiment_frame_invalid',400);
         a.samples+=bytes.length/2;
         if(a.samples>durationSeconds*16000){await stop(a,'input_budget');throw fail('ivoc_embodiment_input_limit');}
-        // HTTP batches contain up to 3 documented 80ms frames. Provider receives
+        // Catch-up HTTP batches contain at most 9 documented 80ms frames. Provider receives
         // small PCM chunks, never an unbounded buffered utterance.
         try{for(let offset=0;offset<bytes.length;offset+=2560)send(a,{command:'audio',audio:bytes.subarray(offset,offset+2560).toString('base64'),sampleRate:16000,encoding:'PCM16'});}
         catch(error){await stop(a,'audio_send_failed');throw error;}

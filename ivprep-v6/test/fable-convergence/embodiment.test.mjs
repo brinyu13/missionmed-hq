@@ -128,6 +128,51 @@ test('backpressure fails closed instead of retaining an unbounded delayed interv
   const first=deferred(),faults=[];const queue=new EmbodimentCommandQueue(()=>first.promise,{maxQueued:1,onFailure:e=>faults.push(e.message)});
   const inflight=queue.push('audio'),pending=queue.push('audio');await assert.rejects(queue.push('audio'),/queue limit/);assert.equal(queue.closed,true);assert.equal(faults.length,1);assert.equal((await pending).discarded,true);first.resolve();await inflight;
 });
+test('70s of PCM survives observed HTTP delay and jitter without loss, retry or backlog growth',async()=>{
+  for(const latency of [()=>270,i=>i%7===0?500:300]){
+    let clock=0,completion=null,maxPending=0;const expected=[],received=[],promises=[],faults=[],sequences=[];
+    const queue=new EmbodimentCommandQueue(item=>{
+      const audio=Buffer.from(item.audio,'base64');assert.ok(audio.length<=23040);
+      received.push(audio);sequences.push(item.sequence);
+      const wait=deferred();completion={at:clock+latency(received.length),resolve:wait.resolve};return wait.promise;
+    },{onFailure:e=>faults.push(e)});
+    let next=0;
+    while(next<70000||completion){
+      const producer=next<70000?next:Infinity;
+      clock=Math.min(producer,completion?.at??Infinity);
+      if(completion?.at===clock){const done=completion;completion=null;done.resolve({accepted:true});await new Promise(r=>setImmediate(r));}
+      if(producer===clock){
+        const pcm=Buffer.alloc(7680);for(let i=0;i<pcm.length;i++)pcm[i]=(next/240+i)%251;
+        expected.push(pcm);promises.push(queue.push('audio',{audio:pcm.toString('base64')}));next+=240;
+      }
+      maxPending=Math.max(maxPending,queue.pending.length);
+    }
+    await Promise.all(promises);assert.deepEqual(faults,[]);assert.equal(queue.closed,false);
+    assert.deepEqual(Buffer.concat(received),Buffer.concat(expected));assert.ok(maxPending<=3);
+    assert.ok(received.length<expected.length,'catch-up consumes fewer HTTP requests, not fewer samples');
+    assert.ok(sequences.every((n,i)=>i===0||n>sequences[i-1]));queue.close();
+  }
+});
+test('catch-up preserves audio_end barriers, maximum payload and every waiter',async()=>{
+  const first=deferred(),sent=[];
+  const queue=new EmbodimentCommandQueue(async item=>{sent.push(item);if(sent.length===1)await first.promise;return {accepted:true};});
+  const pcm=n=>({audio:Buffer.alloc(7680,n).toString('base64')});
+  const waits=[queue.push('audio',pcm(1)),queue.push('audio',pcm(2)),queue.push('audio',pcm(3)),queue.push('audio_end'),queue.push('audio',pcm(4)),queue.push('audio',pcm(5))];
+  first.resolve();assert.ok((await Promise.all(waits)).every(r=>r.accepted));
+  assert.deepEqual(sent.map(i=>i.command),['audio','audio','audio_end','audio']);
+  assert.deepEqual(sent.map(i=>i.sequence),[1,3,4,6]);
+  assert.deepEqual(Buffer.from(sent[1].audio,'base64'),Buffer.concat([Buffer.alloc(7680,2),Buffer.alloc(7680,3)]));
+  assert.equal(Buffer.from(sent[3].audio,'base64').length,15360);queue.close();
+});
+test('catch-up is capped at nine frames and all merged promises reject on one failed request',async()=>{
+  const first=deferred(),sent=[],faults=[];
+  const queue=new EmbodimentCommandQueue(async item=>{sent.push(item);if(sent.length===1)return first.promise;throw new Error('transport failed');},{onFailure:e=>faults.push(e)});
+  const waits=Array.from({length:6},(_,i)=>queue.push('audio',{audio:Buffer.alloc(7680,i).toString('base64')}));
+  const settled=Promise.allSettled(waits);first.resolve({accepted:true});const results=await settled;
+  assert.equal(sent.length,2);assert.equal(Buffer.from(sent[1].audio,'base64').length,23040);
+  assert.deepEqual(results.map(r=>r.status),['fulfilled','rejected','rejected','rejected','fulfilled','fulfilled']);
+  assert.ok(results.slice(4).every(r=>r.value.discarded));assert.equal(faults.length,1);assert.equal(queue.closed,true);
+});
 test('sole opening drives audio-dependent avatar; decoded frame still gates startup after the stable recording tap',async()=>{
   const order=[],native={id:'native'},heard={id:'rendered'},microphone={kind:'audio',readyState:'live',enabled:true};let rendererStops=0;
   class Peer{constructor(){this.iceGatheringState='complete';}addTrack(){}createDataChannel(){return this.channel={readyState:'open',send:data=>order.push(JSON.parse(data).type),close(){}};}async createOffer(){return {sdp:'offer'};}async setLocalDescription(d){this.localDescription=d;}async setRemoteDescription(){queueMicrotask(()=>{this.channel.onmessage({data:JSON.stringify({type:'session.started'})});this.ontrack({track:{id:'one',kind:'audio'},streams:[native]});});}close(){}}
@@ -228,6 +273,20 @@ test('first failure receipt survives teardown, excludes secrets and labels the a
   assert.equal(h.receipts[0].boundary,'IVOC_CLIENT');
   assert.doesNotMatch(JSON.stringify(h.receipts),/SECRET|wss:|https:|rawBody/);
   assert.equal(Object.isFrozen(h.receipts[0]),true);
+});
+test('signal evidence distinguishes silence from speech without retaining private PCM',async()=>{
+  const h=lifecycleHarness();await h.start();
+  try{
+    for(let i=0;i<3;i++)h.pcm();
+    assert.equal(h.renderer.diagnostics().signalEvidence.inputPeakRms,0);
+    h.pcm(0.04,1234);for(let i=0;i<5;i++)h.pcm();
+    const signal=h.renderer.diagnostics().signalEvidence;
+    assert.deepEqual(signal,{inputFrames:9,inputPeakRms:0.04,returnedPeakRms:0,audioEnds:1});
+    h.renderer.captureFailure({diagnostics:{category:'QUEUE_OVERFLOW',boundary:'AUDIO_TRANSPORT'}});
+    assert.deepEqual(h.receipts[0].signalEvidence,signal);
+    assert.equal(JSON.stringify(h.receipts[0]).includes('1234'),false);
+    h.pcm(0.2,42);assert.equal(h.receipts[0].signalEvidence.inputFrames,9,'failure keeps a snapshot');
+  }finally{await h.renderer.stop();}
 });
 
 test('disconnect classes remain distinct without creating a provider session',async()=>{

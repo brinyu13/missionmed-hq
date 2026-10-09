@@ -45,8 +45,23 @@ export class EmbodimentCommandQueue {
   }
   async drain(){
     if(this.sending)return;this.sending=true;
-    try{while(this.pending.length&&!this.closed){const item=this.pending.shift();
-      try{const result=await this.send(item);item.resolve(result);}catch(error){item.reject(error);if(!this.closed&&item.generation===this.generation){this.close();this.onFailure(error);}}
+    try{while(this.pending.length&&!this.closed){const item=this.pending.shift(),group=[item];
+      try{
+        // A 240ms PCM batch must not require its own >240ms HTTP round trip.
+        // Drain already-waiting adjacent audio together; never wait to fill a
+        // batch, drop samples, cross a turn/flush barrier, or grow the backlog.
+        let body=item;
+        if(item.command==='audio'&&this.pending[0]?.command==='audio'){
+          let pcm=atob(item.audio);
+          while(this.pending[0]?.command==='audio'&&this.pending[0].generation===item.generation){
+            const next=this.pending[0],part=atob(next.audio);
+            if(pcm.length+part.length>23040)break; // at most 720ms, nine provider frames
+            pcm+=part;group.push(this.pending.shift());
+          }
+          if(group.length>1)body={...item,audio:btoa(pcm),sequence:group.at(-1).sequence};
+        }
+        const result=await this.send(body);for(const member of group)member.resolve(result);
+      }catch(error){for(const member of group)member.reject(error);if(!this.closed&&item.generation===this.generation){this.close();this.onFailure(error);}}
     }}finally{this.sending=false;}
   }
   interrupt(){
@@ -71,6 +86,9 @@ export class EmbodimentRenderer {
     this.timeoutSignal=timeoutSignal;this.Worklet=AudioWorkletNodeCtor;this.startRequested=false;this.pcmGeneration=1;
     this.transitions=[];this.failure=null;this.decodeAbort=new AbortController();
     this.onDiagnostic=onDiagnostic;this.failureReceipt=null;this.interruptionTrigger=null;
+    // Numeric signal evidence only, never PCM/transcripts. Track existence is
+    // not proof that GPT sent sound or that generated sound came back.
+    this.signalEvidence={inputFrames:0,inputPeakRms:0,returnedPeakRms:0,audioEnds:0};
     this.visualReady=new Promise((resolve,reject)=>{this.visualResolve=resolve;this.visualReject=reject;});this.visualReady.catch(()=>{});
     this.transition('IVOC_READY','IVOC_CLIENT','RENDERER_INITIALIZED');
   }
@@ -80,7 +98,7 @@ export class EmbodimentRenderer {
     if(previous&&previous.completedAtMs==null){previous.completedAtMs=at;previous.successEvidence=evidence;}
     this.transitions.push({state,owner,startedAtMs:at,completedAtMs:null,entryEvidence:evidence,successEvidence:null,failureEvidence:null,cleanup:'EXACT_SESSION_ROOM_AND_MEDIA'});
   }
-  diagnostics(){return {state:this.transitions.at(-1)?.state||null,visualReady:this.visible===true,audioBound:this.returnAudioBound===true,interruptionRecovery:'finish-and-save',nativePlaybackBoundary:'UNAVAILABLE',transitions:this.transitions,failure:this.failure,failureReceipt:this.failureReceipt};}
+  diagnostics(){return {state:this.transitions.at(-1)?.state||null,visualReady:this.visible===true,audioBound:this.returnAudioBound===true,signalEvidence:{...this.signalEvidence},interruptionRecovery:'finish-and-save',nativePlaybackBoundary:'UNAVAILABLE',transitions:this.transitions,failure:this.failure,failureReceipt:this.failureReceipt};}
   captureFailure(error){
     if(this.failureReceipt)return; // Preserve the originating failure, not teardown fallout.
     const d=error?.diagnostics||{};
@@ -93,7 +111,7 @@ export class EmbodimentRenderer {
     const row=this.transitions.at(-1);if(row){row.completedAtMs=Date.now();row.failureEvidence=this.failure;}
     // Closed, bounded fields only: never error.message/stack, URLs, tickets,
     // transcripts, audio payloads or provider credentials. Survives host cleanup.
-    this.failureReceipt=Object.freeze({schema:'ivoc.embodiment-failure.v1',...this.failure,observedAtMs:Date.now(),visualReady:this.visible===true,audioBound:this.returnAudioBound===true,inputBound:this.inputBound===true,interruptionTrigger:this.interruptionTrigger,queueDepth:this.queue?.pending?.length||0});
+    this.failureReceipt=Object.freeze({schema:'ivoc.embodiment-failure.v1',...this.failure,observedAtMs:Date.now(),visualReady:this.visible===true,audioBound:this.returnAudioBound===true,inputBound:this.inputBound===true,signalEvidence:Object.freeze({...this.signalEvidence}),interruptionTrigger:this.interruptionTrigger,queueDepth:this.queue?.pending?.length||0});
     try{this.onDiagnostic(this.failureReceipt);}catch{/* Diagnostics cannot prevent cleanup. */}
   }
   waitForVisualReady(){return this.visualReady;}
@@ -199,6 +217,8 @@ export class EmbodimentRenderer {
     this.extractor.port.onmessage=({data})=>{
       if(!current()||data.generation!==this.pcmGeneration)return;
       if(data.command==='flushed'){this.pcmFlushConfirmed=true;this.resumeAfterFlush();return;}
+      this.signalEvidence.inputFrames++;
+      if(Number.isFinite(data.rms))this.signalEvidence.inputPeakRms=Math.max(this.signalEvidence.inputPeakRms,Math.min(1,Math.max(0,data.rms)));
       const active=data.rms>=0.003;
       if(this.holds){
         // Without a native response boundary we cannot distinguish a cancelled
@@ -212,7 +232,7 @@ export class EmbodimentRenderer {
       this.batcher.push(data.pcm);
       if(active){this.silentMs=0;this.speaking=true;}
       else if(this.speaking){this.silentMs+=80;
-        if(this.silentMs>=400){this.speaking=false;this.silentMs=0;this.batcher.flush();void this.queue.push('audio_end').catch(()=>{});}
+        if(this.silentMs>=400){this.speaking=false;this.silentMs=0;this.batcher.flush();this.signalEvidence.audioEnds++;void this.queue.push('audio_end').catch(()=>{});}
       }
     };
     // Local microphone VAD only interrupts the visual Actor. It never sends
@@ -225,6 +245,8 @@ export class EmbodimentRenderer {
     this.returnAnalyser=this.context.createAnalyser();this.returnAnalyser.fftSize=512;this.gain.connect(this.returnAnalyser);
     const returned=new Float32Array(512);
     this.poll=setInterval(()=>{if(!current())return;this.returnAnalyser.getFloatTimeDomainData(returned);this.returnedSpeaking=Math.sqrt(returned.reduce((n,s)=>n+s*s,0)/returned.length)>0.008;
+      const rms=Math.sqrt(returned.reduce((n,s)=>n+s*s,0)/returned.length);
+      if(Number.isFinite(rms))this.signalEvidence.returnedPeakRms=Math.max(this.signalEvidence.returnedPeakRms,Math.min(1,rms));
       if(!this.polling){this.polling=true;void this.api(`/status?sessionId=${this.sessionId}&id=${this.ticket.id}`).then(status=>{if(status.closed&&current())this.fail(stageError('PROVIDER_CLOSED','IVOC_SERVER'));}).catch(error=>this.fail(error)).finally(()=>{this.polling=false;});}},250);
     if(!this.visible&&this.host.dataset.avatarState!=='decoding')this.host.dataset.avatarState='connecting';return output;
     }catch(error){

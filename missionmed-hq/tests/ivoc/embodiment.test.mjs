@@ -29,6 +29,17 @@ test('only authenticated Founder can enter canary; student/second Admin/CSRF den
   const h=harness();assert.equal((await h.call(42,['student'])).status,403);assert.equal((await h.call(107,['administrator'])).status,403);assert.equal((await h.call(1,['administrator'],'POST','/start',{sessionId:ID},false)).status,403);assert.equal(h.calls.length,0);
   assert.equal((await h.call()).status,200);assert.equal(h.calls[0].actor,'wp:1');assert.match(h.claims[0].path,/context->embodimentReservation=is.null/);
 });
+test('only Founder command accepts the bounded 720ms catch-up body; other limits and CSRF remain enforced',async()=>{
+  const h=harness(),input={sessionId:ID,command:'audio',generation:1,sequence:3,audio:Buffer.alloc(23040).toString('base64')};
+  assert.equal((await h.call(1,['administrator'],'POST','/command',input)).status,200);
+  assert.deepEqual(h.calls[0],{...input,actor:'wp:1'});
+  assert.equal((await h.call(42,['student'],'POST','/command',input)).status,403);
+  assert.equal((await h.call(107,['administrator'],'POST','/command',input)).status,403);
+  assert.equal((await h.call(1,['administrator'],'POST','/command',input,false)).status,403);
+  assert.equal((await h.call(1,['administrator'],'POST','/command',{...input,audio:'A'.repeat(32768)})).status,413);
+  assert.equal((await h.call(1,['administrator'],'POST','/start',input)).status,413);
+  assert.equal(h.calls.length,1);
+});
 test('HQ preserves safe upstream status/category/timing instead of flattening a provider 402 into generic 502',async()=>{
   const h=harness(()=>({config:{available:true},start:async()=>{throw Object.assign(new Error('PRIVATE_PROVIDER_PAYLOAD'),{status:502,diagnostics:{boundary:'LEMONSLICE_API',category:'PROVIDER_HTTP_4XX',httpStatus:402,startedAtMs:1000,finishedAtMs:1200,elapsedMs:200,responseClass:'JSON',token:'DO_NOT_EXPOSE',url:'DO_NOT_EXPOSE'}});}}));
   const response=await h.call();assert.equal(response.status,502);assert.equal(response.body.error,'ivoc_embodiment_start_failed');

@@ -1102,7 +1102,9 @@ export function createIvocHandler({
           sendJson(response,200,embodiment.status({actor,sessionId:url.searchParams.get('sessionId'),id:url.searchParams.get('id')}),mediaBase);return true;
         }
         if(request.method==='POST'&&[`${root}/start`,`${root}/command`].includes(pathname)){
-          const input=await readJson(request,16384);
+          // Nine 80ms PCM frames base64-encode to 30,720 bytes plus envelope.
+          // Only this Founder-only command route accepts the bounded catch-up batch.
+          const input=await readJson(request,pathname===`${root}/command`?32768:16384);
           const result=pathname===`${root}/start`?await embodiment.start({actor,sessionId:input.sessionId}):await embodiment.command({...input,actor});
           sendJson(response,200,result,mediaBase);return true;
         }
