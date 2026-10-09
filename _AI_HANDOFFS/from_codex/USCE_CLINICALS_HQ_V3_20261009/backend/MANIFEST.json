@@ -1,0 +1,8 @@
+{
+  "missionmed-hq/routes/usce-communications.mjs": "aa2ae15654dad56c7eb9265976e8db841214665d114ca9f11eaf5931afc1ee6c",
+  "missionmed-hq/lib/usce-mail-sync.mjs": "b8e58e968a13ec6d0123ec3c73aea0042ffa09d047c51f47613058476d6ac283",
+  "missionmed-hq/lib/usce-mail-dispatch.mjs": "cdce26b6da0971af86d770b96c75ad202f5c3c812508c193a1ef7d4668547961",
+  "missionmed-hq/tests/usce-communications.test.mjs": "e64d2e4a45ff0cccb0c5eee89b2609f65a13ef34cc51814953eb6010e82f74b0",
+  "missionmed-hq/tests/usce-mail-sync.test.mjs": "391b83f2f9c71fb001e71c852928bd42c6710a9af08a56a666cf03181e3372e6",
+  "_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/backend/migration/supabase/migrations/20261009090305_usce_v3_communications.sql": "a5865fcafb82b379605fd5b3f5865e4010ee765c64f0a7497eb73942451eade8"
+}

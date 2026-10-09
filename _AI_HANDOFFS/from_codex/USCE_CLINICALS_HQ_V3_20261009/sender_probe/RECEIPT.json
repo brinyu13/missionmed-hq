@@ -1,0 +1,12 @@
+{
+  "provider_message_id": "6a7903ae-dcba-4212-8feb-ee8ddcd4fbfe",
+  "gmail_message_id": "1a11ffa3ac165f5d",
+  "gmail_thread_id": "1a11ffa3ac165f5d",
+  "received_at": "2026-10-09T09:24:14.000Z",
+  "from": "MissionMed Clinicals <clinicals@missionmedinstitute.com>",
+  "reply_to": "clinicals@missionmedinstitute.com",
+  "to": "clinicals+usce-v3-senderprobe-20261009@missionmedinstitute.com",
+  "rfc_message_id": "<usce-v3-probe-9b36fcf1-6758-4802-ade3-27dc995d0d21@missionmedinstitute.com>",
+  "authentication_results": "mx.google.com;       dkim=pass header.i=@pm.mtasv.net header.s=pm20250806 header.b=dsVCQN0v;       dkim=pass header.i=@missionmedinstitute.com header.s=20260510142124pm header.b=EUnb4sw7;       spf=pass (google.com: domain of pm_bounces@pm-bounces.missionmedinstitute.com designates 50.31.205.205 as permitted sender) smtp.mailfrom=pm_bounces@pm-bounces.missionmedinstitute.com;       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=missionmedinstitute.com",
+  "matches_rfc": true
+}

@@ -1,0 +1,14 @@
+{
+  "id": "9b36fcf1-6758-4802-ade3-27dc995d0d21",
+  "rfc": "<usce-v3-probe-9b36fcf1-6758-4802-ade3-27dc995d0d21@missionmedinstitute.com>",
+  "to": "clinicals+usce-v3-senderprobe-20261009@missionmedinstitute.com",
+  "from": "clinicals@missionmedinstitute.com",
+  "reply_to": "clinicals@missionmedinstitute.com",
+  "subject": "[USCE QA TEST] Clinicals V3 sender verification",
+  "started_at": "2026-10-09T09:24:14.617Z",
+  "state": "provider_accepted",
+  "provider_message_id": "6a7903ae-dcba-4212-8feb-ee8ddcd4fbfe",
+  "http_status": 200,
+  "provider_error_code": 0,
+  "completed_at": "2026-10-09T09:24:14.886Z"
+}

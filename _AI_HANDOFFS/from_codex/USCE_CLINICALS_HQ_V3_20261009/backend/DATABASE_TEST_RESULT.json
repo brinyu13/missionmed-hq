@@ -1,0 +1,20 @@
+{
+  "database": "local synthetic only",
+  "results": [
+    {
+      "file": "database-contract.test.sql",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "file": "20261009090305_usce_v3_communications.sql",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "file": "database-assertions.test.sql",
+      "exit_code": 0,
+      "diagnostics": "psql:/Users/brianb/MissionMed_worktrees/usce-phil-first-renovation-20261002/_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/backend/database-assertions.test.sql:45: NOTICE:  PASS 22 database contract assertions\npsql:/Users/brianb/MissionMed_worktrees/usce-phil-first-renovation-20261002/_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/backend/database-assertions.test.sql:59: NOTICE:  PASS 7 Offer transport binding assertions\npsql:/Users/brianb/MissionMed_worktrees/usce-phil-first-renovation-20261002/_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/backend/database-assertions.test.sql:75: NOTICE:  PASS 4 student privacy and pagination assertions\npsql:/Users/brianb/MissionMed_worktrees/usce-phil-first-renovation-20261002/_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/backend/database-assertions.test.sql:90: NOTICE:  PASS 8 dispatch recovery and privacy assertions\npsql:/Users/brianb/MissionMed_worktrees/usce-phil-first-renovation-20261002/_AI_HANDOFFS/from_codex/USCE_CLINICALS_HQ_V3_20261009/backend/database-assertions.test.sql:102: NOTICE:  PASS 3 successful retry truth assertions\n"
+    }
+  ]
+}

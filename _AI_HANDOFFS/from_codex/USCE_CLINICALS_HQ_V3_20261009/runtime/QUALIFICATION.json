@@ -1,0 +1,227 @@
+{
+  "mode": "baseline",
+  "passed": 55,
+  "total": 55,
+  "results": [
+    {
+      "name": "gateway health",
+      "pass": true
+    },
+    {
+      "name": "V3 authorized admin config",
+      "pass": true
+    },
+    {
+      "name": "V3 anonymous config denied",
+      "pass": true
+    },
+    {
+      "name": "V3 student config denied",
+      "pass": true
+    },
+    {
+      "name": "V3 expired session denied",
+      "pass": true
+    },
+    {
+      "name": "V3 mutation requires matching CSRF undefined",
+      "pass": true
+    },
+    {
+      "name": "V3 mutation requires matching CSRF wrong",
+      "pass": true
+    },
+    {
+      "name": "V3 authorized invalid draft rejects before persistence",
+      "pass": true
+    },
+    {
+      "name": "authorized administrator queue GET",
+      "pass": true
+    },
+    {
+      "name": "anonymous queue denied",
+      "pass": true
+    },
+    {
+      "name": "malformed bearer denied",
+      "pass": true
+    },
+    {
+      "name": "expired bearer denied",
+      "pass": true
+    },
+    {
+      "name": "missing expiry denied",
+      "pass": true
+    },
+    {
+      "name": "future issue time denied",
+      "pass": true
+    },
+    {
+      "name": "explicit sibling session audience denied",
+      "pass": true
+    },
+    {
+      "name": "invalid payload version denied",
+      "pass": true
+    },
+    {
+      "name": "whitespace authAudience cannot hide sibling audience",
+      "pass": true
+    },
+    {
+      "name": "USCE authAudience cannot hide sibling audience",
+      "pass": true
+    },
+    {
+      "name": "sibling authAudience cannot hide USCE audience",
+      "pass": true
+    },
+    {
+      "name": "boolean user ID denied",
+      "pass": true
+    },
+    {
+      "name": "array user ID denied",
+      "pass": true
+    },
+    {
+      "name": "object user ID denied",
+      "pass": true
+    },
+    {
+      "name": "decimal-point string user ID denied",
+      "pass": true
+    },
+    {
+      "name": "positive decimal-digit string user ID accepted",
+      "pass": true
+    },
+    {
+      "name": "nonadministrator queue denied",
+      "pass": true
+    },
+    {
+      "name": "missing CSRF mutation denied before RPC",
+      "pass": true
+    },
+    {
+      "name": "invalid CSRF mutation denied before RPC",
+      "pass": true
+    },
+    {
+      "name": "invalid bearer does not fall back to valid cookie",
+      "pass": true
+    },
+    {
+      "name": "valid legacy administrator cookie works",
+      "pass": true
+    },
+    {
+      "name": "anonymous session readback",
+      "pass": true
+    },
+    {
+      "name": "expired session readback unauthenticated",
+      "pass": true
+    },
+    {
+      "name": "valid legacy signed administrator handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "valid explicit USCE signed administrator handoff exchange",
+      "pass": true
+    },
+    {
+      "name": "explicit sibling signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "subscriber signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "expired signed handoff rejected",
+      "pass": true
+    },
+    {
+      "name": "nonUSCE login audience rejected",
+      "pass": true
+    },
+    {
+      "name": "invalid CSRF logout denied",
+      "pass": true
+    },
+    {
+      "name": "valid CSRF logout clears cookie",
+      "pass": true
+    },
+    {
+      "name": "relay exact CDN target and fragment-only",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /hq",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/hq/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/auth/bootstrap",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/admin/../analytics/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/admin/%2e%2e/analytics/summary",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/usce/adminx/public-intake-requests",
+      "pass": true
+    },
+    {
+      "name": "outer gateway blocks /api/integrations/gmail/comms-review-write",
+      "pass": true
+    },
+    {
+      "name": "shared generic sibling handoff/body USCE hint baseline preserved",
+      "pass": true
+    },
+    {
+      "name": "shared generic expired session behavior baseline preserved",
+      "pass": true
+    },
+    {
+      "name": "direct shared USCE expired session denied",
+      "pass": true
+    },
+    {
+      "name": "isolated inner exchange sibling handoff/body USCE hint rejected",
+      "pass": true
+    },
+    {
+      "name": "no external request escaped interception",
+      "pass": true
+    },
+    {
+      "name": "no raw session, handoff or generated key in logs",
+      "pass": true
+    }
+  ]
+}
