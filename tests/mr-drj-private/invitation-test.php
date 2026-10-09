@@ -1,8 +1,11 @@
 <?php
 // Isolated synthetic invitation tests. No WP bootstrap, network, mail or provider access.
 define('ABSPATH', __DIR__);
-function add_action(...$args){}
+$test_hooks=[];
+function add_action($hook,$callback,$priority=10,...$args){global $test_hooks;$test_hooks[$hook][$priority][]=$callback;}
+function remove_action($hook,$callback,$priority=10){global $test_hooks;foreach($test_hooks[$hook][$priority]??[] as $key=>$registered){if($registered===$callback){unset($test_hooks[$hook][$priority][$key]);}}}
 function add_filter(...$args){}
+function esc_html($value){return htmlspecialchars($value,ENT_QUOTES,'UTF-8');}
 $options=[];$suppressed=false;$known_user=false;$current_user=(object)['ID'=>0,'user_email'=>''];$saved=0;
 function get_option($key,$default=false){global $options;return $options[$key]??$default;}
 function add_option($key,$value,...$args){global $options;if(array_key_exists($key,$options)){return false;}$options[$key]=$value;return true;}
@@ -79,6 +82,64 @@ unset($options['_mr_drj_claim_123']);
 $_COOKIE[MissionMed_MR_DrJ_Invitation::COOKIE]=str_repeat('a',64);
 check(invoke_private('session')===hash('sha256',str_repeat('a',64)),'session stores only cookie digest');
 check(invoke_private('mail_proof','invited@example.test','ABCDEF123456')===false,'missing authorized mail transport fails closed without mail');
+// Conditional declarations are intentionally AFTER the missing-helper assertion.
+$mail_calls=0;$transport_restores=0;$mailer_mode='success';$test_mailer=null;
+final class InvitationTestMailer {
+    public $Subject,$Body,$Mailer='smtp',$Host='smtp.gmail.com',$Port=587,$SMTPSecure='tls',$SMTPAuth=true;
+    public $Username='info@missionmedinstitute.com',$From='info@missionmedinstitute.com',$FromName='Original';
+    public function getToAddresses(){return [['invited@example.test','']];}
+    public function getCcAddresses(){return [];}
+    public function getBccAddresses(){return [];}
+}
+if(!function_exists('missionaccounts_send_email')){
+    function missionaccounts_send_email($email,$subject,$body,$headers){
+        global $mail_calls,$mailer_mode,$test_hooks,$test_mailer;
+        ++$mail_calls;
+        // Synthetic protected helper: adapter exceptions bypass its normal cleanup.
+        $GLOBALS['missionaccounts_smtp_active']=true;
+        $GLOBALS['missionmed_system_smtp_active']=true;
+        $GLOBALS['missionmed_protected_mail_in_flight']=true;
+        $GLOBALS['missionmed_protected_mail_transport_preimage']=['synthetic'=>'owned'];
+        $test_mailer=new InvitationTestMailer();$test_mailer->Subject=$subject;$test_mailer->Body=$body;
+        if($mailer_mode==='mismatch'){$test_mailer->Host='wrong.example.test';}
+        foreach($test_hooks['phpmailer_init'][PHP_INT_MAX]??[] as $callback){$callback($test_mailer);}
+        missionmed_protected_mail_restore_transport();
+        return true; // No send operation exists in this stub.
+    }
+}
+check(invoke_private('mail_proof','invited@example.test','ABCDEF123456')===false,'missing protected restore helper fails closed');
+check($mail_calls===0,'missing restore helper never enters sender');
+if(!function_exists('missionmed_protected_mail_restore_transport')){
+    function missionmed_protected_mail_restore_transport(){
+        global $transport_restores;++$transport_restores;
+        unset($GLOBALS['missionmed_protected_mail_in_flight'],$GLOBALS['missionmed_protected_mail_transport_preimage']);
+    }
+}
+$transport_keys=['missionaccounts_smtp_active','missionmed_system_smtp_active','missionmed_protected_mail_in_flight','missionmed_protected_mail_transport_preimage'];
+function transport_snapshot(){global $transport_keys;$snapshot=[];foreach($transport_keys as $key){$snapshot[$key]=['exists'=>array_key_exists($key,$GLOBALS),'value'=>$GLOBALS[$key]??null];}return $snapshot;}
+function adapter_count(){global $test_hooks;return count($test_hooks['phpmailer_init'][PHP_INT_MAX]??[]);}
+foreach($transport_keys as $key){unset($GLOBALS[$key]);}
+$before=transport_snapshot();$calls_before=$mail_calls;$restores_before=$transport_restores;
+check(invoke_private('mail_proof','invited@example.test','ABCDEF123456')===true,'synthetic authorized callback succeeds');
+check($mail_calls===$calls_before+1&&$test_mailer->FromName==='Michelle de la Cruz','success enters sender and applies isolated display name');
+check($transport_restores===$restores_before+1,'success restores owned transport exactly once');
+check(transport_snapshot()===$before,'success restores all four originally absent globals');
+check(adapter_count()===0,'success removes adapter');
+$GLOBALS['missionaccounts_smtp_active']=null;$GLOBALS['missionmed_system_smtp_active']='prior-system';
+$GLOBALS['missionmed_protected_mail_in_flight']=false;$GLOBALS['missionmed_protected_mail_transport_preimage']=['synthetic'=>'prior'];
+$before=transport_snapshot();$mailer_mode='mismatch';$restores_before=$transport_restores;
+$mismatch_rejected=false;
+try{invoke_private('mail_proof','invited@example.test','ABCDEF123456');}catch(Exception $e){$mismatch_rejected=$e->getMessage()==='Private invitation mail transport unavailable.';}
+check($mismatch_rejected,'real registered adapter rejects synthetic mailer mismatch');
+check($transport_restores===$restores_before+1,'adapter exception restores owned in-flight transport');
+check(transport_snapshot()===$before,'adapter exception restores exact mixed four-global preimage');
+check(adapter_count()===0,'adapter exception removes callback');
+$GLOBALS['missionmed_protected_mail_in_flight']=true;$GLOBALS['missionmed_protected_mail_transport_preimage']=['synthetic'=>'outer'];
+$before=transport_snapshot();$calls_before=$mail_calls;$restores_before=$transport_restores;
+check(invoke_private('mail_proof','invited@example.test','ABCDEF123456')===false,'outer in-flight transport rejects nested proof');
+check($mail_calls===$calls_before&&$transport_restores===$restores_before,'nested rejection neither sends nor restores outer transport');
+check(transport_snapshot()===$before&&adapter_count()===0,'nested rejection preserves every outer global and adds no adapter');
+foreach($transport_keys as $key){unset($GLOBALS[$key]);}
 // Structural guards complement runtime rejection tests; not browser/live evidence.
 $source=file_get_contents(__DIR__.'/../../wp-content/mu-plugins/missionmed-mr-drj-private-offer.php');
 $invitation=substr($source,strpos($source,'final class MissionMed_MR_DrJ_Invitation'));

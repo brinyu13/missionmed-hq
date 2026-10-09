@@ -313,11 +313,14 @@ final class MissionMed_MR_DrJ_Invitation {
     }
 
     private static function mail_proof($email, $proof) {
-        if (!function_exists('missionaccounts_send_email')) { return false; }
+        if (!function_exists('missionaccounts_send_email')
+            || !function_exists('missionmed_protected_mail_restore_transport')
+            || !empty($GLOBALS['missionmed_protected_mail_in_flight'])) { return false; }
         $subject = 'Confirm your MissionMed private invitation';
         $body = '<div style="font:17px/1.6 Arial,sans-serif;color:#142434"><p>Use this confirmation code to continue your personal MissionMed invitation:</p><p style="font-size:24px;font-weight:bold">'.esc_html($proof).'</p><p>It expires in 15 minutes. Do not share this code. Confirming your email does not enroll you or submit a payment.</p><p>If you did not request this, you can ignore this email.</p></div>';
         $snapshot = [];
-        foreach (['missionaccounts_smtp_active','missionmed_system_smtp_active'] as $key) {
+        foreach (['missionaccounts_smtp_active','missionmed_system_smtp_active',
+            'missionmed_protected_mail_in_flight','missionmed_protected_mail_transport_preimage'] as $key) {
             $snapshot[$key] = ['exists'=>array_key_exists($key, $GLOBALS),'value'=>$GLOBALS[$key] ?? null];
         }
         $name = static function ($m) use ($email, $subject, $body) {
@@ -333,6 +336,13 @@ final class MissionMed_MR_DrJ_Invitation {
             return (bool) missionaccounts_send_email($email, $subject, $body, ['Content-Type: text/html; charset=UTF-8','Reply-To: Michelle de la Cruz <info@missionmedinstitute.com>']);
         } finally {
             remove_action('phpmailer_init', $name, PHP_INT_MAX);
+            // The envelope guard may throw outside PHPMailer's own exception
+            // type. Restore this owned transport even when wp_mail's normal
+            // succeeded/failed hooks were never reached. Nested sends were
+            // rejected above; never clear another caller's protected state.
+            if (!empty($GLOBALS['missionmed_protected_mail_in_flight'])) {
+                missionmed_protected_mail_restore_transport();
+            }
             foreach ($snapshot as $key=>$state) {
                 if ($state['exists']) { $GLOBALS[$key] = $state['value']; } else { unset($GLOBALS[$key]); }
             }
