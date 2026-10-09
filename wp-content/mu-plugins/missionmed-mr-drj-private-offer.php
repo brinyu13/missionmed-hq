@@ -84,8 +84,9 @@ final class MissionMed_MR_DrJ_Private_Offer {
         form.checkout #order_review{box-sizing:border-box;padding:16px!important}
         form.checkout .woocommerce-checkout-review-order-table{table-layout:fixed;width:100%!important;max-width:100%}
         form.checkout .woocommerce-checkout-review-order-table th,form.checkout .woocommerce-checkout-review-order-table td{box-sizing:border-box;overflow-wrap:anywhere;padding:12px 8px!important}
-        form.checkout .woocommerce-checkout-review-order-table .product-name{width:62%}
-        form.checkout .woocommerce-checkout-review-order-table .product-total{width:38%}
+        form.checkout .woocommerce-checkout-review-order-table .product-name{width:56%}
+        form.checkout .woocommerce-checkout-review-order-table .product-total{width:44%}
+        form.checkout .woocommerce-checkout-review-order-table .amount{white-space:nowrap}
         form.checkout #payment,form.checkout #payment .payment_box{box-sizing:border-box;max-width:100%}
         form.checkout #payment .payment_box{padding:12px!important}
         @media(max-width:767px){
