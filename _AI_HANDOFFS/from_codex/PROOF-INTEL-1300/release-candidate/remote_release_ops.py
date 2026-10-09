@@ -3,7 +3,7 @@ import base64,hashlib,json,os,shutil,subprocess
 from pathlib import Path,PurePosixPath
 PUBLIC=Path('/www/theresidencyacademy_209/public')
 PRIVATE=Path('/www/theresidencyacademy_209/private/proof-intelligence')
-RELEASE='PROOF-INTEL-1300-20261009-r1'
+RELEASE='PROOF-INTEL-1300-20261009-r2'
 ASSETS='wp-content/mu-plugins/missionmed-proof-intelligence-assets'
 PLUGIN='wp-content/mu-plugins/missionmed-proof-intelligence.php'
 EXISTING={'wp-content/mu-plugins/missionmed-mr-p0.php','wp-content/mu-plugins/missionmed-mr-alternate-assets/page.php','wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/hero.js','wp-content/mu-plugins/missionmed-mr-0912-assets/premium-hero/hero.css'}
@@ -46,6 +46,21 @@ def main(payload):
         (base/'SEALED_RELEASE.json').write_text(json.dumps(m,indent=2)+'\n')
         return {'backup':'verified','privateDirectory':str(base)}
     check(base.is_dir() and sha(base/'SEALED_RELEASE.json')==payload['remoteManifestSha256'],'private sealed manifest drift')
+    if op=='reuse-stage':
+        donor=PRIVATE/'PROOF-INTEL-1300-20261009-r1'
+        check(donor.resolve()==donor,'staging donor symlink denied')
+        check(sha(donor/'SEALED_RELEASE.json')=='7376ebdf9dccb0f16e262c5e158ad73ec99a1b104981b3f3004b52d09c1a57e0','r1 donor manifest differs')
+        reused=[]
+        for row in m['files']:
+            source=donor/'stage'/row['target'];destination=stage/row['target']
+            check(source.resolve()==source,'staging donor path symlink denied')
+            if not source.is_file() or sha(source)!=row['sha256']:continue
+            check(not destination.exists(),'staging reuse destination exists')
+            with destination.open('xb') as f:f.write(source.read_bytes())
+            os.chmod(destination,0o600)
+            check(sha(source)==row['sha256'] and sha(destination)==row['sha256'],'staging reuse hash differs')
+            reused.append(row['target'])
+        return {'reused':reused,'donorReadOnly':True}
     if op=='verify-stage':
         for row in m['files']:check(sha(stage/row['target'])==row['sha256'],'upload hash differs')
         check(sha(stage/'archive.json')==m['archive']['sha256'],'archive upload differs')

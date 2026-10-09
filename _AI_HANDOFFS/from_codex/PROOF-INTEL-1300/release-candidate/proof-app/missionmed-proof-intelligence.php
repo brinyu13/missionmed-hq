@@ -4,7 +4,7 @@ if (!defined('ABSPATH')) { exit; }
 function mm_proof_1300_paths() {
     return array(
         'assets' => __DIR__ . '/missionmed-proof-intelligence-assets/',
-        'private' => dirname(rtrim(ABSPATH, '/')) . '/private/proof-intelligence/PROOF-INTEL-1300-20261009-r1/',
+        'private' => dirname(rtrim(ABSPATH, '/')) . '/private/proof-intelligence/PROOF-INTEL-1300-20261009-r2/',
         'url' => content_url('/mu-plugins/missionmed-proof-intelligence-assets/'),
     );
 }

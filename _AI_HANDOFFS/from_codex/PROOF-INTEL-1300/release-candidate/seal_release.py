@@ -6,7 +6,7 @@ sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 REPO = ROOT.parents[2]
-RELEASE = 'PROOF-INTEL-1300-20261009-r1'
+RELEASE = 'PROOF-INTEL-1300-20261009-r2'
 sys.path.insert(0, str(ROOT))
 from course_mapping import apply_courses
 
@@ -56,7 +56,7 @@ def main():
     for row in rows+[{'source':str(header.relative_to(REPO)),'sha256':sha(header)}]:
         check(hashlib.sha256(git('show',a.source_commit+':'+row['source'])).hexdigest()==row['sha256'],'candidate not byte-identical to committed source')
     evidence={}
-    for label,p in [('sourceApproval',a.source_approval),('independentSourceApproval',a.independent_source_approval),('runtimeSafety',a.runtime_safety),('scopedPreflight',a.scoped_preflight),('matrixNoOverlap',a.matrix_no_overlap),('nativeBackup',ROOT/'evidence/PROVIDER_BACKUP_RECOVERY.json'),('registrationAcceptance',ROOT/'evidence/INDEPENDENT_REGISTRATION_RECOVERY_CUSTODY.md')]:
+    for label,p in [('sourceApproval',a.source_approval),('independentSourceApproval',a.independent_source_approval),('runtimeSafety',a.runtime_safety),('scopedPreflight',a.scoped_preflight),('matrixNoOverlap',a.matrix_no_overlap),('stagingRecovery',ROOT/'evidence/R1_STAGING_RECOVERY.json'),('nativeBackup',ROOT/'evidence/PROVIDER_BACKUP_RECOVERY.json'),('registrationAcceptance',ROOT/'evidence/INDEPENDENT_REGISTRATION_RECOVERY_CUSTODY.md')]:
         p=p.resolve();check(p.is_file(),label+' unavailable');evidence[label]={'path':str(p),'sha256':sha(p)}
     backup=json.loads((ROOT/'evidence/PROVIDER_BACKUP_RECOVERY.json').read_text());check(backup.get('environment')=='Live' and backup.get('restoreControlAvailable') is True and 'Completed' in backup.get('status',''),'provider backup not completed')
     manifest={'schema':'missionmed.proof.release.v1','releaseId':RELEASE,'sourceCommit':a.source_commit,'authorityCommit':'0008eeb458a8650f2d47dfd527d51013a3c6856b','decisions':['DR-411','DR-412'],'sourceGatePassed':True,'independentDeploymentApprovalRequired':True,'files':rows,'header':{'source':str(header.relative_to(REPO)),'postId':6023,'sha256':sha(header),'preimageSha256':hashlib.sha256(old['post_content'].encode()).hexdigest(),'title':old['post_title'],'status':old['post_status']},'archive':{'path':str(archive),'sha256':sha(archive),'sourcePath':str(corpus),'sourceSha256':sha(corpus)},'evidence':evidence,'cacheUrls':['https://missionmedinstitute.com/','https://missionmedinstitute.com/missionresidency/','https://missionmedinstitute.com/testimonials/']}

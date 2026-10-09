@@ -10,7 +10,7 @@ from engineering_os_lease import binding_sha256,validate_writer_scope
 from execute_registration import private_client
 from seal_release import source_ready
 HOST='missionmed-kinsta';PUBLIC='/www/theresidencyacademy_209/public'
-RELEASE='PROOF-INTEL-1300-20261009-r1';PRIVATE='/www/theresidencyacademy_209/private/proof-intelligence/'+RELEASE
+RELEASE='PROOF-INTEL-1300-20261009-r2';PRIVATE='/www/theresidencyacademy_209/private/proof-intelligence/'+RELEASE
 ASSETS='wp-content/mu-plugins/missionmed-proof-intelligence-assets';PLUGIN='wp-content/mu-plugins/missionmed-proof-intelligence.php'
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def check(v,m):
@@ -48,8 +48,10 @@ class WriterKeeper:
                 new=self.client.heartbeat(self.handle)
                 check((new.lease_id,new.fencing_epoch,new.nonce,new.binding_sha256)==(self.handle.lease_id,self.handle.fencing_epoch,self.handle.nonce,self.handle.binding_sha256),'writer fence changed')
                 self.handle=new
-            except Exception:
-                self.error=True;raise RuntimeError('writer heartbeat failed closed') from None
+            except Exception as exc:
+                status=getattr(exc,'status_code',getattr(exc,'code',None))
+                self.error={'category':type(exc).__name__,'statusCode':status if isinstance(status,int) else None}
+                raise RuntimeError('writer heartbeat failed closed') from None
     def loop(self):
         while not self.stop.wait(5):
             try:self.beat()
@@ -117,7 +119,10 @@ def main():
             remote('rollback-assets');remote('purge');receipt['status']='SCOPED_ROLLBACK_APPLIED_REQUIRES_LIVE_QA'
         else:
             remote('backup')
-            for row in m['files']:upload(REPO/row['source'],PRIVATE+'/stage/'+row['target'])
+            reused=set(remote('reuse-stage')['reused'])
+            check(reused <= {row['target'] for row in m['files']},'unexpected reused staging target')
+            for row in m['files']:
+                if row['target'] not in reused:upload(REPO/row['source'],PRIVATE+'/stage/'+row['target'])
             upload(REPO/m['header']['source'],PRIVATE+'/stage/post-6023-content.html');upload(m['archive']['path'],PRIVATE+'/stage/archive.json')
             activation={'release':RELEASE,'approved':True,'sourceGatePassed':True,'independentVerdict':args.approval_sha256,'archiveSha256':m['archive']['sha256'],'sealedManifestSha256':mh,'sourceCommit':m['sourceCommit']}
             with tempfile.TemporaryDirectory(prefix='proof-activation-') as td:
@@ -128,7 +133,7 @@ def main():
             remote('install-header');remote('verify');remote('purge');receipt['runtimeManifestSha256']=activation_hash;receipt['status']='INSTALLED_HASH_VERIFIED_REQUIRES_LIVE_QA'
         record(receipt)
     except Exception as exc:
-        receipt['status']='STOPPED_REVIEW_PARTIAL_STATE';receipt['errorType']=type(exc).__name__;record(receipt);raise
+        receipt['status']='STOPPED_REVIEW_PARTIAL_STATE';receipt['errorType']=type(exc).__name__;receipt['keeperError']=keeper.error if keeper else None;record(receipt);raise
     finally:
         if keeper:
             try:keeper.release();receipt['normalRelease']=True
