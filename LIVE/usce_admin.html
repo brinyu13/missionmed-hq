@@ -2166,14 +2166,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     const s4 = document.createElement('span'); s4.textContent = 'ID ' + r.id;
     mini.appendChild(s1); mini.appendChild(s2); mini.appendChild(s3);
 
-    const badge = $('#mmDetStatus');
-    badge.className = 'mm-status-badge mm-status-' + r.status.toLowerCase();
-    badge.textContent = statusLabel(r.status);
-    const detailStatus = $('#mmDetailStatusSelect');
-    if (detailStatus) {
-      detailStatus.innerHTML = statusOptionHtml(r.status);
-      detailStatus.value = r.status;
-    }
+    renderSelectedStatus(r);
 
     $('#mmDetMeta').title=$('#mmDetMeta').textContent;
     renderRankedList($('#mmDetSpecs'), r.specialties);
@@ -2190,6 +2183,18 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     if (r.status === 'NEW') { statusBtn.style.display=''; statusBtn.textContent = '\u21BB Mark In Progress'; }
     else if (r.status === 'IN_PROGRESS') { statusBtn.style.display='none'; }
     else { statusBtn.style.display='none'; }
+  }
+
+  function renderSelectedStatus(r){
+    const badge = $('#mmDetStatus');
+    badge.className = 'mm-status-badge mm-status-' + r.status.toLowerCase();
+    badge.textContent = statusLabel(r.status);
+    const detailStatus = $('#mmDetailStatusSelect');
+    if (detailStatus) {
+      detailStatus.innerHTML = statusOptionHtml(r.status);
+      detailStatus.value = r.status;
+    }
+
   }
 
   function renderAdminTracker(r){ if(r)renderCompactOverview(r); }
@@ -3441,17 +3446,22 @@ CONFIG.gmailMailboxes[0];
     $('#mmJourneyApproval').checked=false;$('#mmJourneySendNow').disabled=true;
     journey.result=null;renderOfferSummary();
   }
+  function monthKey(value){
+    const text=String(value||'').trim();const iso=text.match(/^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/);if(iso)return iso[1]+'-'+iso[2];
+    const human=text.match(/^([a-z]+)\.?\s+(\d{4})$/i);if(!human)return null;const names=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];const index=names.indexOf(human[1].slice(0,3).toLowerCase());return index<0?null:human[2]+'-'+String(index+1).padStart(2,'0');
+  }
   function updateJourneyDates(){
     const r=currentReq();if(!r)return;
     $('#mmJourneyDatePrefs').textContent='Student requested: '+r.months.join(' · ')+' · '+r.length;
-    const months=$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val);
-    const start=$('#mmOfStart').value;
-    const startMonth=start?new Date(start+'T12:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'}):'';
+    const requested=r.months.map(monthKey).filter(Boolean),canonical=journey.options.length>0;
+    const options=canonical?collectJourneyOptions():[{month_label:$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val),date_window_start:$('#mmOfStart').value}];
     const warnings=[];
-    if(months.length&&!months.some(m=>r.months.includes(m)))warnings.push('These months differ from the student’s preferences. Confirm this option with the student.');
-    if(startMonth&&!r.months.includes(startMonth))warnings.push('The start date differs from the requested months.');
-    if(startMonth&&months.length&&!months.includes(startMonth))warnings.push('The start date is outside the offered months. Check the dates before continuing.');
-    const el=$('#mmJourneyDateWarning');el.textContent=warnings.join(' ')||'Select the month(s) you can offer. Ranked months are marked; preferences do not confirm availability.';el.classList.toggle('is-warning',!!warnings.length);
+    options.forEach((option,i)=>{const labels=Array.isArray(option.month_label)?option.month_label:[option.month_label],offered=labels.map(monthKey).filter(Boolean),start=monthKey(option.date_window_start),prefix=canonical?'Option '+(i+1)+': ':'';
+      if(offered.length&&requested.length&&!offered.some(m=>requested.includes(m)))warnings.push(prefix+'Offered timing differs from the student’s preferences. Confirm it with the student.');
+      if(start&&requested.length&&!requested.includes(start))warnings.push(prefix+'The start date differs from the requested months.');
+      if(start&&offered.length&&!offered.includes(start))warnings.push(prefix+'The start date is outside the offered timing. Check it before continuing.');
+    });
+    const el=$('#mmJourneyDateWarning');el.textContent=warnings.join(' ')||(canonical?'Enter verified timing, duration and optional dates for each option. Each option has its own dates; all options share the response deadline. Preferences do not confirm availability.':'Select the month(s) you can offer. Ranked months are marked; preferences do not confirm availability.');el.classList.toggle('is-warning',!!warnings.length);
   }
   function journeyStep(index){
     cancelJourneyReplacement();journey.step=index;
@@ -3487,7 +3497,7 @@ CONFIG.gmailMailboxes[0];
     $('#mmJourneyScrim').showModal();journeyStep(0);
   }
   function closeJourneyWithoutSave(){
-    $('#mmJourneyScrim').close();const focus=journey.returnFocus;if(focus&&focus.isConnected)focus.focus();renderOfferSummary();
+    $('#mmJourneyScrim').close();const focus=journey.returnFocus;if(focus&&focus.isConnected)focus.focus();const r=currentReq();if(r){renderSelectedStatus(r);renderAdminTracker(r);}renderOfferSummary();
   }
   function requestJourneyClose(){
     if(state.busy)return;

@@ -10,7 +10,7 @@ function harness(){
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
  let source=w.document.querySelector('script').textContent,anchor="renderRequestList(); switchView('hq'); loadLiveQueue();";
  assert.equal(source.split(anchor).length,2);
- source=source.replace(anchor,()=>"window.TEST={state,journey,openJourney,journeyStep,journeyNext,prepareJourneyMessage,saveAndCloseJourney,readOfferForm,sendOfferEmail,approvalSnapshot,offerFormSnapshot,syncOfferControlLocks,renderOfferBuilder,offerPayload,mergeLiveOffer,collectJourneyOptions,addJourneyOption,removeJourneyOption,applyKpiFilter,filteredRequests,setV3Workspace,renderRequestList,renderOfferSummary,renderJourneyReview,mocks(m){persistLiveOfferDraft=m.persist;recordLiveMessagePreview=m.preview;adminFetch=m.send;loadLiveQueue=async()=>{};}};");
+ source=source.replace(anchor,()=>"window.TEST={state,journey,openJourney,journeyStep,journeyNext,prepareJourneyMessage,saveAndCloseJourney,readOfferForm,sendOfferEmail,approvalSnapshot,offerFormSnapshot,syncOfferControlLocks,renderOfferBuilder,offerPayload,mergeLiveOffer,collectJourneyOptions,addJourneyOption,removeJourneyOption,applyKpiFilter,filteredRequests,setV3Workspace,renderRequestList,renderOfferSummary,renderJourneyReview,updateJourneyDates,renderSelectedStatus,closeJourneyWithoutSave,mocks(m){persistLiveOfferDraft=m.persist;recordLiveMessagePreview=m.preview;adminFetch=m.send;loadLiveQueue=async()=>{};}};");
  w.eval(source); w.eval(w.document.querySelectorAll('script')[1].textContent);
  const a=w.TEST,$=id=>w.document.getElementById(id),calls={persist:[],preview:[],send:[]};
  const r={id:'case-a',name:'Synthetic Student',email:'student@example.test',status:'NEW',specialties:['Internal Medicine'],locations:['New York'],months:['Oct 2026'],length:'4 weeks',comms:[],offerHistory:[],createdAt:Date.now()};
@@ -56,4 +56,16 @@ check('server checked preview and grouped review contain every saved option; lat
 });
 check('accepted option two is clearly shown while both original alternatives remain visible',async(h)=>{
  const {a,$}=h;a.openJourney();$('mmAddOption').click();completeExtras(h);const form=a.readOfferForm();a.mergeLiveOffer({id:'offer-a',intake_request_id:'case-a',options:form.options,selected_option_id:form.options[1].id,selected_option:form.options[1],format:form.program,specialty:form.specialty,location:form.location,timing:'Oct 2026',duration_weeks:4,admin_message:'',status:'accepted',revision:8},'case-a');a.renderOfferSummary();assert.match($('mmOfferSummary').textContent,/Option 2 · Neurology · Boston/);assert.match($('mmOfferSummary').textContent,/Option 1/);assert.match($('mmOfferSummary').textContent,/selected by student/);
+});
+
+check('ISO preferences and human month labels compare equally across every independent option',async(h)=>{
+ const {a,$,r}=h;r.months=['2027-03','2027-04'];a.openJourney();$('mmAddOption').click();completeExtras(h);h.input('mmOfMonthLabel','March 2027');h.input('mmOfStart','2027-03-01');for(const [key,value] of [['month_label','April 2027'],['date_window_start','2027-04-05'],['date_window_end','2027-04-30']]){const e=h.w.document.querySelector('[data-option-field="'+key+'"]');e.value=value;e.dispatchEvent(new h.w.Event('input',{bubbles:true}));}a.updateJourneyDates();assert.equal($('mmJourneyDateWarning').classList.contains('is-warning'),false);assert.match($('mmJourneyDateWarning').textContent,/Each option has its own dates/);assert.doesNotMatch($('mmJourneyDateWarning').textContent,/Select the month/);
+ h.input('mmOfStart','2027-05-01');assert.match($('mmJourneyDateWarning').textContent,/Option 1: The start date differs/);assert.match($('mmJourneyDateWarning').textContent,/outside the offered timing/);
+});
+check('closing saved Journey refreshes selected status and next action without resetting its form',async(h)=>{
+ const {a,$,r}=h;a.openJourney();r.status='IN_PROGRESS';a.state.liveOffersByRequest[r.id]={...a.readOfferForm(),id:'offer-a',detailsLoaded:true,status:'DRAFT'};const before=a.offerFormSnapshot();a.closeJourneyWithoutSave();assert.equal($('mmDetStatus').textContent,'In progress');assert.match($('mmAdminTracker').textContent,/Review offer draft/);assert.equal(a.offerFormSnapshot(),before);
+});
+
+check('legacy ISO month chips match a valid start date without any false warnings',async(h)=>{
+ const {a,$,r}=h;r.months=['2027-03'];a.openJourney();h.input('mmOfStart','2027-03-01');a.updateJourneyDates();assert.equal($('mmJourneyDateWarning').classList.contains('is-warning'),false);assert.match($('mmJourneyDateWarning').textContent,/Select the month/);
 });
