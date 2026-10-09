@@ -120,3 +120,20 @@ test('two-paragraph output stays rejected without synthesizing a missing closing
  assert.throws(()=>plan(short),{code:'loi_composition_trace'});assert.equal(JSON.stringify(short),original);
  assert.equal(validateAuthoredSingleCallPlans(plan(paragraphs()),input)[0].studentReviewRequired,true);
 });
+
+for(const subject of ['Your program','The program',input.program.name])for(const verb of ['supports','provides','offers','delivers','enables'])test('roster cannot establish a training offering: '+subject+' '+verb,()=>{
+ const ps=paragraphs();if(subject===input.program.name)ps[0].text=ps[0].text.replace(input.program.name,'your program');ps.push({text:subject+' '+verb+' comprehensive internal medicine training.',refs:['program','evidence:0','reason:0']});assert.throws(()=>quality(row(ps)),{rule:'ROSTER_TO_TRAINING_INFERENCE'});
+});
+test('presupposed how-supports inquiry is not uncertain whether inquiry',()=>{
+ const ps=paragraphs();ps.push({text:'I want to confirm how your program supports comprehensive internal medicine training.',refs:['evidence:0','reason:0']});assert.throws(()=>quality(row(ps)),{rule:'ROSTER_TO_TRAINING_INFERENCE'});
+ ps.at(-1).text='I would like to ask whether your program supports clinical experience.';assert.doesNotThrow(()=>quality(row(ps)));
+});
+for(const text of ["Your program's structure aligns with my preparation purpose.",'Your leadership structure aligns with my needs.',"The program's training fits my goals."])test('roster cannot establish program structural fit: '+text,()=>{
+ const ps=paragraphs();ps.push({text,refs:['evidence:0','reason:0']});assert.throws(()=>quality(row(ps)),{rule:'ROSTER_TO_STRUCTURE_INFERENCE'});
+});
+test('personal preparation and exact roster roles remain usable without fabricated offerings',()=>{
+ assert.doesNotThrow(()=>quality(row(paragraphs())));const b=JSON.parse(buildLoiProseRequest(input,4096));assert.match(b.instructions,/Do not infer specialty, curriculum/);assert.match(b.instructions,/HOW the program supports/);
+ for(const rule of ['ROSTER_TO_TRAINING_INFERENCE','ROSTER_TO_STRUCTURE_INFERENCE'])assert.equal(loiFailureDiagnostic({code:'loi_composition_quality',rule},'PROSE_VALIDATION').rule,rule);
+});
+
+test('admiration of what a program provides is a claim, not an uncertainty question',()=>{const ps=paragraphs();ps.push({text:'I admire what your program provides in comprehensive internal medicine training.',refs:['evidence:0','reason:0']});assert.throws(()=>quality(row(ps)),{rule:'ROSTER_TO_TRAINING_INFERENCE'});});

@@ -161,10 +161,13 @@ function supportedSectionChiefPlural(name,allowed){
 // Interview-preparation motivations and unknown status are never event proof.
 const interviewAssertions=text=>[...text.matchAll(/\bI (?:(?:have|had) )?(?:(?:already|recently) )?((?:not|never) )?interviewed\b/ig)].map(m=>Boolean(m[1]));
 const uncertainInterviewStatus=text=>/\b(?:unknown|uncertain|unconfirmed|unclear|unsure|if|whether|would|could|might|may|assuming|suppose|hypothetical|not sure|not stated|not confirmed|not known|no interview event is asserted)\b/i.test(text);
-function checkAuthoredUnit(quote,allowed){
+// A generic role signature is permitted only as the complete final closing unit.
+// This is not a global name whitelist and never applies within authored body text.
+function checkAuthoredUnit(quote,allowed,{finalUnit=false}={}){
+ const genericClosing=finalUnit&&/^\s*Sincerely,\s*Applicant\s*$/.test(quote);
  const support=allowed.map(r=>r.text).join('\n'),supportedWords=new Set(normalizedWords(support));
  proseNeed(quantities(quote).every(q=>quantities(support).includes(q)),'loi_composition_invented_quantity');
- proseNeed(namedTokens(quote).every(n=>normalizedWords(n).every(w=>supportedWords.has(w))||supportedSectionChiefPlural(n,allowed)),'loi_composition_invented_identity');
+ proseNeed(namedTokens(quote).every(n=>(genericClosing&&n==='Applicant')||normalizedWords(n).every(w=>supportedWords.has(w))||supportedSectionChiefPlural(n,allowed)),'loi_composition_invented_identity');
  for(const [index,[assertion,source]] of sensitiveTopics.entries())requireAuthoredSupport(!assertion.test(quote)||source.test(support),unsupportedRules[index]);
  if(/\b(?:your program|the program|residents|curriculum|faculty)\b/i.test(quote)||allowed.some(r=>r.kind==='identity'&&quote.includes(r.text)))for(const m of quote.matchAll(programTopics))requireAuthoredSupport(new RegExp('\\b'+m[0]+'\\b','i').test(support),programRule(m[0]));
  for(const m of quote.matchAll(pastActions))proseNeed(new RegExp('\\b'+m[1]+'\\b','i').test(support),'loi_composition_invented_event');
@@ -173,7 +176,10 @@ function checkAuthoredUnit(quote,allowed){
  const relevant=allowed.filter(r=>r.kind!=='identity');
  const assertedInterview=interviewAssertions(quote);
  if(assertedInterview.length){const context=allowed.filter(r=>r.kind==='context'&&r.ref==='context:interviewState');proseNeed(context.length===1&&/^I (?:(?:have|had) )?(?:(?:already|recently) )?(?:(?:not|never) )?interviewed\b/i.test(context[0].text.trim())&&!uncertainInterviewStatus(context[0].text),'loi_composition_contradiction');const sourceAssertions=interviewAssertions(context[0].text);proseNeed(sourceAssertions.length>0&&assertedInterview.every(polarity=>sourceAssertions.every(source=>source===polarity)),'loi_composition_contradiction');}
- if(/\b(?:residents|your program|the program|curriculum|faculty)\b/i.test(quote)){const evidence=allowed.filter(r=>r.kind==='evidence'&&authoredTopics(r.text).some(t=>authoredTopics(quote).includes(t)));if(evidence.length===1)proseNeed(negative(quote)===negative(evidence[0].text),'loi_composition_contradiction');}
+ // Remove only the typed interview assertion prefix AFTER its exact status
+ // check passes. All residual program negation remains subject to evidence checks.
+ const programQuote=assertedInterview.length?quote.replace(/\bI (?:(?:have|had) )?(?:(?:already|recently) )?(?:(?:not|never) )?interviewed\b/ig,''):quote;
+ if(/\b(?:residents|your program|the program|curriculum|faculty)\b/i.test(programQuote)){const evidence=allowed.filter(r=>r.kind==='evidence'&&authoredTopics(r.text).some(t=>authoredTopics(programQuote).includes(t)));if(evidence.length===1)proseNeed(negative(programQuote)===negative(evidence[0].text),'loi_composition_contradiction');}
  if(relevant.length===1&&(/\b(?:I|program|residents|clinic|curriculum|training|faculty|interview\w*|appli\w*)\b/i.test(quote)))proseNeed(negative(quote)===negative(relevant[0].text),'loi_composition_contradiction');
  return {code:'UNRESOLVED_SEMANTIC_SUPPORT',message:'Read this authored clause against every linked original source. Trace associations and local checks do not certify meaning.'};
 }
@@ -209,7 +215,7 @@ export function validateAuthoredTrace(row,refs,program){
  for(let i=0;i<units.length;i++){const u=units[i],c=row.claims[i];proseNeed(proseKeys(c,['start','end','refs'])&&c.start===u.start&&c.end===u.end&&Array.isArray(c.refs)&&new Set(c.refs).size===c.refs.length&&c.refs.every(id=>refs.some(r=>r.ref===id)),'loi_composition_trace');
   const greeting=/^\s*Dear[^.!?;\n]*[,\n]\s*$/.test(u.quote),closing=/^\s*(?:Thank you|Sincerely|Respectfully)\b/i.test(u.quote);
   proseNeed(c.refs.length>0||greeting||closing,'loi_composition_unmapped');
-  checkAuthoredUnit(u.quote,c.refs.map(id=>refs.find(r=>r.ref===id)));c.refs.forEach(id=>used.add(id));claims.push({start:u.start,end:u.end,refs:[...c.refs]});
+  checkAuthoredUnit(u.quote,c.refs.map(id=>refs.find(r=>r.ref===id)),{finalUnit:i===units.length-1});c.refs.forEach(id=>used.add(id));claims.push({start:u.start,end:u.end,refs:[...c.refs]});
  }
  proseNeed(refs.every(r=>used.has(r.ref)),'loi_composition_reference');
  proseNeed(Array.isArray(row.fitLinks)&&row.fitLinks.length>0&&row.fitLinks.length<=20,'loi_composition_specificity');
@@ -227,7 +233,7 @@ export function authoredReview(text,refs,program,claims=null){
  const units=proseUnits(text),all=refs.filter(r=>r.kind!=='identity'),reviewUnits=[];
  for(const [i,u] of units.entries()){
   const mapped=claims?.[i]?.refs??refs.map(r=>r.ref),allowed=refs.filter(r=>mapped.includes(r.ref));
-  checkAuthoredUnit(u.quote,allowed);
+  checkAuthoredUnit(u.quote,allowed,{finalUnit:i===units.length-1});
   reviewUnits.push({start:u.start,end:u.end,quote:u.quote,refs:[...mapped],sourceTexts:allowed.map(r=>({ref:r.ref,text:r.text})),flag:'UNRESOLVED_SEMANTIC_SUPPORT'});
  }
  proseNeed(all.length>0,'loi_composition_reference');authoredSpecificity(text,refs,reviewUnits);
@@ -249,6 +255,19 @@ export function validateGeneratedLoiQuality(row,refs,program){
  const evidence=refs.filter(r=>r.kind==='evidence');
  if(evidence.length&&evidence.every(r=>r.field==='research.leadership')){
   if(/\b(?:program quality|excellent training|exceptional training|world[- ]class|high[- ]quality training|superior training|outstanding training)\b/i.test(text))reject('ROSTER_IS_NOT_QUALITY_EVIDENCE');
+  // Known roster-only overclaims: a listed role does not establish offerings
+  // or structural fit. This rejection is not a complete semantic certificate.
+  const escape=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const subject='(?:your program|the program|this program|'+escape(program.name)+')';
+  const offering=new RegExp('\\b'+subject+'(?:\\s+(?:actively|directly|generally|also))?\\s+(?:supports?|provides?|offers?|delivers?|enables?)\\b[^.!?;\\n]{0,100}\\b(?:training|curriculum|education|clinical experience)\\b','ig');
+  const structural=new RegExp('(?:\\b'+subject+"(?:[’']s)?\\s+(?:leadership\\s+)?(?:structure|quality|training)|\\b(?:your|the program[’']s)\\s+leadership structure)\\s+(?:aligns?|fits?|suits?|supports?)\\b",'i');
+  for(const u of proseUnits(text)){
+   for(const m of u.quote.matchAll(offering)){
+    const before=u.quote.slice(0,m.index);
+    if(!/\b(?:whether|if)\s*$/i.test(before))reject('ROSTER_TO_TRAINING_INFERENCE');
+   }
+   if(structural.test(u.quote))reject('ROSTER_TO_STRUCTURE_INFERENCE');
+  }
   const norm=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const concrete=evidence.some(r=>{
    const people=[...r.text.matchAll(/^([^\n,]+),[^\n]*\n([^\n]+)$/gm)];

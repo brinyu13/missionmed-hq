@@ -71,3 +71,28 @@ for(const neg of ['', 'not '])for(const wrap of [s=>'If '+s+', I will prepare.',
  const i=proseFixture(),claim='I have '+neg+'interviewed at this program.';i.refs.find(r=>r.ref==='context:interviewState').text=wrap('I have '+neg+'interviewed at this program');
  assert.throws(()=>authoredReview(i.program.name+'.\n\n'+claim,i.refs,i.program),{code:'loi_composition_contradiction'});
 });
+
+// R15: verified applicant status and program evidence have separate polarity.
+for(const occurred of [false,true])test('mixed status and program evidence: '+occurred,()=>{
+ const i=proseFixture(),status=occurred?'I have interviewed':'I have not interviewed';i.refs.find(r=>r.ref==='context:interviewState').text=status+' at this program.';
+ const out=authoredOutput(i);append(out.candidates[0],status+' at your program, where residents attend a supervised continuity clinic each week.',['context:interviewState','evidence:0']);
+ assert.equal(validateAuthoredSingleCallPlans(out,i)[0].review.studentVerificationRequired,true);assert.equal(authoredReview(out.candidates[0].text,i.refs,i.program).studentVerificationRequired,true);
+ assert.throws(()=>authoredReview(out.candidates[0].text.replace(status+' at your program,',(occurred?'I have not interviewed':'I have interviewed')+' at your program,'),i.refs,i.program),{code:'loi_composition_contradiction'});
+});
+for(const occurred of [false,true])test('residual program negation cannot hide in mixed status clause: '+occurred,()=>{
+ const i=proseFixture(),status=occurred?'I have interviewed':'I have not interviewed';i.refs.find(r=>r.ref==='context:interviewState').text=status+' at this program.';
+ const out=authoredOutput(i);append(out.candidates[0],status+' at your program, where residents do not attend a supervised continuity clinic.',['context:interviewState','evidence:0']);
+ assert.throws(()=>validateAuthoredSingleCallPlans(out,i),{code:'loi_composition_contradiction'});assert.throws(()=>authoredReview(out.candidates[0].text,i.refs,i.program),{code:'loi_composition_contradiction'});
+});
+test('Applicant is a generic signature only as exact entire final unit',()=>{
+ const i=proseFixture(),out=authoredOutput(i);append(out.candidates[0],'Sincerely, Applicant',[]);assert.equal(validateAuthoredSingleCallPlans(out,i)[0].review.studentVerificationRequired,true);assert.equal(authoredReview(out.candidates[0].text,i.refs,i.program).studentVerificationRequired,true);
+ append(out.candidates[0],'Thank you for considering my interest.',[]);out.candidates[0].claims=proseUnits(out.candidates[0].text).map((u,i)=>({start:u.start,end:u.end,refs:out.candidates[0].claims[i].refs}));assert.throws(()=>validateAuthoredSingleCallPlans(out,i),{code:'loi_composition_invented_identity'});assert.throws(()=>authoredReview(out.candidates[0].text,i.refs,i.program),{code:'loi_composition_invented_identity'});
+});
+for(const signature of ['Sincerely, Other Person','Sincerely, Dr Applicant','Respectfully, Applicant','Sincerely, Applicant is an award winner','My name is Applicant'])test('closing exception cannot invent names or body assertions: '+signature,()=>{
+ const i=proseFixture(),out=authoredOutput(i);append(out.candidates[0],signature,[]);assert.throws(()=>validateAuthoredSingleCallPlans(out,i));assert.throws(()=>authoredReview(out.candidates[0].text,i.refs,i.program));
+});
+test('saved mixed clause and generic closing retain review and freeze through handoff',async()=>{
+ const x=fixture();await x.run('loi.save',x.save,{authoredComposition:x.origin});const {contentHash,...head}=x.head(),text=x.save.text+'\n\nI have not interviewed at your program, where residents attend a supervised continuity clinic each week.\n\nSincerely, Applicant';
+ await x.run('loi.save',{...x.save,...head,text});assert.equal(x.current().text,text);assert.equal(x.current().authoredComposition.studentSourceVerification,false);await x.run('loi.approve',{...x.head(),studentFactualConfirmation:true,studentSpecificityConfirmation:true,studentSourceVerification:true});const h=await x.run('loi.handoff',{...x.head(),recipient:'director@hospital.edu',subject:'Interest',channel:'copy',recipientConfirmed:true});assert.equal(h.handoff.text,text);
+ const {contentHash:approved,...next}=x.head();await assert.rejects(x.run('loi.save',{...x.save,...next,text:text.replace('residents attend','residents do not attend')}),{code:'loi_composition_contradiction'});assert.equal(x.current().contentHash,approved);assert.deepEqual(x.anchors.slice(0,3),x.legacy);
+});
