@@ -7,7 +7,7 @@ test('personalized writer explicitly bounds reasoning without changing paid-call
   const req=request(), result=await composer.compose(req);
   assert.equal(calls.length,1);
   const wire=JSON.parse(calls[0].body);
-  assert.deepEqual(wire.reasoning,{effort:'minimal'});
+  assert.deepEqual(wire.reasoning,{effort:'low'});
   assert.equal(wire.model,'gpt-5-nano-2025-08-07');
   assert.equal(wire.max_output_tokens,4096);
   assert.deepEqual(wire.tools,[]);

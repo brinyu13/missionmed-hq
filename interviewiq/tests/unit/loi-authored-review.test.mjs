@@ -24,3 +24,50 @@ function fixture(){const actor={id:randomUUID(),role:'student',wpUserId:1397,tie
  const run=(command,data,extra={})=>writeLoi({...ctx,command,data,...extra}),current=()=>anchors.filter(x=>x?.type==='iiq.loi.revision').at(-1),head=()=>{const c=current();return {letterId:c.letterId,expectedHead:c.revisionId,expectedLetterVersion:c.letterVersion,contentHash:c.contentHash};};return {ctx,actor,anchors,legacy,e,config,save,origin,run,current,head};}
 test('real private handlers preserve authored provenance, gate current approval and freeze exact bytes through handoff',async()=>{const x=fixture();await x.run('loi.save',x.save,{authoredComposition:x.origin});const saved=x.current();assert.equal(saved.authoredComposition.review.state,'STUDENT_VERIFICATION_REQUIRED');assert.equal(saved.authoredComposition.review.editedTrace,false);assert.equal(saved.authoredComposition.studentSourceVerification,false);const approve=()=>({...x.head(),studentFactualConfirmation:true,studentSpecificityConfirmation:true});await assert.rejects(x.run('loi.approve',approve()),{code:'loi_source_verification_required'});const pins=x.config.loiComposition.evidencePins;x.config.loiComposition.evidencePins=[];await assert.rejects(x.run('loi.approve',{...approve(),studentSourceVerification:true}),{code:'loi_research_needed'});x.config.loiComposition.evidencePins=pins;const value=x.e.value;x.e.value+=' Curriculum changed.';await assert.rejects(x.run('loi.approve',{...approve(),studentSourceVerification:true}),{code:'loi_evidence_changed'});x.e.value=value;await x.run('loi.approve',{...approve(),studentSourceVerification:true});const approved=x.current();assert.equal(approved.text,saved.text);assert.equal(approved.contentHash,saved.contentHash);assert.equal(approved.authoredComposition.verifiedContentHash,approved.contentHash);assert.equal(approved.authoredComposition.studentSourceVerification,true);const handoff=await x.run('loi.handoff',{...x.head(),recipient:'director@hospital.edu',subject:'Interest',channel:'copy',recipientConfirmed:true});assert.equal(handoff.handoff.text,saved.text);assert.equal((await replayLoiHandoff(x.ctx,handoff.id)).handoff.text,saved.text);assert.deepEqual(x.anchors.slice(0,3),x.legacy);assert.equal((await readLoi(x.ctx)).history.length,3);await assert.rejects(x.run('loi.approve',{...x.head(),contentHash:'f'.repeat(64),studentFactualConfirmation:true,studentSpecificityConfirmation:true,studentSourceVerification:true}),{code:'loi_content_conflict'});await assert.rejects(writeLoi({...x.ctx,actor:{...x.actor,id:randomUUID()},command:'loi.save',data:x.save}));});
 test('saving authored edits resets verification and approval; unknown meaning is shown without fabricated trace support',async()=>{const x=fixture();await x.run('loi.save',x.save,{authoredComposition:x.origin});const h=x.head();await x.run('loi.approve',{...h,studentFactualConfirmation:true,studentSpecificityConfirmation:true,studentSourceVerification:true});const {contentHash,...head}=x.head();await x.run('loi.save',{...x.save,...head,text:x.save.text+'\n\nThis clinic feels like a setting where my priorities could take shape.'});const c=x.current();assert.equal(c.state,'draft');assert.equal(c.approval,null);assert.equal(c.authoredComposition.studentSourceVerification,false);assert.equal(c.authoredComposition.review.editedTrace,true);assert.equal(c.authoredComposition.review.units.at(-1).flag,'UNRESOLVED_SEMANTIC_SUPPORT');assert.notEqual(c.contentHash,contentHash);const {contentHash:changed,...next}=x.head();await assert.rejects(x.run('loi.save',{...x.save,...next,text:x.save.text+'\n\nI have interviewed at this program.'}),{code:'loi_composition_contradiction'});assert.equal(x.current().contentHash,changed);});
+
+// R14: interview preparation is motivation, not a second status assertion.
+for(const occurred of [false,true])test('typed interview status ignores interview-preparation reason: '+occurred,()=>{
+ const i=proseFixture(),status=i.refs.find(r=>r.ref==='context:interviewState');
+ status.text=occurred?'I have interviewed at this program.':'I have not interviewed at this program.';
+ i.refs.push({ref:'reason:preparation',kind:'reason',text:'I prepare for interviews by identifying program leadership.'});
+ const out=authoredOutput(i);append(out.candidates[0],status.text,['context:interviewState','reason:preparation']);
+ assert.equal(validateAuthoredSingleCallPlans(out,i)[0].review.automaticFactualCertification,false);
+ assert.equal(authoredReview(out.candidates[0].text,i.refs,i.program).studentVerificationRequired,true);
+ const inverse=occurred?'I have not interviewed at this program.':'I have interviewed at this program.';
+ assert.throws(()=>authoredReview(out.candidates[0].text+'\n\n'+inverse,i.refs,i.program),{code:'loi_composition_contradiction'});
+});
+for(const status of ['Unknown','I am not sure whether I interviewed at this program.','No interview event is asserted.','Interview status not stated.'])for(const occurred of [false,true])test('unasserted typed status cannot prove either event polarity: '+status+' / '+occurred,()=>{
+ const i=proseFixture();i.refs.find(r=>r.ref==='context:interviewState').text=status;
+ const claim=occurred?'I have interviewed at this program.':'I have not interviewed at this program.';
+ assert.throws(()=>authoredReview(i.program.name+'.\n\n'+claim,i.refs,i.program));
+});
+for(const wrong of ['missing','wrong kind','reason only'])test('interview event needs mapped typed status: '+wrong,()=>{
+ const i=proseFixture();if(wrong==='missing')i.refs=i.refs.filter(r=>r.ref!=='context:interviewState');
+ else if(wrong==='wrong kind')i.refs.find(r=>r.ref==='context:interviewState').kind='reason';
+ else {i.refs=i.refs.filter(r=>r.ref!=='context:interviewState');i.refs.push({ref:'reason:interview',kind:'reason',text:'I have not interviewed at this program.'});}
+ assert.throws(()=>authoredReview(i.program.name+'.\n\nI have not interviewed at this program.',i.refs,i.program),{code:'loi_composition_contradiction'});
+});
+for(const subject of ['Your program','The program','Test Program'])for(const topic of ['mentorship','robotic surgery','fellowship'])test('canonical-name and alias program-topic checks agree: '+subject+' / '+topic,()=>{
+ const i=proseFixture();assert.throws(()=>authoredReview(i.program.name+'.\n\n'+subject+' offers '+topic+'.',i.refs,i.program),{code:'loi_composition_unsupported'});
+});
+test('actual saved authored edit accepts honest status with preparation reason and rejects its inversion',async()=>{
+ const x=fixture();x.save.motivations.push({id:randomUUID(),text:'I prepare for interviews by identifying program leadership.',confirmed:true});
+ x.origin.refs.push({ref:'reason:preparation',kind:'reason',text:'I prepare for interviews by identifying program leadership.'});
+ await x.run('loi.save',x.save,{authoredComposition:x.origin});
+ const {contentHash,...head}=x.head();
+ await x.run('loi.save',{...x.save,...head,text:x.save.text+'\n\nI have not interviewed at this program.'});
+ const saved=x.current();assert.equal(saved.authoredComposition.review.editedTrace,true);assert.equal(saved.authoredComposition.studentSourceVerification,false);
+ const {contentHash:hash,...next}=x.head();
+ await assert.rejects(x.run('loi.save',{...x.save,...next,text:x.save.text+'\n\nI have interviewed at this program.'}),{code:'loi_composition_contradiction'});
+ assert.equal(x.current().contentHash,hash);
+});
+
+test('typed status elsewhere cannot be borrowed by an incorrectly mapped event claim',()=>{
+ const i=proseFixture(),out=authoredOutput(i);append(out.candidates[0],'I have not interviewed at this program.',['context:applicationState','reason:0']);
+ assert.throws(()=>validateAuthoredSingleCallPlans(out,i),{code:'loi_composition_contradiction'});
+});
+
+for(const neg of ['', 'not '])for(const wrap of [s=>'If '+s+', I will prepare.',s=>'Whether '+s+' is unclear.',s=>s+' if a date becomes available.',s=>'I will say '+s+'.'])test('conditional or hypothetical interview status is not event proof: '+wrap('I have '+neg+'interviewed at this program'),()=>{
+ const i=proseFixture(),claim='I have '+neg+'interviewed at this program.';i.refs.find(r=>r.ref==='context:interviewState').text=wrap('I have '+neg+'interviewed at this program');
+ assert.throws(()=>authoredReview(i.program.name+'.\n\n'+claim,i.refs,i.program),{code:'loi_composition_contradiction'});
+});

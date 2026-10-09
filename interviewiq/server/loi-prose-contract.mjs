@@ -157,17 +157,22 @@ function supportedSectionChiefPlural(name,allowed){
  return allowed.some(r=>r.kind==='evidence'&&r.field==='research.leadership'&&(!r.state||r.state==='SUPPORTED')&&
   new Set([...r.text.matchAll(/^([A-Z][^\n]*?,[ \t]*(?:MD|DO)\b[^\n]*)\nSection Chief(?:[,; \t][^\n]*)?$/gm)].map(m=>m[1].split(',')[0].trim().toLowerCase())).size>=2);
 }
+// Only a typed, explicitly asserted status can support an interviewed event.
+// Interview-preparation motivations and unknown status are never event proof.
+const interviewAssertions=text=>[...text.matchAll(/\bI (?:(?:have|had) )?(?:(?:already|recently) )?((?:not|never) )?interviewed\b/ig)].map(m=>Boolean(m[1]));
+const uncertainInterviewStatus=text=>/\b(?:unknown|uncertain|unconfirmed|unclear|unsure|if|whether|would|could|might|may|assuming|suppose|hypothetical|not sure|not stated|not confirmed|not known|no interview event is asserted)\b/i.test(text);
 function checkAuthoredUnit(quote,allowed){
  const support=allowed.map(r=>r.text).join('\n'),supportedWords=new Set(normalizedWords(support));
  proseNeed(quantities(quote).every(q=>quantities(support).includes(q)),'loi_composition_invented_quantity');
  proseNeed(namedTokens(quote).every(n=>normalizedWords(n).every(w=>supportedWords.has(w))||supportedSectionChiefPlural(n,allowed)),'loi_composition_invented_identity');
  for(const [index,[assertion,source]] of sensitiveTopics.entries())requireAuthoredSupport(!assertion.test(quote)||source.test(support),unsupportedRules[index]);
- if(/\b(?:your program|the program|residents|curriculum|faculty)\b/i.test(quote))for(const m of quote.matchAll(programTopics))requireAuthoredSupport(new RegExp('\\b'+m[0]+'\\b','i').test(support),programRule(m[0]));
+ if(/\b(?:your program|the program|residents|curriculum|faculty)\b/i.test(quote)||allowed.some(r=>r.kind==='identity'&&quote.includes(r.text)))for(const m of quote.matchAll(programTopics))requireAuthoredSupport(new RegExp('\\b'+m[0]+'\\b','i').test(support),programRule(m[0]));
  for(const m of quote.matchAll(pastActions))proseNeed(new RegExp('\\b'+m[1]+'\\b','i').test(support),'loi_composition_invented_event');
  // Negating a positive source, or affirming an explicitly negative status, is
  // detectable without accepting the author's claimed meaning/trace as proof.
  const relevant=allowed.filter(r=>r.kind!=='identity');
- if(/\bI (?:(?:have|had|already|recently) )?(?:(?:not|never) )?interviewed\b/i.test(quote)){const context=allowed.filter(r=>/\binterview\w*\b/i.test(r.text));proseNeed(context.length>0&&context.every(r=>negative(r.text)===negative(quote)),'loi_composition_contradiction');}
+ const assertedInterview=interviewAssertions(quote);
+ if(assertedInterview.length){const context=allowed.filter(r=>r.kind==='context'&&r.ref==='context:interviewState');proseNeed(context.length===1&&/^I (?:(?:have|had) )?(?:(?:already|recently) )?(?:(?:not|never) )?interviewed\b/i.test(context[0].text.trim())&&!uncertainInterviewStatus(context[0].text),'loi_composition_contradiction');const sourceAssertions=interviewAssertions(context[0].text);proseNeed(sourceAssertions.length>0&&assertedInterview.every(polarity=>sourceAssertions.every(source=>source===polarity)),'loi_composition_contradiction');}
  if(/\b(?:residents|your program|the program|curriculum|faculty)\b/i.test(quote)){const evidence=allowed.filter(r=>r.kind==='evidence'&&authoredTopics(r.text).some(t=>authoredTopics(quote).includes(t)));if(evidence.length===1)proseNeed(negative(quote)===negative(evidence[0].text),'loi_composition_contradiction');}
  if(relevant.length===1&&(/\b(?:I|program|residents|clinic|curriculum|training|faculty|interview\w*|appli\w*)\b/i.test(quote)))proseNeed(negative(quote)===negative(relevant[0].text),'loi_composition_contradiction');
  return {code:'UNRESOLVED_SEMANTIC_SUPPORT',message:'Read this authored clause against every linked original source. Trace associations and local checks do not certify meaning.'};

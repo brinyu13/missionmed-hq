@@ -98,7 +98,7 @@ test('generation scopes specialty and provenance dates without weakening provide
  assert.match(b.instructions,/never append a specialty/);
  assert.match(b.instructions,/metadata labels are not applicant updates or program events/);
  assert.match(b.instructions,/same paragraph, omit it/);
- assert.equal(b.max_output_tokens,4096);assert.deepEqual(b.reasoning,{effort:'minimal'});
+ assert.equal(b.max_output_tokens,4096);assert.deepEqual(b.reasoning,{effort:'low'});
  assert.deepEqual(b.tools,[]);assert.equal(b.store,false);
 });
 
@@ -112,7 +112,7 @@ test('provider schema bounds requested candidates, full paragraphs and nonempty 
  const three=JSON.parse(buildLoiProseRequest({...input,approaches:['WARM_PERSONAL','DIRECT_CONCISE','ACADEMIC_PROGRAM']},4096)).text.format.schema;
  assert.equal(three.properties.candidates.minItems,3);assert.equal(three.properties.candidates.maxItems,3);
  assert.match(body.instructions,/at least FOUR paragraphs/);assert.match(body.instructions,/three substantive complete sentences/);
- assert.equal(body.model,'gpt-5-nano-2025-08-07');assert.deepEqual(body.reasoning,{effort:'minimal'});
+ assert.equal(body.model,'gpt-5-nano-2025-08-07');assert.deepEqual(body.reasoning,{effort:'low'});
  assert.equal(body.max_output_tokens,4096);assert.deepEqual(body.tools,[]);
 });
 test('two-paragraph output stays rejected without synthesizing a missing closing',()=>{

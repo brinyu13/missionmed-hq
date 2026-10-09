@@ -6,7 +6,7 @@ test('ordinary direct request contains only the selected strategy and no injecte
  const b=body(input());assert.match(b.instructions,/exactly ONE complete letter/);assert.match(b.instructions,/DIRECT_CONCISE:/);
  for(const label of ['WARM_PERSONAL','ACADEMIC_PROGRAM','POST_INTERVIEW','UPDATE_LED','STRONG_INTEREST','PGY-1','Advanced program pathway'])assert.ok(!b.instructions.includes(label),label);
  assert.match(b.instructions,/Instructions describe writing behavior and are NEVER evidence/);assert.match(b.instructions,/Do not print strategy labels/);
- assert.equal(b.model,LOI_MODEL);assert.equal(b.store,false);assert.deepEqual(b.tools,[]);assert.deepEqual(b.reasoning,{effort:'minimal'});
+ assert.equal(b.model,LOI_MODEL);assert.equal(b.store,false);assert.deepEqual(b.tools,[]);assert.deepEqual(b.reasoning,{effort:'low'});
 });
 test('explicit three request scopes each complete composition to the three selected approaches',()=>{
  const approaches=['WARM_PERSONAL','DIRECT_CONCISE','ACADEMIC_PROGRAM'],b=body(input({approaches}));assert.match(b.instructions,/explicitly requested THREE complete letters/);

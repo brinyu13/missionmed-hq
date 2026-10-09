@@ -127,8 +127,9 @@ export function buildLoiProseRequest(input, maxOutputTokens) {
   };
   const body = {
     model: LOI_MODEL,
-    // Explicit latency bound for the approved GPT-5 nano text-only writer.
-    reasoning: { effort: 'minimal' },
+    // Same approved nano writer; low reasoning remains inside the unchanged
+    // output-token, timeout, spend and single-attempt limits.
+    reasoning: { effort: 'low' },
     instructions: proseInstructions(input),
     input: [{ role: 'user', content: [{ type: 'input_text', text: JSON.stringify(data) }] }],
     text: {
@@ -172,7 +173,7 @@ const QUALITY_DIAGNOSTIC_RULES=new Set(['REPEATED_PROGRAM_IDENTITY','COMPOSITION
 const DIAGNOSTIC_RULES=new Set(['UNSUPPORTED_GUARANTEE','UNSUPPORTED_VISA','UNSUPPORTED_RANK','UNSUPPORTED_ACHIEVEMENT','UNSUPPORTED_PERSONAL_TIE','UNSUPPORTED_PROGRAM_TOPIC','UNSUPPORTED_PROGRAM_ROBOTICS','UNSUPPORTED_PROGRAM_SURGERY','UNSUPPORTED_PROGRAM_CARDIOLOGY','UNSUPPORTED_PROGRAM_FELLOWSHIP','UNSUPPORTED_PROGRAM_RESEARCH','UNSUPPORTED_PROGRAM_SCHOLARSHIP','UNSUPPORTED_PROGRAM_ELECTIVE','UNSUPPORTED_PROGRAM_MENTORSHIP','UNSUPPORTED_PROGRAM_SIMULATION','UNSUPPORTED_PROGRAM_RURAL','UNSUPPORTED_PROGRAM_INTERNATIONAL','UNSUPPORTED_PROGRAM_VISA','UNSUPPORTED_PROGRAM_SPONSORSHIP','UNSUPPORTED_EVIDENCE_STATE']);
 export function loiFailureDiagnostic(error,stage,outputSha256=null){return {stage:['AUTHOR_INTENT','PROVIDER_RESPONSE','PROSE_VALIDATION','DISPATCH'].includes(stage)?stage:'UNKNOWN',code:DIAGNOSTIC_CODES.has(error?.code)?error.code:'UNCLASSIFIED',outputSha256:typeof outputSha256==='string'&&/^[a-f0-9]{64}$/.test(outputSha256)?outputSha256:null,...(((error?.code==='loi_composition_unsupported'&&DIAGNOSTIC_RULES.has(error?.rule))||(error?.code==='loi_composition_quality'&&QUALITY_DIAGNOSTIC_RULES.has(error?.rule)))?{rule:error.rule}:{})};}
 // One synthetic-only diagnostic request. This is not a raw student-output log.
-export const SYNTHETIC_LOI_DIAGNOSTIC_REQUEST='b57e4c06-a7d6-4ca7-a9b1-2278d414436f';
+export const SYNTHETIC_LOI_DIAGNOSTIC_REQUEST='6ba1e234-e0b4-45f4-94c9-c359fcbd5d7e';
 const SYNTHETIC_LOI_INPUT_SHA='4e450f55c3d6c5c6f5af1a5751361b49bafc49d2dddca525f68bd8c1d49d7818';
 const syntheticInputKeys=['program','refs','context','motivations','facts','selectedEvidence','approaches','contextConfirmations','positionType','advancedProgramName'];
 function syntheticInputMatches(input){try{return v.digest(Object.fromEntries(syntheticInputKeys.map(k=>[k,input[k]])))===SYNTHETIC_LOI_INPUT_SHA;}catch{return false;}}
