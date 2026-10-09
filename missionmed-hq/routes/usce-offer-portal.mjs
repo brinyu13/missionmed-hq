@@ -506,7 +506,20 @@ function buildBoundOfferEmail(offer, message) {
   const optionDetails = Array.isArray(offer.options) && offer.options.length ? '\n\nChoose one of these options:\n' + offer.options.map((option,index) => ['Option ' + (index+1), 'Program: ' + option.program_type, 'Specialty: ' + option.specialty, 'Location: ' + option.location, 'Timing: ' + option.month_label, 'Duration: ' + option.duration_weeks + ' weeks', ...(option.date_window_start ? ['Start: ' + option.date_window_start] : []), ...(option.date_window_end ? ['End: ' + option.date_window_end] : [])].join('\n')).join('\n\n') : '';
   const sharedDetails = optionDetails ? ['Offer revision: ' + offer.revision, 'Response deadline: ' + (offer.expires_at ? new Date(offer.expires_at).toISOString() + ' (UTC)' : 'Not specified')].join('\n') : details;
   const textBody = message.body + '\n\n' + sharedDetails + optionDetails + '\n\nResponding to an offer is separate from payment and placement confirmation. Contact Clinicals with questions: clinicals@missionmedinstitute.com';
-  const htmlBody=textToHtml(textBody);
+  // Reuse the legacy branded tracker while binding the complete canonical offer
+  // and personalized message to the same preview hash used for sanctioned send.
+  const offerUrl = (String(message.body).match(/https:\/\/[^\s<>"')]+/gu) || []).find(candidate => {
+    try { const url=new URL(candidate); return url.origin==='https://cdn.missionmedinstitute.com' && url.pathname==='/html-system/LIVE/usce_offer.html' && isSafeOfferToken(url.searchParams.get('offer')); } catch { return false; }
+  }) || OFFER_PAGE_URL;
+  const htmlBody=buildOfferTrackerEmailHtml({
+    preheader:'Review your proposed rotation options and reply securely.',
+    eyebrow:'Offer ready for review', heading:'Your MissionMed Clinicals offer is ready',
+    intro:textBody, statusLabel:'Offer ready', statusText:'Your response is the next step',
+    activeIndex:3, offerId:offer.id,
+    stages:['Received','Review','Options','Offer','Next steps'],
+    actions:[{label:'Review your offer',url:offerUrl,primary:true},{label:'Open tracker',url:TRACKER_PAGE_URL,primary:false},{label:'Contact Clinicals',url:'mailto:clinicals@missionmedinstitute.com',primary:false}],
+    primaryUrl:offerUrl,
+  });
   const sender = getPostmarkConfig();
   return { offer_options: Array.isArray(offer.options) ? offer.options : [], from_name: POSTMARK_FROM_NAME, from_email: sender.fromEmail, reply_to: sender.replyTo,
     to_email: message.to_email, subject: message.subject, body: message.body, text_body: textBody, html_body: htmlBody,
@@ -1297,7 +1310,7 @@ function buildOfferTrackerEmailHtml({
     .split(/\n{2,}/u)
     .map((part) => part.trim())
     .filter(Boolean)
-    .map((part) => `<p style="margin:0 0 12px;color:#d9e7f1;font-size:15px;line-height:1.65;">${escapeHtml(part)}</p>`)
+    .map((part) => `<p style="margin:0 0 12px;color:#d9e7f1;font-size:15px;line-height:1.65;">${escapeHtml(part).replace(/\n/g, '<br>')}</p>`)
     .join('');
   const labels = stages.map((stage) => `<td align="center" style="padding:0 3px 7px;color:#ffffff;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(stage)}</td>`).join('');
   const segments = stages.map((stage, index) => {
@@ -1343,7 +1356,7 @@ function buildOfferTrackerEmailHtml({
     '<tr><td style="padding:0 20px 16px;background:linear-gradient(180deg,#0b4770 0%,#0b4770 50%,#071627 50%,#071627 100%);">',
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b78a8;border:1px solid rgba(255,255,255,.22);border-radius:12px;box-shadow:0 26px 80px rgba(0,0,0,.34);"><tr><td style="padding:16px;">',
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="color:#ffffff;font-size:28px;line-height:1;font-weight:900;text-transform:uppercase;">USCE<br><span style="color:#f3cf61;">Tracker</span></td>',
-    `<td align="right" style="color:#d9e7f1;font-size:12px;line-height:1.55;">Active now: <b style="color:#ffffff;">${escapeHtml(statusLabel)}</b>. Completed segments turn green; the current segment blinks.</td></tr></table>`,
+    `<td align="right" style="color:#d9e7f1;font-size:12px;line-height:1.55;">Active now: <b style="color:#ffffff;">${escapeHtml(statusLabel)}</b>. Completed segments turn green; the current segment is highlighted.</td></tr></table>`,
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;background:#073c5a;border:1px solid rgba(255,255,255,.16);border-radius:6px;"><tr><td style="padding:16px;">',
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>' + labels + '</tr></table>',
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:3px solid rgba(255,255,255,.72);border-radius:999px;overflow:hidden;background:#637689;"><tr>' + segments + '</tr></table>',

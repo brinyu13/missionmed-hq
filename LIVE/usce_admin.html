@@ -491,7 +491,9 @@ a,button,input,select,textarea{touch-action:manipulation}
 .mm-cx .mm-pref-card,.mm-cx .mm-admin-next,.mm-cx .mm-preflight,.mm-cx .mm-stat,.mm-cx .mm-comm,.mm-cx .mm-email,.mm-cx .mm-admin-tracker,.mm-cx .mm-month,.mm-cx .mm-inline-check{background:var(--sf-bg2);border-color:var(--sf-edge)}
 .mm-cx .mm-pref-list .mm-pill-num{background:var(--sf-card2);color:var(--sf-cy)}
 .mm-cx .mm-comm.in,.mm-cx .mm-comm.out,.mm-cx .mm-comm.sys{background:var(--sf-bg2)}
-.mm-cx .mm-month.is-on{background:#39d6ff15;color:var(--sf-cy);border-color:var(--sf-cy);box-shadow:none}
+.mm-cx .mm-month.is-on{background:linear-gradient(135deg,#153453,#245c83);color:#fff;border-color:#17395a;box-shadow:0 3px 9px rgba(15,42,68,.22)}
+.mm-cx .mm-month.is-on::after{content:"✓";color:#f3cf61;font-weight:900;margin-left:4px}
+.mm-cx .mm-month.is-preferred.is-on{border-color:var(--mm-gold);box-shadow:0 3px 9px rgba(15,42,68,.22),inset 0 0 0 1px var(--mm-gold)}
 .mm-cx .mm-month .mm-pref-tag,.mm-cx .mm-admin-waiting{color:var(--sf-cy);background:#39d6ff12}
 .mm-cx .mm-admin-tracker{margin-top:0}.mm-cx .mm-admin-tracker-head{background:var(--sf-bg2);padding:14px}
 .mm-cx .mm-admin-stage-grid{background:var(--sf-bg2);gap:6px;padding:10px}
