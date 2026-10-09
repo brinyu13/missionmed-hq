@@ -1,0 +1,36 @@
+{
+  "status": "WORKER_DONE",
+  "checks": {
+    "ui_v3": 7,
+    "communications_ui": 14,
+    "existing_journey": 10,
+    "total_pass": 31,
+    "total_fail": 0,
+    "inline_script_node_check": "2 PASS",
+    "independent_communications_recheck": "14 PASS at exact final HTML hash"
+  },
+  "hashes": {
+    "LIVE/usce_admin.html": "0ba1e91abf24876a5b2b516cb1cb36854382bfdc20093ac50bac1d135a9eddd7",
+    "missionmed-hq/tests/usce-v3-ui.test.mjs": "88b5a3480a7e2520500e5851ce15ea44a1edf787b75779b23d74253800bbd1e4",
+    "missionmed-hq/tests/usce-v3-communications-ui.test.mjs": "f0c22610863c366d00cdb3bcd1e1d675cc965c01a15f37ba6eb9fe68e7d69de4"
+  },
+  "preserved": [
+    "All existing real control IDs",
+    "Existing auth and CSRF fetch path",
+    "Offer API/revision/approval/read-only/preview/send contracts",
+    "Approved Dashboard/Pipeline/Journey checkpoint and Pipeline grid fixes"
+  ],
+  "remaining": [
+    "Root browser checks for Communications at actual iframe and full desktop",
+    "Independent integration/security verification with new mailbox API",
+    "WordPress mount must forward validated conversation UUID into iframe source",
+    "Provider inbox/reply/notification acceptance and runtime release remain Root gates"
+  ],
+  "no_provider_writes": true,
+  "no_commit_no_deploy": true,
+  "followup_fixes": [
+    "Linked cases outside the current queue use a composer-local authorized message/intake identity, with recipient verified from server draft save and fresh preview",
+    "Unknown request preferences omitted; archived generic correspondence does not reopen the business case or alter Offer",
+    "Composer save errors persist through finally and config refresh until meaningful edits or a new attempt"
+  ]
+}
