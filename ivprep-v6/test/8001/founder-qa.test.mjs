@@ -44,7 +44,7 @@ test('deliberate second Mock allowed only after terminal and room proof; same Mo
   await h.qa.start({actor,sessionId:ID2});assert.equal(h.creates.length,2);assert.equal(h.state().reservedSeconds,180);
 });
 test('disabled, expired, source mismatch, billing unverified and insufficient aggregate budget deny before create',async()=>{
-  for(const policy of [{enabled:false},{expiresAt:999},{source:'c'.repeat(40)},{manifestSha256:'c'.repeat(64)},{overageOffVerified:false},{budgetSeconds:89},{maxSessions:0},{creditLimit:101},{budgetSeconds:201},{rateBoundVerified:false},{creditsPerMinuteCeiling:24},{expiresAt:Date.parse('2026-10-11T00:00:00Z')},{reservedSeconds:-1}]){
+  for(const policy of [{enabled:false},{expiresAt:999},{source:'c'.repeat(40)},{manifestSha256:'c'.repeat(64)},{overageOffVerified:false},{budgetSeconds:89},{maxSessions:0},{creditLimit:201},{budgetSeconds:201},{rateBoundVerified:false},{creditsPerMinuteCeiling:24},{expiresAt:Date.parse('2026-10-11T00:00:00Z')},{reservedSeconds:-1}]){
     const h=harness({policy});await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
   }
   const h=harness({release:{ok:false}});assert.equal((await h.qa.config()).available,false);await assert.rejects(h.qa.start({actor,sessionId:ID}));
@@ -54,6 +54,30 @@ test('100 credits is aggregate, includes cleanup, and is never refunded after ea
   await h.qa.start({actor,sessionId:ID});await h.qa.command({actor,sessionId:ID,command:'terminate'});
   assert.equal(h.state().reservedSeconds,200);assert.equal((await h.restart().config()).available,false);
   await assert.rejects(h.restart().start({actor,sessionId:ID2}));assert.equal(h.creates.length,1);
+});
+test('single five-minute Founder test reserves cleanup inside 200 prepaid credits, preserves history and never retries',async()=>{
+  const prior={sessionId:'prior',receipt:{cleanupConfirmed:true}};
+  const history=[{state:{creditLimit:100,attempts:[prior]}}];
+  const h=harness({duration:300,policy:{creditLimit:200,budgetSeconds:330,maxSessions:1,attempts:[prior],allowanceHistory:history}});
+  assert.equal((await h.qa.config()).maxSeconds,300);
+  const ticket=await h.qa.start({actor,sessionId:ID});
+  assert.equal(ticket.deadlineMs,301000);assert.equal(ticket.maxSeconds,300);
+  assert.equal(h.state().reservedSeconds,330);assert.equal(h.state().sessionCount,1);
+  assert.deepEqual(h.state().attempts[0],prior);assert.deepEqual(h.state().allowanceHistory,history);
+  await h.qa.command({actor,sessionId:ID,command:'terminate'});
+  assert.equal(h.state().reservedSeconds,330);
+  for(const sid of [ID,ID2])await assert.rejects(h.restart().start({actor,sessionId:sid}));
+  assert.equal(h.creates.length,1);
+});
+test('five-minute test denies duration, budget and credit excess before provider creation',async()=>{
+  for(const change of [{duration:301},{policy:{creditLimit:201}},{policy:{budgetSeconds:401}}]){
+    const h=harness({duration:change.duration??300,policy:{creditLimit:200,budgetSeconds:330,maxSessions:1,...change.policy}});
+    await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
+  }
+});
+test('five-minute test requires enough time before expiry for the full cleanup reservation',async()=>{
+  const h=harness({duration:300,policy:{creditLimit:200,budgetSeconds:330,maxSessions:1,expiresAt:330999}});
+  await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
 });
 test('configured normal Mock cannot exceed credit or expiry envelope',async()=>{
   const h=harness({duration:300});await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
