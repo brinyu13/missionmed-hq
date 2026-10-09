@@ -1,0 +1,31 @@
+{
+  "deployment": "3fcfdde0-299e-49d9-8a97-2588af74ee86",
+  "image": "sha256:0011f640d27ea1327a03ccc874146e9d8199c681cc89c73dfb360f2d5c70437f",
+  "source": "9b7b44e006ef3135bfd634d3d4d263bb6ebd585b",
+  "status": "SUCCESS",
+  "files": {
+    ".railwayignore": "684ccd061ac098eb43848fe959a8176ce5e280d123c9ea76097222e2048e33cf",
+    "missionmed-hq/lib/usce-postmark-qa-guard.mjs": "95f4a47724b8ea7aaa87d8b74c54749821db4643d2290d016f809e45d6bd5241",
+    "missionmed-hq/lib/usce-session-token.mjs": "91adfa7643e261b5b3784a384216040e4ddae62999e257d1c7316308f895f416",
+    "missionmed-hq/package.json": "246e2764046a9415dcc38bab868e0aa4742e8887370f9926d8e636e6c978b047",
+    "missionmed-hq/question_selector.mjs": "79c41d6f234c12044212cb500a18c89233165e61560dd0cde0bc28c07165b914",
+    "missionmed-hq/routes/gmail-comms-review-write.mjs": "e268a673caa001e683dbb60cb13f576778fc4d1e7b9cd44cdf66b75a398bd9ef",
+    "missionmed-hq/routes/gmail-metadata-proof.mjs": "8217cd08349f5987df89e7322c249a33b3ec321b10fb268b1011c31c1bd5661b",
+    "missionmed-hq/routes/gmail-sync-preview.mjs": "ec94d2a2a905bce9da6625d1a0cc282955c73c481fb815b55af4da944580870c",
+    "missionmed-hq/routes/usce-offer-portal.mjs": "2e3c4b7246641000500ad66b73fd171795bab184467a80af2befd3c09ef1a51a",
+    "missionmed-hq/routes/usce-public-intake.mjs": "18f90794817828026f420d002d99a4d8ed94618428b6e6238c044901ec0cab67",
+    "missionmed-hq/routes/usce-status-tracker.mjs": "e899c7c414ffbd83d10a9ed0d648f569fa8ab32022b80db35e276b35b8187429",
+    "missionmed-hq/saf_analyzer.mjs": "1006b8a7c6152b357600d01181abc90dd70815da7673eae8aedf6ca4baaca6b6",
+    "missionmed-hq/server.mjs": "ba37b6d037654187fb1b8aa0855aec561376a7831ead5f2699b11b93454bd469",
+    "missionmed-hq/usce-gateway-policy.mjs": "180e77fcd06807efcb6654285447973a844d71a88fd85aa88ad4af113a9824af",
+    "missionmed-hq/usce-gateway.mjs": "c45132fde2d0b881fa40bbe7906eda4ffc4b1130761fd2e5d0dee1aedfef99d8",
+    "missionmed-hq/worker_metrics.mjs": "01764dfbed60b50bd4925285dfb7aa5ebf2b7d06126c6be3d05c5a8b78e68672",
+    "package.json": "8d7286c4622ac2d34c71526180667b45e7f482279dcb31847e1508112ee18991",
+    "railway.json": "28d35b936c695cebadcc0d0a2f2a40f76b5cc872e87da91fc6ef597eaa394564",
+    "missionmed-hq/routes/usce-communications.mjs": "aa2ae15654dad56c7eb9265976e8db841214665d114ca9f11eaf5931afc1ee6c",
+    "missionmed-hq/lib/usce-mail-sync.mjs": "4c11014888620f6d58bd269694e2e67a4a8067a2e168b0ceeb10734ad41eb34f",
+    "missionmed-hq/lib/usce-mail-dispatch.mjs": "cdce26b6da0971af86d770b96c75ad202f5c3c812508c193a1ef7d4668547961"
+  },
+  "all21_serving_hashes_exact": true,
+  "previous_deployment": "282e00a2-df54-4b64-88a5-49185ee4d669"
+}
