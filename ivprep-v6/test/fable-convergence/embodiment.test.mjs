@@ -86,12 +86,14 @@ test('audio-driven avatar returns its stable silent output before generated A/V,
   class Room{handlers={};on(event,callback){this.handlers[event]=callback;}async connect(){}async disconnect(){}}
   const host={dataset:{},replaceChildren(){}};
   const oldDocument=globalThis.document,oldStream=globalThis.MediaStream,avatar=videoFixture();
-  globalThis.document={createElement:()=>avatar};globalThis.MediaStream=class{constructor(tracks){this.tracks=tracks;}};
+  const pulls=[],returnedPlay=deferred();
+  globalThis.document={createElement:tag=>{if(tag==='video')return avatar;const index=pulls.length,element={play:async()=>{assert.equal(element.muted,true);assert.equal(element.volume,0);if(index===1)await returnedPlay.promise;element.played=true;},pause:()=>{element.paused=true;}};pulls.push(element);return element;}};globalThis.MediaStream=class{constructor(tracks){this.tracks=tracks;}};
   const renderer=new EmbodimentRenderer({host,sessionId:'canonical',AudioContextCtor:Context,AudioWorkletNodeCtor:Worklet,
     loadSdk:async()=>({Room,RoomEvent:{TrackSubscribed:'track',Disconnected:'closed'}}),
     fetchImpl:async(url,options)=>{const body=options.body?JSON.parse(options.body):null;commands.push({url,body});return {ok:true,json:async()=>url.endsWith('/start')?{id:'attempt',publisherIdentity:'publisher',deadlineMs:Date.now()+45000}:url.includes('/status')?{closed:false}:{accepted:true}};}});
   try{
     assert.equal(await renderer.render({id:'native'},{ivocSessionId:'canonical'}),output);
+    assert.equal(pulls.length,1);assert.equal(pulls[0].srcObject.id,'native');assert.equal(pulls[0].played,true);
     assert.equal(host.dataset.avatarState,'connecting');assert.equal(renderer.video,undefined);
     for(let i=0;i<3;i++)nodes[0].port.onmessage({data:{rms:0.04,pcm:new Int16Array(1280).fill(1).buffer,generation:1}});
     await new Promise(resolve=>setImmediate(resolve));
@@ -101,14 +103,34 @@ test('audio-driven avatar returns its stable silent output before generated A/V,
     renderer.room.handlers.track({kind:'video',mediaStreamTrack:{}},null,{identity:'wrong-publisher'});
     assert.equal(renderer.video,undefined);
     renderer.room.handlers.track({kind:'video',mediaStreamTrack:{}},null,{identity:'publisher'});
-    renderer.room.handlers.track({kind:'audio',mediaStreamTrack:{}},null,{identity:'publisher'});
+    const returnedBinding=renderer.room.handlers.track({kind:'audio',mediaStreamTrack:{}},null,{identity:'publisher'});
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(renderer.diagnostics().visualReady,false);assert.equal(host.dataset.avatarState,'decoding');
     Object.assign(avatar,{readyState:2,videoWidth:640,videoHeight:480});avatar.frame(1,{presentedFrames:1});
-    await renderer.waitForVisualReady();assert.equal(host.dataset.avatarState,'live');assert.equal(renderer.diagnostics().state,'EMBODIMENT_READY');
+    await renderer.waitForVisualReady();assert.notEqual(host.dataset.avatarState,'live');assert.equal(renderer.diagnostics().audioBound,false);
+    returnedPlay.resolve();await returnedBinding;
+    assert.equal(host.dataset.avatarState,'live');assert.equal(renderer.diagnostics().state,'EMBODIMENT_READY');
     assert.equal(renderer.diagnostics().audioBound,true);assert.equal(avatar.muted,true);
     assert.equal(renderer.destination.stream,output,'readiness does not replace the recorded single tap');
-  }finally{await renderer.stop();if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;if(oldStream===undefined)delete globalThis.MediaStream;else globalThis.MediaStream=oldStream;}
+    assert.equal(pulls.length,2);assert.equal(pulls[1].played,true);
+  }finally{await renderer.stop();for(const pull of pulls){assert.equal(pull.paused,true);assert.equal(pull.srcObject,null);}if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;if(oldStream===undefined)delete globalThis.MediaStream;else globalThis.MediaStream=oldStream;}
+});
+test('silent remote playout rejection fails before provider creation and releases its binding',async()=>{
+  const oldDocument=globalThis.document;let calls=0;
+  const element={play:async()=>{throw new Error('private browser detail');},pause(){this.paused=true;}};
+  globalThis.document={createElement:()=>element};
+  class Context{sampleRate=16000;async resume(){}async close(){}createMediaStreamDestination(){return {stream:{}};}createGain(){return {gain:{value:1},connect(){},disconnect(){}};}}
+  const renderer=new EmbodimentRenderer({sessionId:'canonical',AudioContextCtor:Context,onDiagnostic:()=>{},fetchImpl:async()=>{calls++;throw new Error('must not create');}});
+  try{await assert.rejects(renderer.render({},{ivocSessionId:'canonical'}),e=>e.diagnostics.category==='AUDIO_BIND_FAILURE');assert.equal(calls,0);assert.equal(element.paused,true);assert.equal(element.srcObject,null);}
+  finally{await renderer.stop();if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
+});
+test('stop during pending remote play prevents late binding and never stops shared source tracks',async()=>{
+  const oldDocument=globalThis.document,playing=deferred();let trackStops=0;
+  const element={play:()=>playing.promise,pause(){this.paused=true;}};
+  globalThis.document={createElement:()=>element};
+  const renderer=new EmbodimentRenderer({AudioContextCtor:class{}});
+  try{const pending=renderer.bindSilentRemotePlayout({getTracks:()=>[{stop:()=>trackStops++}]} );await renderer.stop();playing.resolve();await assert.rejects(pending,e=>e.diagnostics.category==='CLIENT_ABORT');assert.equal(element.srcObject,null);assert.equal(element.paused,true);assert.equal(trackStops,0);}
+  finally{if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;}
 });
 test('bounded PCM batches preserve quiet speech and all 480ms of a pause, clearing only explicit interruption',()=>{
   const emitted=[];const batcher=new PcmBatcher(bytes=>emitted.push(new Int16Array(bytes)));
@@ -245,6 +267,7 @@ function lifecycleHarness({resume=async()=>{},connect=async()=>{},interrupt=asyn
   class Worklet{port={onmessage:null,postMessage:data=>{workletMessages.push(data);if(ackWorklet)queueMicrotask(()=>this.port.onmessage?.({data:{command:'flushed',generation:data.generation}}));},close(){}};connect(){}disconnect(){}}
   class Room{on(){}connect=connect;async disconnect(){counts.disconnects++;}}
   const failures=[],receipts=[],renderer=new EmbodimentRenderer({host:{dataset:{},replaceChildren(){}},sessionId:'canonical',AudioContextCtor:Context,AudioWorkletNodeCtor:Worklet,onDiagnostic:r=>receipts.push(r),
+    createAudioElement:()=>({play:async()=>{},pause(){}}),
     loadSdk:async()=>{counts.sdk++;return {Room,RoomEvent:{TrackSubscribed:'track',Disconnected:'closed',TrackUnsubscribed:'untrack'}};},onFailure:e=>failures.push(e),
     fetchImpl:async(url,options)=>{const body=options.body?JSON.parse(options.body):null;commands.push({url,body});
       const result=url.endsWith('/start')?{id:'attempt',publisherIdentity:'publisher',deadlineMs:Date.now()+45000}:body?.command==='interrupt'?await interrupt(body):url.includes('/status')?{closed:false}:{accepted:true};

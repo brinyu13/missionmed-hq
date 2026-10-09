@@ -80,10 +80,10 @@ async function loadLiveKit(){
 }
 const encode=buffer=>{const bytes=new Uint8Array(buffer);let text='';for(const byte of bytes)text+=String.fromCharCode(byte);return btoa(text);};
 export class EmbodimentRenderer {
-  constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,AudioWorkletNodeCtor=globalThis.AudioWorkletNode,loadSdk=loadLiveKit,fetchImpl=fetch,timeoutSignal=ms=>AbortSignal.timeout(ms),onFailure=()=>{},onDiagnostic=receipt=>console.warn('ivoc_embodiment_failure',JSON.stringify(receipt))}={}){
+  constructor({host,csrfToken,sessionId,AudioContextCtor=window.AudioContext,AudioWorkletNodeCtor=globalThis.AudioWorkletNode,createAudioElement=()=>document.createElement('audio'),loadSdk=loadLiveKit,fetchImpl=fetch,timeoutSignal=ms=>AbortSignal.timeout(ms),onFailure=()=>{},onDiagnostic=receipt=>console.warn('ivoc_embodiment_failure',JSON.stringify(receipt))}={}){
     this.host=host;this.csrfToken=csrfToken;this.sessionId=sessionId;this.AC=AudioContextCtor;this.loadSdk=loadSdk;this.fetch=fetchImpl.bind(globalThis);this.onFailure=onFailure;
-    this.closed=false;this.generation=0;this.sequence=0;this.ticket=null;this.cleanup=null;this.sources=[];this.holds=false;this.speaking=false;this.silentMs=0;
-    this.timeoutSignal=timeoutSignal;this.Worklet=AudioWorkletNodeCtor;this.startRequested=false;this.pcmGeneration=1;
+    this.closed=false;this.generation=0;this.sequence=0;this.ticket=null;this.cleanup=null;this.sources=[];this.remotePlayout=[];this.holds=false;this.speaking=false;this.silentMs=0;
+    this.timeoutSignal=timeoutSignal;this.Worklet=AudioWorkletNodeCtor;this.createAudioElement=createAudioElement;this.startRequested=false;this.pcmGeneration=1;
     this.transitions=[];this.failure=null;this.decodeAbort=new AbortController();
     this.onDiagnostic=onDiagnostic;this.failureReceipt=null;this.interruptionTrigger=null;
     // Numeric signal evidence only, never PCM/transcripts. Track existence is
@@ -132,6 +132,18 @@ export class EmbodimentRenderer {
     return result;
   }
   fail(error){if(this.closed)return;this.captureFailure(error);this.visualReject(error);try{this.onFailure(error);}finally{void this.stop();}}
+  async bindSilentRemotePlayout(stream){
+    // Chromium remote WebRTC tracks can feed zeros to Web Audio until a media
+    // element starts playout. Keep that pull alive without a second audible
+    // path: mute BEFORE srcObject/play, and never disable the shared track.
+    const element=this.createAudioElement();
+    element.muted=true;element.defaultMuted=true;element.volume=0;
+    this.remotePlayout.push(element);element.srcObject=stream;
+    try{await element.play();}
+    catch{throw stageError('AUDIO_BIND_FAILURE','AUDIO_BINDING');}
+    finally{if(this.closed){element.pause();element.srcObject=null;}}
+    if(this.closed)throw stageError('CLIENT_ABORT','AUDIO_BINDING');
+  }
   async render(stream,{microphoneTrack,ivocSessionId,nativePlaybackContract}={}){
     if(this.closed)throw stageError('CLIENT_ABORT','IVOC_CLIENT');
     // No permissive opt-in: a future native playback contract needs explicit
@@ -152,6 +164,9 @@ export class EmbodimentRenderer {
     this.gain=this.context.createGain();this.gain.gain.value=1;this.gain.connect(this.destination); // NOT context.destination
     // Stable silent output exists before opening: avoids a speech/startup deadlock.
     const output=this.destination.stream;
+    // Prove the native pull can start BEFORE any paid Actor creation.
+    await this.bindSilentRemotePlayout(stream);
+    if(!current())throw stageError('CLIENT_ABORT','IVOC_CLIENT');
     let sdk;try{sdk=await this.loadSdk();}catch{throw stageError('LIVEKIT_FAILURE','SDK_LOAD');}if(!current())throw stageError('CLIENT_ABORT','IVOC_CLIENT');
     this.transition('EMBODIMENT_CREATE_REQUEST','IVOC_CLIENT','GPT_REMOTE_TRACK_AND_SDK_READY');
     this.startRequested=true;
@@ -168,18 +183,21 @@ export class EmbodimentRenderer {
       const {resolve,reject,...body}=item;return this.api('/command',{sessionId:this.sessionId,id:this.ticket.id,...body});
     },{onFailure:error=>this.fail(error)});
     let audio=false,video=false;
-    const maybeReady=()=>{if(!current()||!audio||!this.visible||!this.inputBound)return;clearTimeout(this.joinTimer);this.host.dataset.avatarState='live';this.transition('EMBODIMENT_READY','IVOC_CLIENT','DECODED_FRAME_AND_SINGLE_AUDIO_GRAPH');};
+    const maybeReady=()=>{if(!current()||!this.returnAudioBound||!this.visible||!this.inputBound)return;clearTimeout(this.joinTimer);this.host.dataset.avatarState='live';this.transition('EMBODIMENT_READY','IVOC_CLIENT','DECODED_FRAME_AND_SINGLE_AUDIO_GRAPH');};
     // One absolute reservation deadline still bounds every media phase. Avatar
     // audio may appear only after PCM; it is not a prerequisite for first speech.
     this.joinTimer=setTimeout(()=>this.fail(stageError(!video?'TRACK_SUBSCRIPTION_FAILURE':!this.visible?'DECODED_FRAME_FAILURE':'AUDIO_BIND_FAILURE',!video?'LIVEKIT_CONNECTED':!this.visible?'AVATAR_DECODING':'AUDIO_BINDING')),Math.max(1,Math.min(15000,this.ticket.deadlineMs-Date.now())));
-    this.room.on(sdk.RoomEvent.TrackSubscribed,(track,publication,participant)=>{
+    this.room.on(sdk.RoomEvent.TrackSubscribed,async(track,publication,participant)=>{
         if(!current()||participant.identity!==this.ticket.publisherIdentity)return;
         try{
         if(this.transitions.at(-1)?.state==='LIVEKIT_CONNECTING')this.transition('LIVEKIT_CONNECTED','LIVEKIT_CLIENT','EXACT_PUBLISHER_TRACK_RECEIVED');
         const raw=track.mediaStreamTrack;if(!raw)return;
         if(track.kind==='audio'){
           if(audio){this.fail(stageError('SURPLUS_AUDIO','AUDIO_BINDING'));return;}
-          audio=true;const source=this.context.createMediaStreamSource(new MediaStream([raw]));this.sources.push(source);source.connect(this.gain);
+          audio=true;const returnedStream=new MediaStream([raw]);
+          await this.bindSilentRemotePlayout(returnedStream);
+          if(!current())return;
+          const source=this.context.createMediaStreamSource(returnedStream);this.sources.push(source);source.connect(this.gain);
           this.returnAudioBound=true;maybeReady();
           // Do not call track.attach() or Room.startAudio(): our original single
           // interviewer audio element owns playback of this exact output stream.
@@ -291,6 +309,7 @@ export class EmbodimentRenderer {
     this.batcher?.clear();this.queue?.close();this.extractor?.disconnect();if(this.extractor)this.extractor.port.onmessage=null;
     for(const source of this.sources)try{source.disconnect();}catch{}this.sources=[];
     this.silentSink?.disconnect();this.gain?.disconnect();this.extractor?.port.close?.();
+    for(const element of this.remotePlayout){element.pause();element.srcObject=null;}this.remotePlayout=[];
     for(const track of this.destination?.stream?.getTracks?.()||[])track.stop();
     this.video?.pause();if(this.video)this.video.srcObject=null;
     if(this.host){this.host.dataset.avatarState='stopped';this.host.replaceChildren();}
