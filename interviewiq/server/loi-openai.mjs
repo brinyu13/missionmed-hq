@@ -1,3 +1,4 @@
+import {buildLoiWritingBrief,LOI_EDITORIAL_INSTRUCTIONS} from './loi-writing-brief.mjs';
 import {PROSE_SCHEMA,VERIFICATION_SCHEMA,proseUnits,AUTHORED_SCHEMA,validateAuthoredInputSpecificity,validateGeneratedLoiQuality} from './loi-prose-contract.mjs';
 import * as v from './validation.mjs';
 import {APPROACHES,CONNECTORS,validatePlans,validateProsePlans,validateAuthoredPlans,validateAuthoredSingleCallPlans} from './loi-composition.mjs';
@@ -72,7 +73,7 @@ export function proseInstructions(input){
  const hasPosition=['PRELIMINARY','TRANSITIONAL_YEAR'].includes(input.positionType)&&typeof position?.text==='string'&&position.text.trim().length>0;
  const positionInstruction=hasPosition?' Use only the confirmed positionContext reference to explain the PGY-1 qualifying year.'+(input.advancedProgramName&&position.text.includes(input.advancedProgramName)?' Keep that confirmed Advanced program pathway clear and early.':' Do not add a relationship to any other training program.'):'';
  const coverage=' Reference checklist: '+input.refs.map(r=>r.ref).join(', ')+'. Every listed ID must occur in a refs array at least once in EACH complete letter, with prose actually expressing its source meaning. Do not omit application/interview context. Distinguish uncertainty from negation: no event is asserted does NOT mean no event occurred. For a status described as unknown, not stated, or not asserted, retain the confirmed source wording exactly in a standalone sentence and cite only that context reference. Do not combine an uncertain or negative status with a positive program-evidence claim in the same sentence. Never turn absence of an assertion into a claim about what happened. Never duplicate an ID in the same paragraph. In the opening substantive paragraph, order non-identity references by the actual opening emphasis for the requested approach. ' + input.approaches.map(a=>a+': first non-identity reference kind '+({WARM_PERSONAL:'reason',DIRECT_CONCISE:'context',ACADEMIC_PROGRAM:'evidence',POST_INTERVIEW:'context',UPDATE_LED:'fact',STRONG_INTEREST:'reason'}[a])).join('; ') + '. Check coverage and ordering before returning JSON; do not add unsupported citations merely to satisfy this checklist.';
- return PROSE_INSTRUCTIONS+' '+count+' Requested approach: '+selected+positionInstruction+coverage;
+ return PROSE_INSTRUCTIONS+' '+count+' Requested approach: '+selected+positionInstruction+coverage+' '+LOI_EDITORIAL_INSTRUCTIONS;
 }
 export const PARAGRAPH_SCHEMA='iiq-loi-authored-paragraphs-v1';
 
@@ -123,7 +124,8 @@ export function buildLoiProseRequest(input, maxOutputTokens) {
     program: input.program,
     approaches: input.approaches,
     refs: input.refs,
-    contextConfirmations:input.contextConfirmations
+    contextConfirmations:input.contextConfirmations,
+    writingBrief:buildLoiWritingBrief(input)
   };
   const body = {
     model: LOI_MODEL,
