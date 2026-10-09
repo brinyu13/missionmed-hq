@@ -511,7 +511,7 @@ function buildBoundOfferEmail(offer, message) {
   const offerUrl = (String(message.body).match(/https:\/\/[^\s<>"')]+/gu) || []).find(candidate => {
     try { const url=new URL(candidate); return url.origin==='https://cdn.missionmedinstitute.com' && url.pathname==='/html-system/LIVE/usce_offer.html' && isSafeOfferToken(url.searchParams.get('offer')); } catch { return false; }
   }) || OFFER_PAGE_URL;
-  const htmlBody=buildOfferTrackerEmailHtml({
+  const htmlBody=['offer_ready','offer_reminder','alternate_option_recommended'].includes(message.category) ? buildOfferTrackerEmailHtml({
     preheader:'Review your proposed rotation options and reply securely.',
     eyebrow:'Offer ready for review', heading:'Your MissionMed Clinicals offer is ready',
     intro:textBody, statusLabel:'Offer ready', statusText:'Your response is the next step',
@@ -519,7 +519,7 @@ function buildBoundOfferEmail(offer, message) {
     stages:['Received','Review','Options','Offer','Next steps'],
     actions:[{label:'Review your offer',url:offerUrl,primary:true},{label:'Open tracker',url:TRACKER_PAGE_URL,primary:false},{label:'Contact Clinicals',url:'mailto:clinicals@missionmedinstitute.com',primary:false}],
     primaryUrl:offerUrl,
-  });
+  }) : textToHtml(textBody);
   const sender = getPostmarkConfig();
   return { offer_options: Array.isArray(offer.options) ? offer.options : [], from_name: POSTMARK_FROM_NAME, from_email: sender.fromEmail, reply_to: sender.replyTo,
     to_email: message.to_email, subject: message.subject, body: message.body, text_body: textBody, html_body: htmlBody,
