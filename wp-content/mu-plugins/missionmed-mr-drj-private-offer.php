@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Private Dr J Invitation
  * Description: Isolated email/account-bound Complete invitation. DR-401/405. No entitlement grants.
- * Version: 2026.10.08.2
+ * Version: 2026.10.08.3
  */
 if (!defined('ABSPATH')) { exit; }
 
@@ -75,6 +75,27 @@ final class MissionMed_MR_DrJ_Private_Offer {
 
     public static function private_coupon($coupon) {
         return $coupon instanceof WC_Coupon && $coupon->get_meta('_mr_drj_campaign', true) === self::CAMPAIGN;
+    }
+
+    public static function checkout_layout() {
+        // Render only for this private cart. Never restyle ordinary checkout.
+        if (!function_exists('is_checkout') || !is_checkout() || !self::cart_invitation()) { return; }
+        echo '<style id="mr-drj-private-checkout-layout">
+        form.checkout #order_review{box-sizing:border-box;padding:16px!important}
+        form.checkout .woocommerce-checkout-review-order-table{table-layout:fixed;width:100%!important;max-width:100%}
+        form.checkout .woocommerce-checkout-review-order-table th,form.checkout .woocommerce-checkout-review-order-table td{box-sizing:border-box;overflow-wrap:anywhere;padding:12px 8px!important}
+        form.checkout .woocommerce-checkout-review-order-table .product-name{width:62%}
+        form.checkout .woocommerce-checkout-review-order-table .product-total{width:38%}
+        form.checkout #payment,form.checkout #payment .payment_box{box-sizing:border-box;max-width:100%}
+        form.checkout #payment .payment_box{padding:12px!important}
+        @media(max-width:767px){
+        form.checkout{padding-left:0!important;padding-right:0!important}
+        form.checkout #order_review_heading{padding:18px 12px!important}
+        form.checkout #order_review{width:100%!important;padding:10px!important}
+        form.checkout #payment ul.payment_methods{padding:8px!important}
+        form.checkout .woocommerce-checkout-review-order-table{font-size:15px}
+        }
+        </style>';
     }
 
     public static function policy($facts) {
@@ -476,6 +497,7 @@ final class MissionMed_MR_DrJ_Invitation {
 
 add_action('template_redirect', ['MissionMed_MR_DrJ_Invitation','route'], -10);
 add_action('init', ['MissionMed_MR_DrJ_Private_Offer','integrate_checkout'], 1000);
+add_action('wp_head', ['MissionMed_MR_DrJ_Private_Offer','checkout_layout'], 50);
 add_filter('woocommerce_available_payment_gateways', ['MissionMed_MR_DrJ_Private_Offer','capture_gateways'], 998);
 add_filter('woocommerce_available_payment_gateways', ['MissionMed_MR_DrJ_Private_Offer','invitation_gateways'], 1000);
 add_filter('woocommerce_coupon_is_valid', ['MissionMed_MR_DrJ_Private_Offer','validate_coupon'], 1000, 3);
