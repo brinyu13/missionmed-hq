@@ -1,0 +1,177 @@
+<!--
+  MM-HD-1702 :: Global Header L5 "Concierge Dock"
+  v2 :: FOUC fix :: legacy headers hidden immediately on style parse (no body-class gate); year corrected to 2009.
+-->
+<style id="mm-hd-1702-style">
+/* Hide native theme + Elementor global headers IMMEDIATELY so no flash of old header.
+   The :not(.elementor-editor-active) guard keeps the existing header in Elementor edit mode. */
+html body:not(.elementor-editor-active) .ast-primary-header-bar,
+html body:not(.elementor-editor-active) .ast-above-header-bar,
+html body:not(.elementor-editor-active) .ast-below-header-actual,
+html body:not(.elementor-editor-active) .ast-above-header,
+html body:not(.elementor-editor-active) .ast-below-header,
+html body:not(.elementor-editor-active) #masthead.site-header,
+html body:not(.elementor-editor-active) header#masthead.site-header,
+html body:not(.elementor-editor-active) header#masthead,
+html body:not(.elementor-editor-active) header[data-elementor-type="header"],
+html body:not(.elementor-editor-active) .elementor-location-header,
+html body:not(.elementor-editor-active) .elementor-location-archive,
+html body:not(.elementor-editor-active) .site-header { display:none !important; }
+
+/* Reserve top space immediately so layout doesn't jump while the L5 mounts */
+html body:not(.elementor-editor-active):not(.mm-l5-on)::before{
+  content:''; display:block; height:110px; background:#fff;
+}
+@media (max-width:1100px){
+  html body:not(.elementor-editor-active):not(.mm-l5-on)::before{ height:92px; }
+}
+@media (max-width:880px){
+  html body:not(.elementor-editor-active):not(.mm-l5-on)::before{ height:78px; }
+}
+
+/* Base */
+.mm-l5{
+  font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;
+  background:#fff;
+  border-bottom:1px solid rgba(11,20,36,.08);
+  position:relative; z-index:9990;
+}
+.mm-l5__top{
+  background:#0A0F1A; color:#A89F89;
+  padding:8px 32px;
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:11px; letter-spacing:.20em; text-transform:uppercase;
+}
+.mm-l5__top em{ font-style:normal; color:#D9BD7B; }
+.mm-l5__inner{
+  max-width:1320px; margin:0 auto;
+  display:grid; grid-template-columns:auto 1fr auto;
+  align-items:stretch; padding:0 32px;
+  gap:18px;
+}
+.mm-l5__logo{
+  width:200px; height:78px; align-self:center;
+  background:url('https://missionmedinstitute.com/wp-content/uploads/2026/02/cropped-608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe-1024x391.png') left center/contain no-repeat;
+  display:block;
+}
+.mm-l5__nav{ display:flex; align-items:center; gap:0; justify-content:center; }
+.mm-l5__nav a{
+  position:relative; padding:30px 22px;
+  font-size:14px; font-weight:500; color:#0B1424;
+  text-decoration:none; letter-spacing:.04em; transition:.18s ease;
+}
+.mm-l5__nav a:hover{ color:#8E6B27; }
+.mm-l5__nav a + a::before{
+  content:''; position:absolute; left:0; top:50%; height:18px; width:1px;
+  background:rgba(11,20,36,.10); transform:translateY(-50%);
+}
+.mm-l5__nav a.is-active{
+  color:#8E6B27; box-shadow:inset 0 -2px 0 #C9A24B;
+}
+.mm-l5__right{ display:flex; align-items:center; gap:10px; }
+.mm-l5__members,
+.mm-l5__account{
+  font-size:12px; letter-spacing:.14em; text-transform:uppercase; font-weight:500;
+  text-decoration:none; padding:11px 16px; border-radius:999px;
+  transition:.18s ease;
+}
+.mm-l5__members{
+  border:1px solid rgba(11,20,36,.18); color:#0B1424; background:transparent;
+}
+.mm-l5__members:hover{ background:#0A0F1A; color:#F5F1E6; border-color:#0A0F1A; }
+.mm-l5__account{
+  background:#0A0F1A; color:#F5F1E6;
+}
+.mm-l5__account:hover{ background:#C9A24B; color:#0A0F1A; }
+
+/* Logged-in vs logged-out account label swap */
+body:not(.logged-in) .mm-l5__account .label-in{ display:none; }
+body.logged-in .mm-l5__account .label-out{ display:none; }
+
+/* Responsive */
+@media (max-width:1100px){
+  .mm-l5__inner{ gap:10px; padding:0 16px; }
+  .mm-l5__nav a{ padding:22px 14px; font-size:13px; }
+  .mm-l5__members, .mm-l5__account{ font-size:11px; padding:8px 12px; letter-spacing:.10em; }
+  .mm-l5__logo{ width:170px; height:62px; }
+}
+@media (max-width:880px){
+  .mm-l5__top{ font-size:10px; padding:6px 14px; letter-spacing:.12em; }
+  .mm-l5__top span:last-child{ display:none; }
+  .mm-l5__nav{ display:none; }
+  .mm-l5__inner{ grid-template-columns:auto 1fr auto; padding:0 14px; }
+  .mm-l5__logo{ width:140px; height:52px; }
+}
+/* PROOF-INTEL-1300: retain all navigation destinations and add accessible mobile access. */
+.mm-l5__nav a{padding-left:14px;padding-right:14px}
+.mm-proof-mobile-nav{display:none;position:relative;color:inherit}
+.mm-proof-mobile-nav summary{min-width:64px;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid currentColor;cursor:pointer;list-style:none}
+.mm-proof-mobile-nav summary::-webkit-details-marker{display:none}
+.mm-proof-mobile-nav nav{position:absolute;right:0;top:48px;width:min(260px,calc(100vw - 28px));max-height:70vh;overflow:auto;box-sizing:border-box;padding:12px 20px;display:grid;background:#091427;color:#fff;box-shadow:0 12px 30px #0004;z-index:100}
+.mm-proof-mobile-nav nav a{display:flex;align-items:center;min-height:44px;color:#fff!important;text-decoration:none}
+.mm-proof-mobile-nav :focus-visible{outline:3px solid #d9bd7b;outline-offset:3px}
+@media(max-width:880px){.mm-proof-mobile-nav{display:block}.mm-l5__right>.mm-l5__members{display:none}.mm-l5__right{gap:8px}}
+</style>
+
+<script>
+(function(){
+  function activeMatch(href, path){
+    if(href === '/' && (path === '/' || path === '')) return true;
+    if(href !== '/' && path.indexOf(href) === 0) return true;
+    return false;
+  }
+  function mount(){
+    if(document.getElementById('mm-l5-header')) return;
+    if(document.body.classList.contains('elementor-editor-active')) return;
+    document.body.classList.add('mm-l5-on');
+    var wrap = document.createElement('div');
+    wrap.id = 'mm-l5-header';
+    wrap.innerHTML =
+      '<header class="mm-l5" role="banner" data-mm-variant="L5">'+
+        '<div class="mm-l5__top">'+
+          '<span>Mission Residency &middot; Student Stories</span>'+
+          '<span><em>Concierge Hours</em> &middot; Mon&ndash;Sat 9a&ndash;7p ET</span>'+
+        '</div>'+
+        '<div class="mm-l5__inner">'+
+          '<a href="https://missionmedinstitute.com/" class="mm-l5__logo" aria-label="MissionMed Institute"></a>'+
+          '<nav class="mm-l5__nav" aria-label="Primary">'+
+            '<a href="https://missionmedinstitute.com/" data-mm-href="/">Home</a>'+
+            '<a href="https://missionmedinstitute.com/examprep/" data-mm-href="/examprep/">ExamPrep</a>'+
+            '<a href="https://missionmedinstitute.com/mission-residency/" data-mm-href="/mission-residency/">Mission Residency</a>'+
+            '<a href="https://missionmedinstitute.com/testimonials/" data-mm-href="/testimonials/">Testimonials</a>'+
+            '<a href="https://missionmedinstitute.com/usce/" data-mm-href="/usce/">USCE</a>'+
+            '<a href="https://missionmedinstitute.com/homepage-arena/" data-mm-href="/homepage-arena/">Arena</a>'+
+          '</nav>'+
+          '<div class="mm-l5__right">'+
+            '<details class="mm-proof-mobile-nav"><summary>Menu</summary><nav aria-label="Mobile navigation">'+
+              '<a href="/">Home</a><a href="/examprep/">ExamPrep</a><a href="/mission-residency/">Mission Residency</a><a href="/testimonials/">Testimonials</a><a href="/usce/">USCE</a><a href="/homepage-arena/">Arena</a><a href="/member-dashboard/">My Matrix</a><a href="/my-account/">My Account</a><a href="/cart/">Cart</a>'+
+            '</nav></details>'+
+            '<a href="https://missionmedinstitute.com/member-dashboard/" class="mm-l5__members">My Matrix &rarr;</a>'+
+            '<a href="https://missionmedinstitute.com/my-account/" class="mm-l5__account" data-mm-auth="account">'+
+              '<span class="label-out">Log In</span>'+
+              '<span class="label-in">My Account</span>'+
+            '</a>'+
+          '</div>'+
+        '</div>'+
+      '</header>';
+    document.body.insertBefore(wrap, document.body.firstChild);
+    var proofMenu = wrap.querySelector('.mm-proof-mobile-nav');
+    if(proofMenu){ proofMenu.addEventListener('click',function(e){if(e.target.closest('a'))proofMenu.open=false;}); proofMenu.addEventListener('keydown',function(e){if(e.key==='Escape'){proofMenu.open=false;proofMenu.querySelector('summary').focus();}}); }
+    try{
+      var path = location.pathname.replace(/\/+$/,'/');
+      if(path === '') path = '/';
+      wrap.querySelectorAll('.mm-l5__nav a').forEach(function(a){
+        var href = a.getAttribute('data-mm-href');
+        if(activeMatch(href, path)) a.classList.add('is-active');
+      });
+    }catch(e){}
+  }
+  // Mount as early as possible :: try interactive, fall back to DOMContentLoaded
+  if(document.body){
+    mount();
+  } else {
+    document.addEventListener('readystatechange', function(){ if(document.body) mount(); });
+    document.addEventListener('DOMContentLoaded', mount);
+  }
+})();
+</script>
