@@ -39,7 +39,7 @@ final class MissionMed_MR_DrJ_Private_Offer {
         // no-coupon rule, retaining it verbatim for every non-invitation request.
         global $wp_filter;
         $path = WP_CONTENT_DIR.'/mu-plugins/missionmed-mr-p0.php';
-        if (!is_file($path) || hash_file('sha256', $path) !== 'aa7e296ccce7d9a6812adee731bd19012a13ba02b853eac1fe1340326bfc31f5') { return; }
+        if (!is_file($path) || hash_file('sha256', $path) !== '0ebdbc5f8901874027d8dd6d2b6a371269d18dc34f7932bb0a83308bf3a9db07') { return; }
         $matches = [];
         foreach (($wp_filter['woocommerce_checkout_process']->callbacks[999] ?? []) as $callback) {
             if (!($callback['function'] instanceof Closure)) { continue; }
