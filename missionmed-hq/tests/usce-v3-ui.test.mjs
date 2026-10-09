@@ -9,7 +9,7 @@ function harness(){
  w.confirm=()=>true;w.fetch=()=>{throw Error('Network forbidden')};w.setInterval=()=>0;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
  let source=w.document.querySelector('script').textContent;
- source=source.replace("renderRequestList(); switchView('hq'); loadLiveQueue();","window.TEST={state,renderRequestList,setV3Workspace,openV3Case,selectRequest,mocks(){loadCaseActivity=async()=>{};loadLiveComms=()=>{};}};");
+ source=source.replace("renderRequestList(); switchView('hq'); loadLiveQueue();","window.TEST={state,startIqIntro,finishIqIntro,showAdminLogin,clearAdminLogin,ensureSession,adminAuthRelayUrl,renderRequestList,setV3Workspace,openV3Case,selectRequest,mocks(){loadCaseActivity=async()=>{};loadLiveComms=()=>{};}};");
  w.eval(source);w.eval(w.document.querySelector('#usce-foundation-navigation').textContent);const a=w.TEST;a.mocks();
  const statuses=['NEW','IN_PROGRESS','OFFER_SENT','OFFER_ACCEPTED','DECLINED'];
  a.state.requests=statuses.map((status,i)=>({id:'synthetic-'+i,name:'Synthetic '+i,email:'s'+i+'@example.test',status,specialties:['Internal Medicine'],locations:['New York'],months:['Oct 2026'],length:'4 weeks',comms:[],audit:[],offerHistory:[],submittedAt:Date.now()}));a.state.adapter='live';
@@ -53,4 +53,41 @@ check('foundation sidebar Pipeline survives Journey exit and Dashboard return',a
  assert.match(html,/\.mm-hq-grid\{align-items:stretch\}/);assert.match(html,/\.mm-v2-queue\{height:100%;align-self:stretch\}/);assert.match(html,/#mmReqList\{grid-row:4;min-height:0\}/);
  w.document.querySelector('[data-sf-nav="cases"]').click();assert.equal(w.document.querySelector('#mmWorkspace > .mm-hero h1').textContent,'USCE Clinical Requests');
  assert.equal(w.document.querySelectorAll('.mm-req-item').length,5);
+});
+
+check('IQ intro is bounded, skippable, once per browser, and omitted for reduced motion',async({a,w,$})=>{
+ a.finishIqIntro();w.localStorage.removeItem('mm-usce-iq-intro-v1');
+ let timeout;const original=w.setTimeout;w.setTimeout=(fn,ms)=>{timeout={fn,ms};return 99;};
+ a.startIqIntro();assert.equal($('mmIqIntro').hidden,false);assert.equal(timeout.ms,6000);
+ $('mmIqSkip').click();assert.equal($('mmIqIntro').hidden,true);
+ a.startIqIntro();assert.equal($('mmIqIntro').hidden,true);
+ w.localStorage.removeItem('mm-usce-iq-intro-v1');w.matchMedia=()=>({matches:true});
+ a.startIqIntro();assert.equal($('mmIqIntro').hidden,true);w.setTimeout=original;
+});
+check('missing/expired session opens login without navigating, hides intro, and traps keyboard focus',async({a,w,$})=>{
+ w.fetch=async()=>({ok:false,status:401,json:async()=>({authenticated:false})});
+ a.state.accessToken='synthetic-expired';
+ await assert.rejects(a.ensureSession(),error=>error.status===401&&!error.recovering);
+ assert.equal($('mmAdminLogin').open,true);assert.equal($('mmIqIntro').hidden,true);
+ assert.equal($('mmCx').dataset.authBlocked,'true');assert.equal(a.state.accessToken,'');
+ assert.match($('mmAdminLoginDescription').textContent,/expired/);
+ assert.equal(w.location.href,'https://synthetic.invalid/');
+ assert.equal($('mmAdminLogin').querySelectorAll('input').length,0);
+ $('mmAdminLoginClose').focus();$('mmAdminLogin').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true}));
+ assert.equal(w.document.activeElement,$('mmAdminContinue'));
+ $('mmAdminLogin').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true,cancelable:true}));
+ assert.equal(w.document.activeElement,$('mmAdminLoginClose'));
+ assert.equal(new URL($('mmAdminRecovery').href).pathname,'/wp-login.php');
+ assert.equal(new URL($('mmAdminRecovery').href).searchParams.get('action'),'lostpassword');
+});
+check('authenticated bootstrap preserves bearer/CSRF and does not show login; explicit 403 remains visible',async({a,w,$})=>{
+ a.finishIqIntro();w.fetch=async()=>({ok:true,status:200,json:async()=>({authenticated:true,accessToken:'synthetic-valid',csrfToken:'synthetic-csrf'})});
+ const session=await a.ensureSession();assert.equal(session.authenticated,true);
+ assert.equal($('mmAdminLogin').open,false);assert.equal($('mmCx').dataset.authBlocked,undefined);
+ assert.equal(a.state.csrfToken,'synthetic-csrf');
+ a.showAdminLogin(403);assert.match($('mmAdminLoginDescription').textContent,/does not have Clinicals administrator access/);
+ assert.equal($('mmIqIntro').hidden,true);assert.match($('mmRuntimeText').textContent,/Administrator access/);
+ assert.equal(new URL(a.adminAuthRelayUrl()).searchParams.get('action'),'mmhq_usce_admin_auth_relay');
+ assert.equal(new URL(a.adminAuthRelayUrl()).origin,'https://missionmedinstitute.com');
+ a.clearAdminLogin();assert.equal($('mmAdminLogin').open,false);
 });

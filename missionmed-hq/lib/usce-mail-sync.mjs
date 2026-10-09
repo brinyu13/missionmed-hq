@@ -14,11 +14,23 @@ export function normalizeGmailMessage(message){
  const plain=[],html=[];let attachments=0,bodyTruncated=false,bodyUnavailable=false;
  const visit=part=>{if(!part)return;if(part.filename){attachments++;return;}if(part.body?.attachmentId){if(['text/plain','text/html'].includes(part.mimeType))bodyUnavailable=true;else attachments++;return;}if(part.mimeType==='text/plain'&&part.body?.data)plain.push(decode(part.body.data));if(part.mimeType==='text/html'&&part.body?.data)html.push(decode(part.body.data));for(const child of part.parts||[])visit(child);};visit(message.payload);
  let body=plain.length?plain.join('\n'):html.map(htmlText).join('\n');if(body.length>100000){body=body.slice(0,100000);bodyTruncated=true;}
- const automatic=!!headers['auto-submitted']&&headers['auto-submitted'].toLowerCase()!=='no'||/\b(bulk|list|junk)\b/i.test(headers.precedence||'')||!!headers['list-id']||/^(mailer-daemon|postmaster)@/i.test(from||'');
+ // Persist only classification evidence, never full routing/authentication headers.
+ const subject=(headers.subject||'').replace(/[\r\n]/g,' ').slice(0,500);
+ let automationReason='';
+ if(headers['auto-submitted']&&headers['auto-submitted'].toLowerCase()!=='no')automationReason='auto_submitted';
+ else if(/\b(bulk|list|junk)\b/i.test(headers.precedence||'')||headers['list-id']||headers['list-unsubscribe'])automationReason='mailing_list';
+ else if(/report-type\s*=\s*["']?(feedback-report|delivery-status)/i.test(headers['content-type']||'')||/^(mailer-daemon|postmaster)@/i.test(from||''))automationReason='machine_report';
+ else if(/report domain:.*submitter:.*report.?id:/i.test(subject)&&(/(^|[._-])(dmarc|postmaster|noreply|no-reply|mailer-daemon)[._@-]/i.test(from||'')||attachments>0))automationReason='dmarc_report';
+ else if(/^(noreply|no-reply|notifications?|alerts?)@/i.test(from||'')&&/delivery status|delivery failure|undeliverable|security alert|verify your|verification code|newsletter|unsubscribe|password reset|dmarc|aggregate report/i.test(subject+' '+body.slice(0,4000)))automationReason='system_alert';
+ const automatic=!!automationReason;
+ const authentication=(headers['authentication-results']||'');
+ const googleResult=/^mx\.google\.com\s*;/i.test(authentication);
+ const senderAuthentication=googleResult&&/\bdmarc=pass\b/i.test(authentication)?'passed':
+  googleResult&&/\bdmarc=(fail|temperror|permerror)\b/i.test(authentication)?'failed':'unknown';
  return {gmail_message_id:message.id,gmail_thread_id:messageId(message.threadId),from_email:from||'',to_email:to,
-  subject:(headers.subject||'').replace(/[\r\n]/g,' ').slice(0,500),body_text:body,received_at:new Date(received).toISOString(),
+  subject,body_text:body,received_at:new Date(received).toISOString(),
   rfc_message_id:headerIds(headers['message-id'])[0]||null,in_reply_to:headerIds(headers['in-reply-to'])[0]||null,
-  references_ids:headerIds(headers.references),attachment_count:attachments,body_truncated:bodyTruncated,body_unavailable:bodyUnavailable,automatic};
+  references_ids:headerIds(headers.references),attachment_count:attachments,body_truncated:bodyTruncated,body_unavailable:bodyUnavailable,automatic,automation_reason:automationReason,sender_authentication:senderAuthentication};
 }
 // Gmail sometimes stores a text BODY in its attachments endpoint. Fetch only unnamed text, never documents.
 export async function hydrateTextBodies(message,gmail){

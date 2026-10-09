@@ -20,3 +20,30 @@ test('Gmail reader pins actual Clinicals mailbox and only reads',async()=>{let u
 test('unnamed text body attachmentId is fetched while named student documents never are',async()=>{const m=message();m.payload.parts.unshift({mimeType:'text/plain',body:{attachmentId:'body-id',size:24}});let calls=[];await hydrateTextBodies(m,async path=>{calls.push(path);return {ok:true,data:{data:Buffer.from('Remote plain message body').toString('base64url')}}});const value=normalizeGmailMessage(m);assert.deepEqual(calls,['messages/abc001/attachments/body-id']);assert.match(value.body_text,/Remote plain message body/);assert.equal(value.body_unavailable,false);assert.equal(value.attachment_count,1);});
 test('oversized or unavailable text bodies are explicitly incomplete rather than empty-complete',async()=>{const m=message();m.payload.parts=[{mimeType:'text/plain',body:{attachmentId:'large-body',size:256001}}];let calls=0;await hydrateTextBodies(m,async()=>{calls++});const value=normalizeGmailMessage(m);assert.equal(calls,0);assert.equal(value.body_unavailable,true);assert.equal(value.attachment_count,0);});
 test('body-part read failure prevents cursor advance',async()=>{const f=fixture();const m=message();m.payload.parts=[{mimeType:'text/plain',body:{attachmentId:'body',size:10}}];const result=await syncMailboxOnce({rpc:f.rpc,gmail:async path=>path==='history'?{ok:true,data:{history:[{messagesAdded:[{message:{id:'abc001'}}]}],historyId:'200'}}:path.includes('/attachments/')?{ok:false,status:503}:{ok:true,data:m}});assert.equal(result.ok,false);assert.equal(f.state.history_id,'100');assert.equal(f.calls.some(c=>c.p_action==='checkpoint'),false);});
+
+test('machine classification uses headers or corroborated report/system signals; ordinary student terms do not trigger it',()=>{
+ const parse=(from,subject,extra=[],body='I am interested in a clinical rotation')=>{
+  const m=message();m.payload.headers=m.payload.headers.filter(h=>!['From','Subject','In-Reply-To'].includes(h.name));
+  m.payload.headers.push({name:'From',value:from},{name:'Subject',value:subject},...extra);
+  m.payload.parts=[{mimeType:'text/plain',body:{data:Buffer.from(body).toString('base64url')}}];return normalizeGmailMessage(m);
+ };
+ assert.equal(parse('student@example.invalid','My DMARC class and clinical rotation').automatic,false);
+ assert.equal(parse('reports@example.invalid','Report Domain: missionmedinstitute.com Submitter: example Report-ID: 123').automatic,false);
+ const report=message();report.payload.headers.push({name:'Subject',value:'ignored duplicate'});
+ report.payload.headers=report.payload.headers.filter(h=>h.name!=='Subject');report.payload.headers.push({name:'Subject',value:'Report Domain: missionmedinstitute.com Submitter: example Report-ID: 123'});
+ assert.equal(normalizeGmailMessage(report).automation_reason,'dmarc_report'); // corroborated attachment
+ assert.equal(parse('student@example.invalid','Clinical rotation',[]).automatic,false);
+ assert.equal(parse('noreply@example.invalid','Security alert').automation_reason,'system_alert');
+ assert.equal(parse('newsletter@example.invalid','Clinical offers',[{name:'List-Unsubscribe',value:'<mailto:unsubscribe@example.invalid>'}]).automation_reason,'mailing_list');
+ assert.equal(parse('sender@example.invalid','Report',[{name:'Content-Type',value:'multipart/report; report-type=feedback-report'}]).automatic,true);
+});
+test('sender authentication accepts only Gmail authentication result authority and stores no full headers',()=>{
+ const m=message();m.payload.headers.push({name:'Authentication-Results',value:'attacker.invalid; dmarc=pass'});
+ assert.equal(normalizeGmailMessage(m).sender_authentication,'unknown');
+ m.payload.headers=m.payload.headers.filter(h=>h.name!=='Authentication-Results');
+ m.payload.headers.push({name:'Authentication-Results',value:'mx.google.com; dmarc=pass header.from=example.invalid'});
+ assert.equal(normalizeGmailMessage(m).sender_authentication,'passed');
+ assert.doesNotMatch(JSON.stringify(normalizeGmailMessage(m)),/header.from|mx.google.com/);
+ m.payload.headers.at(-1).value='mx.google.com; dmarc=fail';
+ assert.equal(normalizeGmailMessage(m).sender_authentication,'failed');
+});
