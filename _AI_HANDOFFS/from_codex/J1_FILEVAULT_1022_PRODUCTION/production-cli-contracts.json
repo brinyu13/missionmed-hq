@@ -1,0 +1,31 @@
+{
+  "result": "PASS",
+  "kind": "read-only production CLI role contracts; not authenticated browser acceptance",
+  "checks": [
+    "unique synthetic actor A",
+    "unique synthetic actor B",
+    "existing administrator available",
+    "existing V2 mode on",
+    "live JS pin approved",
+    "live CSS pin approved",
+    "known QA document still belongs to synthetic actor",
+    "owner document boundary",
+    "other student document boundary",
+    "administrator document boundary",
+    "student synthetic bootstrap",
+    "student role lens",
+    "student private storage configured",
+    "student PDF and Pages accepted",
+    "student 25 MiB contract",
+    "student bootstrap shape preserved",
+    "admin synthetic bootstrap",
+    "admin role lens",
+    "admin private storage configured",
+    "admin PDF and Pages accepted",
+    "admin 25 MiB contract",
+    "admin bootstrap shape preserved",
+    "anonymous V2 denied",
+    "anonymous browser permission denied"
+  ],
+  "count": 24
+}

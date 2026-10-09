@@ -1,0 +1,103 @@
+{
+  "approvedHead": "31b61d4365948abfbadee7cb1393af4adf9db9e1",
+  "scope": "Local immutable package visual equality; no production role claim",
+  "checks": [
+    {
+      "pass": true,
+      "message": "1440 eight category cards in immutable package"
+    },
+    {
+      "pass": true,
+      "message": "1440 heavy titles fit"
+    },
+    {
+      "pass": true,
+      "message": "1440 immutable screenshot matches Founder-approved capture {\"changed\":0,\"overOneLevel\":0,\"maxChannelDifference\":0}"
+    },
+    {
+      "pass": true,
+      "message": "1280 eight category cards in immutable package"
+    },
+    {
+      "pass": true,
+      "message": "1280 heavy titles fit"
+    },
+    {
+      "pass": true,
+      "message": "1280 immutable screenshot matches Founder-approved capture {\"changed\":0,\"overOneLevel\":0,\"maxChannelDifference\":0}"
+    },
+    {
+      "pass": true,
+      "message": "1024 eight category cards in immutable package"
+    },
+    {
+      "pass": true,
+      "message": "1024 heavy titles fit"
+    },
+    {
+      "pass": true,
+      "message": "1024 immutable screenshot matches Founder-approved capture {\"changed\":0,\"overOneLevel\":0,\"maxChannelDifference\":0}"
+    },
+    {
+      "pass": true,
+      "message": "768 eight category cards in immutable package"
+    },
+    {
+      "pass": true,
+      "message": "768 heavy titles fit"
+    },
+    {
+      "pass": true,
+      "message": "768 immutable screenshot matches Founder-approved capture {\"changed\":0,\"overOneLevel\":0,\"maxChannelDifference\":0}"
+    },
+    {
+      "pass": true,
+      "message": "390 eight category cards in immutable package"
+    },
+    {
+      "pass": true,
+      "message": "390 heavy titles fit"
+    },
+    {
+      "pass": true,
+      "message": "390 immutable screenshot matches Founder-approved capture {\"changed\":0,\"overOneLevel\":0,\"maxChannelDifference\":0}"
+    },
+    {
+      "pass": true,
+      "message": "no browser errors"
+    }
+  ],
+  "observations": [
+    {
+      "width": 1440,
+      "changed": 0,
+      "overOneLevel": 0,
+      "maxChannelDifference": 0
+    },
+    {
+      "width": 1280,
+      "changed": 0,
+      "overOneLevel": 0,
+      "maxChannelDifference": 0
+    },
+    {
+      "width": 1024,
+      "changed": 0,
+      "overOneLevel": 0,
+      "maxChannelDifference": 0
+    },
+    {
+      "width": 768,
+      "changed": 0,
+      "overOneLevel": 0,
+      "maxChannelDifference": 0
+    },
+    {
+      "width": 390,
+      "changed": 0,
+      "overOneLevel": 0,
+      "maxChannelDifference": 0
+    }
+  ],
+  "errors": []
+}

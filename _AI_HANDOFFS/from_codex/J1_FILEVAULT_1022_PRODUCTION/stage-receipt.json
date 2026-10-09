@@ -1,0 +1,108 @@
+{
+  "status": "STAGE_PASS",
+  "files": 17,
+  "public": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+      "sha256": "4e5c5419221d88f6900fcdad6391a6495fe77cb279b2f8ab1c20fb0683c5d672",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+      "sha256": "81920423978754c42104ff3fff726d97d420177faf3ec6c2d7687f2b0721d7ad",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+      "sha256": "3ef1c6b59b6268dc48335329eeb7ebc794c153cacc04e6ca3e760696de8a5aeb",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+      "sha256": "3308b900cad0fbfcefd80a94a39d249094d74931a53d0fc8137651b1a6b316c7",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+      "sha256": "05c9e6f3cd92c3ce5fec1eab9c0b991351aa80d6eab3fac9f4e991d6132eb2f8",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+      "sha256": "2d3127d01cdbb22d0d35d0bb24570ff679e796e9bd45106343c6086250e80ecf",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+      "sha256": "e8568bf9095186492c1433f04e0d1bce5c95a403544218ce4c594fb4f362df2c",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+      "sha256": "95976005624f0c1f5ab38b543fde32914310cdc41e052a1be8659d83c475ecf8",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+      "sha256": "bb91f730565a7277bbe3b06471928f6109bab1aa65dd7561b18b6a59750325e3",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+      "sha256": "f2c42f7d0ee6dfac9d7e44042e09351b365092ff447a37b63564e16724e8c615",
+      "status": 200,
+      "content_type": "image/webp"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+      "sha256": "9f960ed9c312f3671cb1720c30d96321bc3cebfe5547dc81ba215e7510864b37",
+      "status": 200,
+      "content_type": "image/png"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mission-residency-logo.png",
+      "sha256": "7134e0bf375a0917a064bca5382f8c44bc3d33c9e80441f8c1dd11b0d9147f21",
+      "status": 200,
+      "content_type": "image/png"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+      "sha256": "f64258e413a3bbfe8ab08e10904b9840200fc655eb24ecc110dc71cdd0cc7969",
+      "status": 200,
+      "content_type": "image/svg+xml"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.44c578a67d945dfe.js",
+      "sha256": "44c578a67d945dfed74f4998fa72ec820c3fe6c0ca75b5043b3da69cbfa02bbe",
+      "status": 200,
+      "content_type": "application/javascript"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.5009c86f47c85fa1.css",
+      "sha256": "5009c86f47c85fa1a9d15b70c3fec17547bf00c7ced21f4ac58702b55f26d482",
+      "status": 200,
+      "content_type": "text/css"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js",
+      "sha256": "44c578a67d945dfed74f4998fa72ec820c3fe6c0ca75b5043b3da69cbfa02bbe",
+      "status": 200,
+      "content_type": "application/javascript"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css",
+      "sha256": "5009c86f47c85fa1a9d15b70c3fec17547bf00c7ced21f4ac58702b55f26d482",
+      "status": 200,
+      "content_type": "text/css"
+    }
+  ]
+}
