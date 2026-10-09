@@ -101,3 +101,22 @@ test('generation scopes specialty and provenance dates without weakening provide
  assert.equal(b.max_output_tokens,4096);assert.deepEqual(b.reasoning,{effort:'minimal'});
  assert.deepEqual(b.tools,[]);assert.equal(b.store,false);
 });
+
+// R13 regression: the provider schema must enforce the existing complete-letter contract.
+test('provider schema bounds requested candidates, full paragraphs and nonempty fit links',()=>{
+ const body=JSON.parse(buildLoiProseRequest(input,4096)),schema=body.text.format.schema;
+ assert.equal(schema.properties.candidates.minItems,1);assert.equal(schema.properties.candidates.maxItems,1);
+ const row=schema.properties.candidates.items.properties;
+ assert.equal(row.paragraphs.minItems,4);assert.equal(row.paragraphs.maxItems,30);
+ assert.equal(row.fitLinks.minItems,1);assert.equal(row.fitLinks.maxItems,20);
+ const three=JSON.parse(buildLoiProseRequest({...input,approaches:['WARM_PERSONAL','DIRECT_CONCISE','ACADEMIC_PROGRAM']},4096)).text.format.schema;
+ assert.equal(three.properties.candidates.minItems,3);assert.equal(three.properties.candidates.maxItems,3);
+ assert.match(body.instructions,/at least FOUR paragraphs/);assert.match(body.instructions,/three substantive complete sentences/);
+ assert.equal(body.model,'gpt-5-nano-2025-08-07');assert.deepEqual(body.reasoning,{effort:'minimal'});
+ assert.equal(body.max_output_tokens,4096);assert.deepEqual(body.tools,[]);
+});
+test('two-paragraph output stays rejected without synthesizing a missing closing',()=>{
+ const short=paragraphs().slice(0,2),original=JSON.stringify(short);
+ assert.throws(()=>plan(short),{code:'loi_composition_trace'});assert.equal(JSON.stringify(short),original);
+ assert.equal(validateAuthoredSingleCallPlans(plan(paragraphs()),input)[0].studentReviewRequired,true);
+});
