@@ -51,6 +51,6 @@ check('foundation sidebar Pipeline survives Journey exit and Dashboard return',a
  assert.equal($('mmCx').dataset.workspace,'pipeline');assert.equal(w.document.querySelector('#mmWorkspace > .mm-hero h1').textContent,'USCE Pipeline');
  assert.equal(w.document.querySelectorAll('.mm-pipeline-lane').length,4);assert.equal($('mmCx').classList.contains('mm-v3'),true);
  assert.match(html,/\.mm-hq-grid\{align-items:stretch\}/);assert.match(html,/\.mm-v2-queue\{height:100%;align-self:stretch\}/);assert.match(html,/#mmReqList\{grid-row:4;min-height:0\}/);
- w.document.querySelector('[data-v3-workspace="dashboard"]').click();assert.equal(w.document.querySelector('#mmWorkspace > .mm-hero h1').textContent,'USCE Clinical Requests');
+ w.document.querySelector('[data-sf-nav="cases"]').click();assert.equal(w.document.querySelector('#mmWorkspace > .mm-hero h1').textContent,'USCE Clinical Requests');
  assert.equal(w.document.querySelectorAll('.mm-req-item').length,5);
 });

@@ -779,7 +779,19 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 .mm-cx.mm-v3 #mmDetMini{display:none}
 }
 </style>
-</head>
+<style id="usce-v4-navigation-review">
+@media(min-width:1025px){
+.mm-cx.mm-v2.mm-v3,.mm-cx.mm-v2.mm-v3.sf-embedded,.mm-cx.mm-v3[data-workspace="pipeline"]{grid-template-columns:196px minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.mm-cx.mm-v3 #mmWorkspace,.mm-cx.mm-v3[data-workspace="pipeline"]>#mmWorkspace,.mm-cx.mm-v3 #mmCommunications:not([hidden]){grid-column:2;grid-row:1}
+.mm-cx.mm-v3[data-workspace="pipeline"]>.sf-rail{display:flex}.mm-cx.mm-v3 .sf-rail{grid-row:1;flex-direction:column}
+}
+.mm-cx.mm-v3 .sf-rail .mm-runtime{display:flex;flex-direction:column;align-items:flex-start;margin-top:10px;gap:7px}.mm-cx.mm-v3 .sf-rail .mm-runtime-pill{font-size:9px;padding:5px 7px;background:#ffffff12;color:#eaf3fe;border-color:#ffffff30}.mm-cx.mm-v3 .sf-open-full{font-size:10px;color:#d7e8fa}
+.mm-cx.mm-v3 .mm-hero{position:relative}.mm-cx.mm-v3 #mmKpiClear{position:absolute;right:16px;top:12px}.mm-cx.mm-v3 .mm-stat{font:inherit;cursor:pointer;color:#143452}.mm-cx.mm-v3 .mm-stat[aria-pressed="true"]{background:#eaf3ff;border-color:#1670c9;box-shadow:inset 0 0 0 1px #1670c9}.mm-cx.mm-v3 .mm-stat:focus-visible{outline:3px solid #d8ae47;outline-offset:2px}
+.mm-cx.mm-v3 #mmJourneyTitle:focus,.mm-cx.mm-v3 #mmJourneyScrim h3[tabindex="-1"]:focus{outline:none!important}.mm-cx.mm-v3 #mmSharedExpiration{border-top:1px solid #d4dce5;margin-top:16px;padding-top:16px}.mm-cx.mm-v3 #mmJourneyReview{background:linear-gradient(135deg,#0a2440,#153958);padding:22px;border-radius:10px;color:#edf5ff}.mm-cx.mm-v3 #mmJourneyReview h3{color:#fff}.mm-cx.mm-v3 #mmJourneyReview h4{color:#f0c968;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin:0 0 10px}.mm-cx.mm-v3 #mmJourneyReview .mm-journey-facts dt{color:#b8cce1}.mm-cx.mm-v3 #mmJourneyReview .mm-journey-facts dd{color:#fff}.mm-cx.mm-v3 .mm-review-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}.mm-cx.mm-v3 .mm-review-block{border:1px solid #ffffff22;border-radius:7px;background:#ffffff06;padding:14px}.mm-cx.mm-v3 .mm-review-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mm-cx.mm-v3 .mm-review-option{padding:12px 0;border-top:1px solid #ffffff20}.mm-cx.mm-v3 .mm-review-option{border-top:0}.mm-cx.mm-v3 .mm-review-option b{color:#fff}.mm-cx.mm-v3 .mm-review-option p{color:#d7e5f4;font-size:12px;margin:6px 0}.mm-cx.mm-v3 #mmJourneyReview .mm-review-message{background:#071e34;border-color:#ffffff25;padding:14px}.mm-cx.mm-v3 #mmJourneyReview .mm-review-message pre{color:#f0f6fc}.mm-cx.mm-v3 #mmJourneyReview .mm-hint{color:#c9dced}.mm-cx.mm-v3 #mmJourneyReview .mm-journey-approval{background:#ffffff0b;color:#fff;border-color:#dfba60}
+@media(max-width:1024px){.mm-cx.mm-v3,.mm-cx.mm-v3.sf-embedded{padding-top:56px}.mm-cx.mm-v3 .sf-rail,.mm-cx.mm-v3.sf-embedded .sf-rail{top:0}.mm-cx.mm-v3 .sf-rail .mm-runtime{display:none}.mm-cx.mm-v3[data-workspace="pipeline"]>.sf-rail{display:flex}}
+@media(max-width:700px){.mm-cx.mm-v3 .mm-review-sections,.mm-cx.mm-v3 .mm-review-options{grid-template-columns:1fr}.mm-cx.mm-v3 #mmJourneyReview{padding:14px}.mm-cx.mm-v3 #mmKpiClear{position:static;margin-top:8px}}
+</style>
+<style>#mmCx .mm-option-card{border:1px solid #d4dce5;border-radius:10px;padding:14px;margin:12px 0;background:#f6f8fb}#mmCx .mm-option-card header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}#mmCx #mmAddOption{margin-top:12px}#mmCx #mmJourneyReviewFacts h4{color:#efc775;margin:0 0 12px}#mmCx #mmJourneyReview .mm-journey-facts dt{color:#a9bed4}#mmCx #mmJourneyReview .mm-journey-facts dd{color:#fff}</style></head>
 <body>
 
 <div class="mm-cx" id="mmCx">
@@ -788,19 +800,17 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 <div class="v1-brand"><img src="https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-institute-logo-email-dark.png" alt="MissionMed Institute"></div><div class="sf-rail-title">MissionMed Clinicals HQ<small>INTERNAL OFFER SYSTEM</small></div>
 <button type="button" data-sf-nav="cases" aria-current="page"><span aria-hidden="true">▤</span>Dashboard</button>
 <button type="button" data-sf-nav="pipeline"><span aria-hidden="true">◫</span>Pipeline</button>
-<button type="button" data-sf-nav="overview" disabled><span aria-hidden="true">◫</span>Overview</button>
+<button type="button" data-sf-nav="overview"><span aria-hidden="true">◫</span>Overview</button>
 <button type="button" data-sf-nav="comms"><span aria-hidden="true">◷</span>Communications</button>
 <button type="button" data-sf-nav="offer" disabled><span aria-hidden="true">◇</span>Offer</button>
 <button type="button" data-sf-nav="audit" disabled><span aria-hidden="true">↺</span>History</button>
+<div class="mm-runtime"><a class="sf-open-full" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html" target="_blank" rel="noopener noreferrer" hidden>Open full workspace ↗</a>
+      <span class="mm-runtime-pill" id="mmRuntimePill"><span class="mm-dot"></span><span id="mmRuntimeText">Checking session</span></span>
+    </div>
 <div class="v1-motto">Discipline<br>Builds<br>Physicians</div><div class="sf-rail-note"><b>Clinicals coordination</b>Review each case, record evidence, and confirm the next step.</div>
 </nav>
 
-  <div class="mm-topbar">
-    <nav class="v1-topnav" aria-label="MissionMed"><a href="https://missionmedinstitute.com/" target="_blank" rel="noopener">Home</a><span>Clinicals HQ</span><button type="button" class="mm-btn mm-btn-ghost mm-btn-sm" data-v3-workspace="dashboard">Dashboard</button><button type="button" class="mm-btn mm-btn-ghost mm-btn-sm" data-v3-workspace="pipeline">Pipeline</button><button type="button" class="mm-btn mm-btn-ghost mm-btn-sm" data-v3-workspace="communications">Communications</button></nav>
-    <div class="mm-runtime"><a class="sf-open-full" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html" target="_blank" rel="noopener noreferrer" hidden>Open full workspace ↗</a>
-      <span class="mm-runtime-pill" id="mmRuntimePill"><span class="mm-dot"></span><span id="mmRuntimeText">Checking session</span></span>
-    </div>
-  </div>
+
 
   <!-- ============== STUDENT INTAKE ============== -->
   <section hidden class="mm-panel" data-panel="student">
@@ -903,7 +913,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   <section class="mm-panel is-active" data-panel="hq" id="mmWorkspace" tabindex="-1" aria-label="Clinicals cases">
     <div class="mm-hero">
       <span class="mm-eyebrow">People Purpose Physicians</span>
-      <h1>USCE Clinical Requests</h1>
+      <h1>USCE Clinical Requests</h1><button id="mmKpiClear" type="button" class="mm-btn mm-btn-sm mm-btn-ghost" hidden>Clear all filters</button>
       <p>Review preferences, log outreach, track the thread, build the offer, and send with coordinator approval.</p>
     </div>
     <div class="mm-adapter-banner" id="mmAdapterBanner">
@@ -913,10 +923,10 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     <div class="mm-hq-grid">
       <div class="mm-card">
         <div class="mm-stats" id="mmStats">
-          <div class="mm-stat"><b id="st_new">0</b><small>New</small></div>
-          <div class="mm-stat"><b id="st_progress">0</b><small>In Progress</small></div>
-          <div class="mm-stat"><b id="st_offered">0</b><small>Offered</small></div>
-          <div class="mm-stat"><b id="st_accepted">0</b><small>Accepted</small></div>
+          <button type="button" class="mm-stat" data-kpi="new" aria-pressed="false"><b id="st_new">0</b><small>New</small></button>
+          <button type="button" class="mm-stat" data-kpi="progress" aria-pressed="false"><b id="st_progress">0</b><small>In Progress</small></button>
+          <button type="button" class="mm-stat" data-kpi="offered" aria-pressed="false"><b id="st_offered">0</b><small>Offered</small></button>
+          <button type="button" class="mm-stat" data-kpi="accepted" aria-pressed="false"><b id="st_accepted">0</b><small>Accepted</small></button>
         </div>
         <div class="mm-hq-toolbar"><button type="button" id="mmRefreshCases" class="mm-btn mm-btn-sm mm-btn-ghost">Refresh cases</button>
           <input type="search" id="mmSearch" placeholder="Search name, email, specialty...">
@@ -1391,7 +1401,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     retentionChoice: null,
     timers: {},
     filter: 'all', sort: 'urgent', query: '',
-    busy: false, dirty: false, workFilter: 'active', activityByRequest: {}, actionKeys: {}, queueLoad: 0
+    busy: false, dirty: false, workFilter: 'active', kpiFilter:null, activityByRequest: {}, actionKeys: {}, queueLoad: 0
   };
 
   // One native-control fence for every asynchronous workspace write. Hydration is independent.
@@ -2006,16 +2016,20 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     ).join('');
   }
 
+  const KPI_GROUPS={new:['NEW'],progress:['IN_PROGRESS'],offered:['OFFERED','OFFER_SENT','OFFER_DECLINE_PENDING'],accepted:['ACCEPTED','OFFER_ACCEPTED']};
   function refreshStats(){
-    const by = (...statuses) => state.requests.filter(r => statuses.indexOf(r.status) > -1).length;
-    $('#st_new').textContent = by('NEW');
-    $('#st_progress').textContent = by('IN_PROGRESS');
-    $('#st_offered').textContent = by('OFFERED', 'OFFER_SENT', 'OFFER_DECLINE_PENDING');
-    $('#st_accepted').textContent = by('ACCEPTED', 'OFFER_ACCEPTED');
+    for(const [key,statuses] of Object.entries(KPI_GROUPS)){$('#st_'+key).textContent=state.requests.filter(r=>statuses.includes(r.status)).length;const button=root.querySelector('[data-kpi="'+key+'"]');button.setAttribute('aria-pressed',String(state.kpiFilter===key));}
+    $('#mmKpiClear').hidden=!state.kpiFilter;
   }
+  function applyKpiFilter(key){
+    if(!['new','progress','offered','accepted',null].includes(key)||state.busy)return;
+    setV3Workspace('dashboard');if(root.dataset.workspace!=='dashboard'||state.selectedRequestId)return;
+    state.kpiFilter=key;state.filter='all';state.workFilter='active';state.query='';$('#mmFilter').value='all';$('#mmWorkFilter').value='active';$('#mmSearch').value='';saveCaseNavigation();renderRequestList();
+  }
+  $$('[data-kpi]').forEach(button=>button.addEventListener('click',()=>applyKpiFilter(button.dataset.kpi)));$('#mmKpiClear').addEventListener('click',()=>applyKpiFilter(null));
 
   function filteredRequests(){
-    let list = state.requests.slice();
+    let list = state.requests.slice();if(state.kpiFilter)list=list.filter(r=>KPI_GROUPS[state.kpiFilter].includes(r.status));
     if (state.filter === 'all') list = list.filter(r => state.workFilter === 'archived' ? r.status === 'ARCHIVED' : r.status !== 'ARCHIVED');
     else list = list.filter(r => r.status === state.filter);
     if (state.workFilter !== 'active' && state.workFilter !== 'archived') list = list.filter(r => {
@@ -2061,10 +2075,17 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   function setV3Workspace(mode){
     if(state.busy||!mailNavigate())return;
     if(state.selectedRequestId)backToCases();if(state.selectedRequestId)return;
-    root.dataset.workspace=mode;$('#mmCommunications').hidden=mode!=='communications';if(mode==='communications')openCommunications();root.querySelector('#mmWorkspace > .mm-hero h1').textContent=mode==='pipeline'?'USCE Pipeline':'USCE Clinical Requests';root.querySelector('#mmWorkspace > .mm-hero p').textContent=mode==='pipeline'?'Move from request to offer to acceptance.':'Review. Coordinate. Build Offers. Make an Impact.';renderRequestList();
-    $$('[data-sf-nav="cases"],[data-sf-nav="pipeline"],[data-sf-nav="comms"]').forEach(button=>{if(({cases:'dashboard',pipeline:'pipeline',comms:'communications'})[button.dataset.sfNav]===mode)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
+    root.dataset.workspace=mode;$('#mmCommunications').hidden=mode!=='communications';if(mode==='communications')openCommunications();root.querySelector('#mmWorkspace > .mm-hero h1').textContent=mode==='pipeline'?'USCE Pipeline':mode==='overview'?'Case Overview':'USCE Clinical Requests';root.querySelector('#mmWorkspace > .mm-hero p').textContent=mode==='pipeline'?'Move from request to offer to acceptance.':mode==='overview'?'Select a student below to review their request, recorded evidence and next steps.':'Review. Coordinate. Build Offers. Make an Impact.';renderRequestList();
+    syncRailNavigation();
   }
-  $$('[data-v3-workspace]').forEach(button=>button.addEventListener('click',()=>setV3Workspace(button.dataset.v3Workspace)));
+  function syncRailNavigation(){
+    const selected=!!currentReq(),mode=root.dataset.workspace;
+    $$('[data-sf-nav]').forEach(button=>{const tab=button.dataset.sfNav;button.disabled=['offer','audit'].includes(tab)&&!selected;const active=mode==='communications'?tab==='comms':mode==='pipeline'?tab==='pipeline':selected?tab===state.activeTab:tab===(mode==='overview'?'overview':'cases');if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
+  }
+  root.querySelector('.sf-rail').addEventListener('click',event=>{
+    const button=event.target.closest('[data-sf-nav]');if(!button||button.disabled)return;const tab=button.dataset.sfNav;
+    if(tab==='cases')setV3Workspace('dashboard');else if(tab==='pipeline')setV3Workspace('pipeline');else if(tab==='comms')setV3Workspace('communications');else if(tab==='overview'){if(currentReq())switchTab('overview');else setV3Workspace('overview');}else if(tab==='offer')openJourney();else if(tab==='audit')switchTab('audit');syncRailNavigation();
+  });
   function renderRequestList(){
     refreshStats();
     const list = $('#mmReqList'); list.innerHTML = '';
@@ -2096,9 +2117,9 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     });
   }
 
-  $('#mmWorkFilter').addEventListener('change',event => {state.workFilter = event.target.value; state.filter = 'all'; $('#mmFilter').value = 'all'; renderRequestList();});
+  $('#mmWorkFilter').addEventListener('change',event => {state.kpiFilter=null;state.workFilter = event.target.value; state.filter = 'all'; $('#mmFilter').value = 'all'; renderRequestList();});
   $('#mmSearch').addEventListener('input', (e)=> { state.query = e.target.value.trim(); saveCaseNavigation(); renderRequestList(); });
-  $('#mmFilter').addEventListener('change', (e)=> { state.filter = e.target.value; renderRequestList(); });
+  $('#mmFilter').addEventListener('change', (e)=> { state.kpiFilter=null;state.filter = e.target.value; renderRequestList(); });
   $('#mmSort').addEventListener('change', (e)=> { state.sort = e.target.value; renderRequestList(); });
 
   // Session-only navigation memory: case ID, tab and entered search; no draft or token contents.
@@ -2259,7 +2280,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   /* Tabs */
   function switchTab(t){
     if(t==='comms'&&currentReq())loadCaseMail(currentReq().id);
-    state.activeTab = t; saveCaseNavigation();
+    state.activeTab = t; saveCaseNavigation();syncRailNavigation();
     $$('#mmDetTabs button').forEach(b => (b.classList.toggle('is-active', b.dataset.tab === t), b.setAttribute('aria-selected', String(b.dataset.tab === t))));
     $$('.mm-tabpane').forEach(p => p.classList.toggle('is-active', p.dataset.pane === t));
   }
@@ -2267,7 +2288,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   function backToCases(){
     if (state.busy || (state.dirty && !window.confirm('Discard unsaved changes and return to cases?'))) return;
     state.dirty = false; state.selectedRequestId = null; state.draftEmail = null; saveCaseNavigation();
-    root.classList.remove('mm-case-open'); renderRequestList(); renderDetail(); $('#mmSearch').focus();
+    root.classList.remove('mm-case-open');syncRailNavigation(); renderRequestList(); renderDetail(); $('#mmSearch').focus();
   }
   $('#mmDetBack').addEventListener('click', backToCases);
   $('#mmCaseBack').addEventListener('click', backToCases);
@@ -2380,6 +2401,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   }
   function offerPayload(offer){
     return {
+      options: offer.options || [],
       specialty: offer.specialty,
       location: offer.location,
       timing: offer.months && offer.months.length ? offer.months.join(' or ') : '',
@@ -2404,6 +2426,8 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     const draftMeta = meta.draft_metadata && typeof meta.draft_metadata === 'object' ? meta.draft_metadata : meta;
     const offer = {
       id: item.id,
+      options: Array.isArray(item.options)?item.options.map(o=>({...o})):[],
+      selectedOptionId:item.selected_option_id||null, selectedOption:item.selected_option||null,
       requestId: requestId || item.intake_request_id,
       student: r ? { name:r.name, email:r.email, phone:r.phone } : { name:'Student', email:'', phone:'' },
       program: item.format || draftMeta.program || 'Core Rotation Access',
@@ -2495,7 +2519,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 
     const ofMonths = $('#mmOfMonths'); ofMonths.innerHTML='';
     const studentMonths = r.months || [];
-    const pool = studentMonths.concat(MONTHS.filter(m => studentMonths.indexOf(m)<0));
+    const pool = Array.from(new Set(studentMonths.concat(existing?.months||[],MONTHS)));
     const preselected = new Set(existing && existing.months && existing.months.length ? existing.months : (studentMonths[0] ? [studentMonths[0]] : []));
     pool.forEach(m => {
       const b = document.createElement('button');
@@ -2527,6 +2551,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     ['#mmOfProgram','#mmOfSpecialty','#mmOfLocation','#mmOfLength','#mmOfExpire','#mmOfStart','#mmMessageChoice','#mmOfSpecialtyOther','#mmOfLocationOther'].forEach(sel => {
       const el = $(sel); el.oninput = updatePreflight; el.onchange = updatePreflight;
     });
+    journey.options=(existing?.options||[]).map(o=>({...o}));renderJourneyOptions(true);
     updatePreflight();
     if(existing && !existing.detailsLoaded){
       setOfferHydrationLock(true);$('#mmDraftState').textContent='Loading saved offer details. Editing, link generation and preview are blocked until verified.';
@@ -2563,7 +2588,9 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     if(offerTermsReadOnly()){toast('Recorded offer terms are read-only. Review Activity and next steps; contact the applicant to coordinate a different request.');return null;}
     const r = currentReq(); if (!r) return null;
     const saved=getOfferForRequest(r);if(saved&&!saved.detailsLoaded){toast('Wait for verified saved offer details, or refresh to retry.');return null;}
-    const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
+    const options=collectJourneyOptions();
+    if(options.length&&!validateJourneyOptions(options)){return null;}
+    const months = options.length?[options[0].month_label]:$$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
     const specialty = offerSpecialtyValue();
     const location = offerLocationValue();
     if (!specialty || !location) { toast('Set specialty and location'); return null; }
@@ -2573,6 +2600,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
       id: 'O-'+Math.random().toString(36).slice(2,8).toUpperCase(),
       requestId: r.id,
       student: { name: r.name, email: r.email, phone: r.phone },
+      options,
       program: $('#mmOfProgram').value,
       specialty,
       location,
@@ -2708,7 +2736,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   }
 
   function offerFormSnapshot(){
-    return JSON.stringify(Array.from(root.querySelectorAll('#mmJourneyScrim input:not(#mmJourneyApproval),#mmJourneyScrim textarea,#mmJourneyScrim select')).map(el=>[el.id,el.value]).concat([['months',$$('#mmOfMonths .mm-month.is-on').map(el=>el.dataset.val)]]));
+    return JSON.stringify(Array.from(root.querySelectorAll('#mmJourneyScrim input:not(#mmJourneyApproval),#mmJourneyScrim textarea,#mmJourneyScrim select')).map(el=>[el.id,el.value]).concat([['months',$$('#mmOfMonths .mm-month.is-on').map(el=>el.dataset.val)],['options',collectJourneyOptions()]]));
   }
   function applyMintedOfferResult(liveOffer, tokenResult, context){
     const payload=tokenResult && (tokenResult.data || tokenResult);
@@ -3358,10 +3386,29 @@ CONFIG.gmailMailboxes[0];
 
 
   /* Required V2 Journey: presentation over the existing draft, preview and exact-version send contracts. */
-  const journey={step:0,caseId:null,returnFocus:null,messageDirty:false,preparedForm:null,result:null};
+  const journey={options:[],step:0,caseId:null,returnFocus:null,messageDirty:false,preparedForm:null,result:null};
   const journeySections=['mmJourneyStudent','mmJourneyProgramHost','mmJourneyDatesHost','mmJourneyEmailHost','mmJourneyReview','mmJourneySend'];
+  function optionFirst(){return {id:journey.options[0]?.id||crypto.randomUUID(),program_type:$('#mmOfProgram').value.trim(),specialty:offerSpecialtyValue(),location:offerLocationValue(),month_label:journey.options.length?$('#mmOfMonthLabel').value.trim():$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val).join(' or '),duration_weeks:parseInt($('#mmOfLength').value,10)||null,date_window_start:$('#mmOfStart').value||null,date_window_end:$('#mmOfEnd').value||null};}
+  function collectJourneyOptions(){if(!journey.options.length)return [];journey.options[0]=optionFirst();return journey.options.map(o=>({...o}));}
+  function validateJourneyOptions(options){
+    const ids=new Set();for(const o of options){if(!/^[0-9a-f-]{36}$/i.test(o.id)||ids.has(o.id)||!o.program_type||o.program_type.length>160||!o.specialty||o.specialty.length>160||!o.location||o.location.length>180||!o.month_label||o.month_label.length>180||!Number.isInteger(o.duration_weeks)||o.duration_weeks<1||o.duration_weeks>24){toast('Complete every option: program, specialty, location, month / date label and duration (1–24 weeks).');return false;}ids.add(o.id);if(o.date_window_end&&(!o.date_window_start||o.date_window_end<o.date_window_start)){toast('Each end date needs its own start date and must be on or after it.');return false;}}
+    if(options.length>5){toast('Offer up to five rotation options.');return false;}return true;
+  }
+  function exactSelect(id,value){const el=$('#'+id);if(!Array.from(el.options).some(o=>o.value===value)){const o=document.createElement('option');o.value=value;o.textContent=value;el.append(o);}el.value=value;}
+  function renderJourneyOptions(hydrate=false){
+    const first=journey.options[0];if(hydrate&&first){exactSelect('mmOfProgram',first.program_type);exactSelect('mmOfSpecialty',first.specialty);exactSelect('mmOfLocation',first.location);exactSelect('mmOfLength',first.duration_weeks+' weeks');$('#mmOfStart').value=first.date_window_start||'';$('#mmOfMonthLabel').value=first.month_label||'';$('#mmOfEnd').value=first.date_window_end||'';showOtherOfferFields();}
+    if(!first){$('#mmOfMonthLabel').value='';$('#mmOfEnd').value='';}
+    $('#mmOfMonthLabel').closest('.mm-field').hidden=!first;$('#mmOfEnd').closest('.mm-field').hidden=!first;$('#mmOfMonths').closest('.mm-field').hidden=!!first;
+    const field=(o,key,label,type='text')=>'<label class="mm-field"><span class="mm-label">'+label+'</span><input class="mm-input" data-option-id="'+esc(o.id)+'" data-option-field="'+key+'" type="'+type+'" '+(key==='duration_weeks'?'min="1" max="24" step="1"':'')+' value="'+esc(o[key]??'')+'"></label>';
+    const card=(o,i,dates)=>'<div class="mm-option-card"><header><b>Option '+(i+1)+'</b><button type="button" class="mm-btn" data-remove-option="'+esc(o.id)+'">Remove option '+(i+1)+'</button></header><div class="mm-builder-grid">'+(dates?field(o,'month_label','Month / date label')+field(o,'duration_weeks','Duration (weeks)','number')+field(o,'date_window_start','Start date','date')+field(o,'date_window_end','End date','date'):field(o,'program_type','Program')+field(o,'specialty','Specialty')+field(o,'location','Location'))+'</div></div>';
+    $('#mmAdditionalProgramOptions').innerHTML=journey.options.slice(1).map((o,i)=>card(o,i+1,false)).join('');$('#mmAdditionalDateOptions').innerHTML=journey.options.slice(1).map((o,i)=>card(o,i+1,true)).join('');
+    $('#mmOptionFirstLabel').hidden=!first;$('#mmOptionFirstDates').hidden=!first;$('#mmRemoveFirstOption').hidden=journey.options.length<2;$('#mmAddOption').disabled=journey.options.length>=5||state.busy||offerTermsReadOnly();syncOfferControlLocks();
+  }
+  function addJourneyOption(){if(state.busy||offerTermsReadOnly()||journey.options.length>=5)return;if(!journey.options.length){journey.options=[optionFirst()];$('#mmOfMonthLabel').value=journey.options[0].month_label;}else collectJourneyOptions();journey.options.push({id:crypto.randomUUID(),program_type:'',specialty:'',location:'',month_label:'',duration_weeks:null,date_window_start:null,date_window_end:null});state.dirty=true;journeyInvalidate();renderJourneyOptions();}
+  function removeJourneyOption(id){if(state.busy||offerTermsReadOnly()||journey.options.length<2)return;collectJourneyOptions();journey.options=journey.options.filter(o=>o.id!==id);state.dirty=true;journeyInvalidate();renderJourneyOptions(true);}
   function defaultJourneyEmail(offer){
     const d=buildDraftEmail({...offer,portalUrl:''});
+    if(offer.options?.length>1){d.subject='Your MissionMed rotation options';d.body=d.body.replace('Review this proposed rotation','Review these proposed rotation options').replace('Acceptance records your choice','Choose the option you prefer; acceptance records that choice').replace('If this option does not work','If none of these options works');}
     // Current offer terms are already appended by the sanctioned email service.
     d.body=humanMessage(d.body).split('\n').filter(line=>! /^(Program|Specialty|Location|Length|Month\(s\) offered|Proposed start|Offer expires):/.test(line)).join('\n').replace(/\n{3,}/g,'\n\n').trim();
     return d;
@@ -3376,8 +3423,9 @@ CONFIG.gmailMailboxes[0];
   function renderOfferSummary(){
     const box=$('#mmOfferSummary'),r=currentReq();if(!box||!r)return;
     const o=getOfferForRequest(r),t=computeAdminTracker(r,o),d=state.draftEmail;
-    const rows=o?[['Offer',statusLabel(o.status)],['Program / site',o.program+' · '+o.location],['Specialty',o.specialty],['Dates',o.months.join(' · ')+(o.start?' · starts '+o.start:'')],['Expires',fmtDateTime(o.expiresAt)],['Communication',o.messageSentAt?'Message submitted; check Activity':o.postmarkStatus==='dry_run'?'Test recorded — no email sent':'Not sent'],['Approval',d&&d.approved?'Current message approved':'Review and approval required']]:[['Offer','No saved draft'],['Next','Review preferences and build the proposed offer']];
-    box.innerHTML='<dl class="mm-offer-facts">'+rows.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('')+'</dl><div class="mm-next-action"><small>What should I do next?</small><b>'+esc(t.adminAction)+'</b><p>'+esc(t.adminAction==='Review request'?'Review preferences, then build the offer.':t.adminAction==='Review offer draft'?'Continue the offer and review its message.':t.adminDetail)+'</p></div>';
+    const chosen=o?.selectedOption||o?.options?.find(v=>v.id===o.selectedOptionId),shown=chosen?{...o,program:chosen.program_type,specialty:chosen.specialty,location:chosen.location,months:[chosen.month_label],start:chosen.date_window_start,length:chosen.duration_weeks+' weeks'}:o;
+    const rows=o?[['Offer',statusLabel(o.status)],['Selected option',chosen?'Option '+((o.options||[]).findIndex(v=>v.id===chosen.id)+1)+' · '+chosen.specialty+' · '+chosen.location:'No option selected'],['Program / site',shown.program+' · '+shown.location],['Specialty',shown.specialty],['Dates',shown.months.join(' · ')+(shown.start?' · starts '+shown.start:'')],['Expires',fmtDateTime(o.expiresAt)],['Communication',o.messageSentAt?'Message submitted; check Activity':o.postmarkStatus==='dry_run'?'Test recorded — no email sent':'Not sent'],['Approval',d&&d.approved?'Current message approved':'Review and approval required']]:[['Offer','No saved draft'],['Next','Review preferences and build the proposed offer']];
+    box.innerHTML=(o?.options?.length?'<div class="mm-offer-alternatives"><b>Saved rotation options</b>'+o.options.map((v,i)=>'<p>Option '+(i+1)+(v.id===o.selectedOptionId?' — selected by student':'')+': '+esc(v.program_type)+' · '+esc(v.specialty)+' · '+esc(v.location)+' · '+esc(v.month_label)+' · '+esc(v.duration_weeks)+' weeks'+(v.date_window_start?' · '+esc(v.date_window_start):'')+(v.date_window_end?' to '+esc(v.date_window_end):'')+'</p>').join('')+'</div>':'')+'<dl class="mm-offer-facts">'+rows.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('')+'</dl><div class="mm-next-action"><small>What should I do next?</small><b>'+esc(t.adminAction)+'</b><p>'+esc(t.adminAction==='Review request'?'Review preferences, then build the offer.':t.adminAction==='Review offer draft'?'Continue the offer and review its message.':t.adminDetail)+'</p></div>';
     $('#mmJourneyLaunch').textContent=o?'Continue offer':'Build offer';
     $('#mmJourneyLaunch').disabled=offerTermsReadOnly()||state.busy||!!state.offerHydrating;
     $('#mmActGotoOffer').disabled=offerTermsReadOnly()||state.busy||!!state.offerHydrating;
@@ -3419,7 +3467,7 @@ CONFIG.gmailMailboxes[0];
   }
   function fillJourneyComposer(r,o){
     cancelJourneyReplacement();
-    const original=o&&o.subject&&o.body?{subject:o.subject,body:humanMessage(o.body)}:defaultJourneyEmail({requestId:r.id,program:$('#mmOfProgram').value,specialty:offerSpecialtyValue(),location:offerLocationValue(),length:$('#mmOfLength').value,months:$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val),start:$('#mmOfStart').value,expiresAt:o?o.expiresAt:Date.now()+48*3600000,instructions:$('#mmOfInstructions').value,portalUrl:''});
+    const original=o&&o.subject&&o.body?{subject:o.subject,body:humanMessage(o.body)}:defaultJourneyEmail({requestId:r.id,options:journey.options,program:$('#mmOfProgram').value,specialty:offerSpecialtyValue(),location:offerLocationValue(),length:$('#mmOfLength').value,months:$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val),start:$('#mmOfStart').value,expiresAt:o?o.expiresAt:Date.now()+48*3600000,instructions:$('#mmOfInstructions').value,portalUrl:''});
     $('#mmJourneyTo').textContent=r.email;
     $('#mmJourneySubject').value=original.subject;
     $('#mmJourneyMessage').value=humanMessage(original.body);
@@ -3491,8 +3539,9 @@ CONFIG.gmailMailboxes[0];
   }
   function renderJourneyReview(){
     const d=state.draftEmail,r=currentReq();if(!d||r.id!==d.offer.requestId||!verifiedSender(d.sender))throw new Error('Load the current checked message first.');
-    const o=getOfferForRequest(r),rows=[['Student',r.name],['Program / site',o.program+' · '+o.location],['Specialty',o.specialty],['Dates',o.months.join(' · ')+(o.start?' · starts '+o.start:'')],['Length',o.length],['Expires',fmtDateTime(o.expiresAt)],['To',d.to],['From',d.sender.from_name+' <'+d.sender.from_email+'>'],['Reply to',d.sender.reply_to],['Subject',d.subject],['Approval',d.approved?'This exact version approved':'Your approval is required before sending']];
-    $('#mmJourneyReviewFacts').innerHTML='<dl class="mm-journey-facts">'+rows.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('')+'</dl>';
+    const o=getOfferForRequest(r),options=o.options?.length?o.options:[{program_type:o.program,specialty:o.specialty,location:o.location,month_label:o.months.join(' · '),duration_weeks:normalizeDurationWeeks(o.length),date_window_start:o.start}];
+    const facts=rows=>'<dl class="mm-journey-facts">'+rows.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v||'Not specified')+'</dd>').join('')+'</dl>';
+    $('#mmJourneyReviewFacts').innerHTML='<div class="mm-review-sections"><section class="mm-review-block"><h4>Student</h4>'+facts([['Name',r.name],['Email',r.email]])+'</section><section class="mm-review-block"><h4>Routing and response deadline</h4>'+facts([['To',d.to],['From',d.sender.from_name+' <'+d.sender.from_email+'>'],['Reply to',d.sender.reply_to],['Respond by',fmtDateTime(o.expiresAt)],['Subject',d.subject],['Approval',d.approved?'This exact version approved':'Approval required before sending']])+'</section></div><section class="mm-review-block"><h4>Rotation options</h4><div class="mm-review-options">'+options.map((v,i)=>'<section class="mm-review-option"><h4>Option '+(i+1)+(o.selectedOptionId===v.id?' — selected by student':'')+'</h4>'+facts([['Program',v.program_type],['Specialty',v.specialty],['Location',v.location],['Timing',v.month_label],['Duration',v.duration_weeks+' weeks'],['Start',v.date_window_start],['End',v.date_window_end]])+'</section>').join('')+'</div></section>';
     const human=humanMessage(d.body),terms='\n\nOffer details included: '+o.specialty+' · '+o.location+' · '+o.months.join(' · ')+' · '+o.length+'\nRespond by '+fmtDateTime(o.expiresAt)+'\nResponding is separate from payment and placement confirmation. Questions: clinicals@missionmedinstitute.com';
     $('#mmJourneyReviewMessage').textContent=String(d.renderedEmail.textBody||d.body).split('\n').map(line=>line.includes('/html-system/LIVE/usce_offer.html')?'[Secure link to this student’s offer]':line).join('\n');
     $('#mmJourneyReviewConsequence').textContent='The student will receive this message with their secure offer link and the current offer details. Nothing has been sent. Approve this exact version to continue.';
@@ -3503,7 +3552,7 @@ CONFIG.gmailMailboxes[0];
     try{
       $('#mmJourneyState').textContent='Checking this step…';
       if(journey.step===0){journeyStep(1);}
-      else if(journey.step===1){if(!offerSpecialtyValue()||!offerLocationValue())throw new Error('Choose a specialty and location.');journeyStep(2);}
+      else if(journey.step===1){const options=collectJourneyOptions();if(!offerSpecialtyValue()||!offerLocationValue()||options.some(o=>!o.program_type||!o.specialty||!o.location))throw new Error('Choose a program, specialty and location for every option.');journeyStep(2);}
       else if(journey.step===2){if(!readOfferForm())throw new Error('Choose at least one offered month.');await prepareJourneyMessage();journeyStep(3);}
       else if(journey.step===3){await prepareJourneyMessage();renderJourneyReview();journeyStep(4);}
       else if(journey.step===4){
@@ -3584,6 +3633,15 @@ CONFIG.gmailMailboxes[0];
     $('#mmCaseFactsDialog').addEventListener('click',event=>{if(event.target.closest('.mm-quickact button')){$('#mmCaseFactsDialog').close();$('#mmReadStudentRequest').focus();}},true);
     $('#mmOpenOps').addEventListener('click',()=>$('#mmOpsDialog').showModal());$('#mmOpsClose').addEventListener('click',()=>$('#mmOpsDialog').close());
     $('#mmRefreshCases').textContent='↻';$('#mmRefreshCases').setAttribute('aria-label','Refresh requests');
+    $('#mmJourneyProgramFields').insertAdjacentHTML('beforebegin','<header id="mmOptionFirstLabel" hidden><b>Option 1</b> <button type="button" class="mm-btn" id="mmRemoveFirstOption" hidden>Remove option 1</button></header>');
+    $('#mmJourneyProgramFields').insertAdjacentHTML('afterend','<div id="mmAdditionalProgramOptions"></div><button type="button" class="mm-btn" id="mmAddOption">Add additional option</button>');
+    $('#mmJourneyDateFields').insertAdjacentHTML('beforeend','<label class="mm-field" hidden><span class="mm-label">Option 1 month / date label</span><input class="mm-input" id="mmOfMonthLabel" maxlength="180" placeholder="Enter verified offered timing"></label><label class="mm-field" hidden><span class="mm-label">Option 1 end date (optional)</span><input class="mm-input" id="mmOfEnd" type="date"></label>');
+    $('#mmJourneyDateFields').insertAdjacentHTML('beforebegin','<h4 id="mmOptionFirstDates" hidden>Option 1 dates and duration</h4>');
+    $('#mmJourneyDateFields').insertAdjacentHTML('afterend','<div id="mmAdditionalDateOptions"></div><div id="mmSharedExpiration"></div>');
+    $('#mmSharedExpiration').append($('#mmOfExpire').closest('.mm-field'));root.querySelector('label[for="mmOfExpire"]').textContent='Response deadline (all options)';
+    $('#mmAddOption').addEventListener('click',addJourneyOption);$('#mmRemoveFirstOption').addEventListener('click',()=>removeJourneyOption(journey.options[0]?.id));
+    $('#mmJourneyScrim').addEventListener('click',e=>{const b=e.target.closest('[data-remove-option]');if(b)removeJourneyOption(b.dataset.removeOption);});
+    $('#mmJourneyScrim').addEventListener('input',e=>{if(!e.target.dataset.optionField||state.busy||offerTermsReadOnly())return;const o=journey.options.find(o=>o.id===e.target.dataset.optionId);if(o){const k=e.target.dataset.optionField;o[k]=k==='duration_weeks'?(e.target.value?Number(e.target.value):null):e.target.value||null;}});
     $('#mmJourneyScrim').addEventListener('input',e=>{if(['mmJourneySubject','mmJourneyMessage','mmJourneyApproval'].includes(e.target.id))return;state.dirty=true;if(e.target.id==='mmOfExpire')e.target.dataset.changed='true';journeyInvalidate();updateJourneyDates();});
     $('#mmOfMonths').addEventListener('click',()=>{journeyInvalidate();updateJourneyDates();});
   }
@@ -3657,43 +3715,13 @@ CONFIG.gmailMailboxes[0];
 
   try{const saved=JSON.parse(sessionStorage.getItem(CASE_RESUME_KEY)||'null');if(saved&&typeof saved.query==='string'){state.query=saved.query.slice(0,200);$('#mmSearch').value=state.query;}}catch(_error){}
   state.requests = []; state.offers = []; state.adapter = 'booting';
-  renderRequestList(); switchView('hq'); loadLiveQueue();
+  syncRailNavigation();renderRequestList(); switchView('hq'); loadLiveQueue();
 
 
 })();
 </script>
 <script id="usce-foundation-navigation">
-/* Presentation navigation delegates to existing case/tab controls; no data mutations. */
-(function(){
-  const root=document.getElementById('mmCx'),rail=root.querySelector('.sf-rail');
-  const full=root.querySelector('.sf-open-full');if(full)full.hidden=window.top===window.self;
-  root.classList.toggle('sf-embedded',window.top!==window.self);
-  function sync(){
-    const selected=root.classList.contains('mm-case-open');
-    rail.querySelectorAll('[data-sf-nav]').forEach(button=>{
-      const tab=button.dataset.sfNav;
-      button.disabled=!['cases','pipeline','comms'].includes(tab)&&!selected;
-      const active=root.dataset.workspace==='communications'?tab==='comms':selected?root.querySelector('#mmDetTabs [data-tab="'+tab+'"]')?.classList.contains('is-active'):(tab==='pipeline'?root.dataset.workspace==='pipeline':tab==='cases'&&root.dataset.workspace!=='pipeline');
-      if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
-    });
-  }
-  rail.addEventListener('click',event=>{
-    const button=event.target.closest('[data-sf-nav]');if(!button||button.disabled)return;
-    if(button.dataset.sfNav==='comms'){root.querySelector('[data-v3-workspace="communications"]').click();}
-    else if(button.dataset.sfNav==='pipeline'){root.querySelector('[data-v3-workspace="pipeline"]').click();}
-    else if(button.dataset.sfNav==='cases'){
-      root.querySelector('[data-v3-workspace="dashboard"]').click();
-      // setV3Workspace owns the single dirty-state confirmation and return action.
-      if(!root.classList.contains('mm-case-open'))root.querySelector('#mmSearch').focus();
-    }else{
-      root.querySelector('#mmDetTabs [data-tab="'+button.dataset.sfNav+'"]').click();
-      root.querySelector('#mmWorkspace').scrollIntoView({block:'start'});
-    }
-    sync();
-  });
-  new MutationObserver(sync).observe(root,{attributes:true,attributeFilter:['class'],subtree:true});
-  sync();
-})();
+(function(){const root=document.getElementById('mmCx'),full=root.querySelector('.sf-open-full');if(full)full.hidden=window.top===window.self;root.classList.toggle('sf-embedded',window.top!==window.self);})();
 </script>
 </body>
 </html>
