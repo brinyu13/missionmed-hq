@@ -5,9 +5,31 @@ Mission: `IVOC-CONVERGE-8001`
 Authority: `DR-290`, `DR-350` (narrow packaging), `DR-361` (current RISE eligibility successor), `DR-392` (bounded preflight/closing repair), `DR-394` (no-spend secure Modal transport recovery); `DR-393` Oct9 participating-test renewal at OS84ecb4fbda7f0fc2e99468de7e4079642b922f29: ONE new100-prepaid-credit window, prior accounting/attempts preserved, no automatic reset; `DR-340` QA grant revoked
 Branch: `codex/ivoc-foreman-9200`
 Required terminal marker: `IVOC AAA PRODUCTION COMPLETE — FOUNDER LEDGER SATISFIED`
-Current continuation boundary: `REPAIRED8392286 EXACT-ARTIFACT FOUNDER TEST ENABLED; DEPLOYMENT7d5cf884; DR393 ONE NEW100CREDIT WINDOW; PRIOR ATTEMPTS RETAINED; NO AGENT CREATE; ACTUAL GPT SPEECH/AVATAR SYNC STILL NEEDS FOUNDER PROOF; NOT PRODUCT COMPLETE`
+Current continuation boundary: `76118EB SURGICAL ADMISSION REPAIR LIVE4737655E; NEW BOUNDED FOUNDER WINDOW ENABLED REV34; PRIOR HISTORY RETAINED; NO AGENT CREATE; FOUNDER HEADPHONE TEST READY; SPEECH/SYNC/SAFE RESUME NOT ACCEPTED`
+
+## 2026-10-09 — surgical avatar admission and timing-cue recovery
+
+- Distinguish two saved Founder attempts. b8662df3-89ef-427d-800f-aa10262c3589 reached visualReady/audioBound/inputBound; Founder heard a short phrase and saw mouth/hands. It failed at AUDIO_BINDING/NATIVE_PLAYBACK_BOUNDARY_UNAVAILABLE after local-microphone-vad interruption, not the170second cap. Input195frames/peakRMS0.09697, returnedpeak0.06160/audioEnds2 are transport evidence, not full acoustic acceptance. Raw shared analytics mic has echoCancellation=false; speaker bleed is plausible, not proven. Conservative stop prevents unsafe stale speech replay; seamless resume remains unsupported. Use headphones and wait for the full spoken question during the next bounded test.
+- cff428c6-c909-4c1d-8df8-71abe5156567 was native-only: prior windowcount1of1/reserved200of200 caused no avatar admission, yet Room silently launched voice-only. It did not create a LemonSlice session. Fix this deterministic fallback instead of spending again to rediscover it.
+- Source76118eb0c704cc4cd86ba6621c6590ac87e31fef, clean/pushed existingfollowup-device-recovery branch. Four files: Room/admissionhelper/twofocusedtests. Fresh non-creating admission GET before context/recording/GPT/Actor CREATE; unavailable stops explicitly. GET may clean a stale server session, so it is not strictly read-only. Hold startup captions, prioritize actual interviewer-speaking cues over microphone activity and retain Founder guidance. No renderer/transport/brain/recording/security changes.21 focused+34embodimentPASS; independent44PASS/APPROVE;3releaseartifactPASS. Final status/comment delta independently approved.
+- Registered exact bounded successor at OS26b8f778e13edc95310c93e1f3078660f225905d after independent approval and normalREGISTRY5562 release/DBreadback; BOOTPASS. Newwindowfounder-participating-76118eb-20261009-01:100existingprepaidcredits,max1CREATE,200reservedwallseconds including30cleanup/max170active fromreservation/startup,idle15,expiryOct10T00Z,no retry/overage/purchases/student/otherAdmin activation/agentStart. CASrevision33+stateSHAed5b0992714d0f3b3c979faa22c10803173c5322a2edf6452533a85002feb29e; append fullpriorstate/history and retain all3attempts. Prior windows remain consumed, not refunded.
+- Billingfresh10:54Z:1590prepaid,Starter1000credits/41min,overageOFF/usage0,no surge/above-limit concurrency. Exactpriorproviderc908dc09-f374-4264-ae17-1673f1de6310: UICompleted/Terminated/22s/9.11credits. All3durable cleanupreceiptsconfirmed; active=null; LiveKitroomlistempty10:55Z. No provider session created by agent.
+- Rollback7d5cf884-ef6c-416e-a2e4-090910e4ea16/source8392286/imagee08112b2aeeb0b74a7f7dcfdb4a388f2f276ce5a0d54423dfb878ec0d16ad3c2. DR350stage1369files/source76118eb/manifest3da08cbebaebd98db3fdb03391427f00a1e3903a615750ce223f860f436a3473/gzip3bcd77d4a4b058726f8f082bc95ef7c34fbf7e648f564d230435449cd0d0de84. Exactsourcepins stagedskip-deploys; hashverifiedupload200/deployment4737655e-950b-4b5e-9086-3b3d229e964b; providerbuild69PASS. FreshPRODUCT5563/dataPATH5564/SHARED5565 maintained. Runtime/activation confirmation follows, not assumed.
 
 ## 2026-10-09 — explicit participating Founder test renewal
+
+Latest release readback:4737655e-950b-4b5e-9086-3b3d229e964bSUCCESS,
+image sha256:aa928beb2f71ebf5f5f6f4baaf8e84ae750834ff0d310f692e388dee2eb90efe.
+Independent APPROVE: exact76118eb/manifest3da08cbe/pins,568of568runtimehashes,
+verifyQaRelease.oktrue, health200 and anonymousproduct/bootstrap401,legacyOFF.
+Provider/localrequiredbuild69PASS. SQLde02d24e4d5cda13d8606eb8e706a4e0be707aa3eb317223cd4674fa4c004389
+independently reviewed and executedONCE CAS33→34; newwindow76118eb enabled,
+reserved0/count0/active=null,3attemptsverbatim/history2/fullrevision33archive.
+Independent DBreadback confirms allbounds/RLS/grants preserved. Authenticated
+brinyu/Admin existing Chrome normalGeneralMock(no programcontext to isolate
+separateRISEtimeout) shows actual repaired readinesscopy,170seconds/100credits,
+headphones/waitspokenquestion guidance. PhysicalFaceTime and built-inmic selected;
+no agentStart/providerCREATE. No new acousticacceptance. Release leases follow.
 
 - Founder says "then do it. i want to test this NOW" following the explicit request to reset allowance for tests he participates in. Registered ONE new bounded window, not unlimited automatic resets. OS84ecb4f exact5path filing; independent approval, REGISTRY5547 normalrelease/providerDBconfirmed; fresh BOOTPASS. Product source stays8392286; no engineering changes.
 - New window `founder-participating-8392286-20261009-01`:100 existing prepaid credits, max1 deliberate Mock/create,200reserved wallseconds including30cleanup, max170active FROM RESERVATION/startup, same expiryOct10T00Z and idle15, no overage/purchase/retry/student activation. Entire prior revision23 policy must archive with SHA256; all attempts retained to deny old-Mock retries. Exact CAS23/new-id/active-null guard. Prior policy SHA8274a85e253831f05ffdf2a7227683921cb1ac28518183d0fe5752ff14115ad0; attemptsSHA87093f5518cc351fb82dbc8f97686afe48363ce9a6b17b41a2311b231e747337; all prior cleanupConfirmedtrue. Old reservation consumption is not actual billed100credits and is never refunded.
