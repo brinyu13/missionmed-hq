@@ -19,6 +19,13 @@ test('calibration center cannot grow into the voice rail from intrinsic prompt/m
   assert.match(center,/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(cockpit,/\.cal > \*, \.cal-stage-col > \*\s*\{[^}]*min-width:\s*0/);
 });
+test('mobile preview width is constrained even when minimum height and aspect ratio compete',()=>{
+  const stage=rule('.cal .stage');
+  assert.match(stage,/width:\s*100%/);
+  assert.match(stage,/max-width:\s*100%/);
+  assert.match(stage,/min-width:\s*0/);
+  assert.match(stage,/aspect-ratio:\s*16\s*\/\s*9/);
+});
 test('exercise picker is a compact full-width disclosure, not an empty tall sidebar',()=>{
   assert.match(rule('.cal'),/grid-template-columns:\s*minmax\(0,\s*1fr\) 300px/);
   assert.match(rule('.cal'),/align-items:\s*start/);

@@ -266,7 +266,7 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .cal-prompt h2 { margin: 0; font: 800 italic 24px/1.1 var(--font-display); text-transform: uppercase; }
 .cal-prompt p { margin: 0; font-family: var(--font-editorial); color: var(--ink2); font-size: 16px; }
 .cal-prompt .passage { margin-top: 8px; padding: 12px 14px; border-radius: 10px; background: #080d19; font-family: var(--font-editorial); font-size: 17px; line-height: 1.6; color: var(--ink); border-left: 3px solid var(--gold-flat); }
-.cal .stage { aspect-ratio: 16 / 9; min-height: 240px; } .cal .stage video { object-fit: contain; }
+.cal .stage { width: 100%; max-width: 100%; min-width: 0; aspect-ratio: 16 / 9; min-height: 240px; } .cal .stage video { object-fit: contain; }
 .cal-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; position: sticky; top: 8px; z-index: 6; padding: 12px; border-radius: 12px; background: #0b1223; }
 .cal-actions .btn, .cal-step { min-height: 48px; }
 .cal-actions #step-state { width: 100%; font-size: 14px; line-height: 1.5; }
