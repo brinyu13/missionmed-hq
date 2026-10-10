@@ -239,12 +239,12 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .composer .actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; }
 
 /* Calibration cockpit */
-.cal { display: grid; grid-template-columns: 300px minmax(0, 1fr) 300px; gap: 16px; align-items: stretch; min-height: 0; }
+.cal { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; min-height: 0; }
 .cal > *, .cal-stage-col > * { min-width: 0; }
 .cal-screen { display: grid; grid-template-rows: auto auto auto; gap: 14px; height: auto; min-height: 0; }
 .cal-lower-wrap[open] { max-height: none; overflow: visible; }
 .cal-screen .screen-head { margin-bottom: 0; } .cal-screen .screen-head h1 { font-size: clamp(26px, 2.6vw, 34px); margin: 4px 0; } .cal-screen .screen-head p { font-size: 14.5px; }
-.cal > aside.panel { overflow: visible; min-height: 0; } .cal > .rail { overflow: visible; min-height: 0; }
+.cal > aside.panel { grid-column: 1 / -1; overflow: visible; min-height: 0; padding: 12px 20px; } .cal > .rail { overflow: visible; min-height: 0; }
 .cal-steps { display: grid; gap: 6px; }
 .cal-step { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid #ffffff0c; background: #ffffff05; min-height: 52px; }
 .cal-step i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font: 700 12px/1 var(--font-num); font-style: normal; background: #ffffff0a; color: var(--dim); }
@@ -306,6 +306,10 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 
 @media (max-width: 1100px) {
   .room { --left-w: 0px; --right-w: 0px; grid-template-columns: minmax(0,1fr); grid-template-rows: 48px auto auto auto var(--rec-h); }
+  .stage-col { grid-column: 1; grid-row: 2; }
+  #rail-left { grid-row: 3; }
+  #rail-right { grid-row: 4; }
+  .room .recorder { grid-row: 5; }
   .stage { min-height: 48vh; }
   #rail-right { grid-template-columns: repeat(4, 1fr); }
   /* Touch targets: every room control ≥ 44px on tablet/phone */

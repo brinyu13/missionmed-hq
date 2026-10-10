@@ -19,6 +19,17 @@ test('calibration center cannot grow into the voice rail from intrinsic prompt/m
   assert.match(center,/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(cockpit,/\.cal > \*, \.cal-stage-col > \*\s*\{[^}]*min-width:\s*0/);
 });
+test('exercise picker is a compact full-width disclosure, not an empty tall sidebar',()=>{
+  assert.match(rule('.cal'),/grid-template-columns:\s*minmax\(0,\s*1fr\) 300px/);
+  assert.match(rule('.cal'),/align-items:\s*start/);
+  assert.match(rule('.cal > aside.panel'),/grid-column:\s*1\s*\/\s*-1/);
+});
+test('narrow desktop readiness precedes secondary analytics without remounting capture',()=>{
+  const tablet=css.slice(css.indexOf('@media (max-width: 1100px)'),css.indexOf('@media (max-width: 760px)'));
+  assert.match(tablet,/\.stage-col\s*\{[^}]*grid-column:\s*1;[^}]*grid-row:\s*2/);
+  assert.match(tablet,/#rail-left\s*\{[^}]*grid-row:\s*3/);
+  assert.match(tablet,/#rail-right\s*\{[^}]*grid-row:\s*4/);
+});
 test('calibration has one primary scroll owner and natural rows, not nested locked regions',()=>{
   const center=rule('.cal-stage-col');
   assert.match(center,/grid-auto-rows:\s*auto/);
