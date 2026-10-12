@@ -1,6 +1,7 @@
+let calendarRoster=null,calendarSelection=null,calendarSchedule=null,calendarLoadSequence=0,calendarRosterSequence=0;
 let calendarEpoch=0,cohortPage=null,itineraryPage=null,itineraryPending=null,adminCalendarTarget=null,calendarMutationPending=null,calendarMutationBusy=false,calendarTargetReadSequence=0,itineraryReadSequence=0;
 const calendarV2=()=>capabilities.calendarV2===true&&!studentPreview()&&['student','admin'].includes(actor?.role);
-function clearCalendarMemory(){calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
+function clearCalendarMemory(){calendarRoster=null;calendarSelection=null;calendarSchedule=null;calendarLoadSequence++;calendarRosterSequence++;calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
 'use strict';
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;

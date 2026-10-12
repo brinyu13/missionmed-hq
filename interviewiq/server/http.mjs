@@ -1,3 +1,4 @@
+import {createCalendarDirectory,readCalendarRoster,readCalendarStudent,readCalendarOverview} from './calendar-directory.mjs';
 import {calendarEnabled,requireCalendar,createCalendarAdmission} from './calendar-admission.mjs';
 import {readCohort} from './calendar-cohort.mjs';
 import {readAdminLogistics,writeAdminLogistics} from './calendar-admin.mjs';
@@ -25,8 +26,8 @@ export function publicError(error) {
   if(error?.code==='42501')return new AppError(403,'access_denied','This action is not available for your current access.');
   return new AppError(503,'service_unavailable','This operation could not be completed. Your unsaved text is kept. Please retry.');
 }
-export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,ownerReadReceipts=null,logger=()=>{},calendarAdmission=null}) {
-  const admit=calendarAdmission||createCalendarAdmission(config);
+export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,ownerReadReceipts=null,logger=()=>{},calendarAdmission=null,calendarDirectory=null}) {
+  const admit=calendarAdmission||createCalendarAdmission(config),directory=calendarDirectory||createCalendarDirectory(config);
   return async function handle(req,res) {
     const requestId=randomUUID();
     const send=(status,value)=>{
@@ -59,7 +60,10 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       }
       requireValue(!req.headers['x-iiq-student-preview']||route==='student-preview','student_preview_restricted','Student Preview cannot read or save private work.',403);
       if(route==='student-preview'){requireCalendar(config,actor);return send(200,emptyStudentPreview(actor));}
-      const calendarContext={database,actor,config,owners,admit,eventRef:path.split('/')[4],interviewId:path.split('/')[3],attachmentId:path.split('/')[5],targetRef:req.headers['x-iiq-calendar-target']};
+      const calendarContext={database,actor,config,owners,admit,directory,eventRef:path.split('/')[4],interviewId:path.split('/')[3],attachmentId:path.split('/')[5],targetRef:req.headers['x-iiq-calendar-target']};
+      if(route==='calendar-roster')return send(200,await readCalendarRoster(calendarContext,Object.fromEntries(url.searchParams)));
+      if(route==='calendar-student')return send(200,await readCalendarStudent(calendarContext,path.split('/')[4]));
+      if(route==='calendar-overview')return send(200,await readCalendarOverview(calendarContext,Object.fromEntries(url.searchParams)));
       if(route==='calendar-cohort')return send(200,await readCohort({...calendarContext,input:Object.fromEntries(url.searchParams)}));
       if(route==='calendar-admin-read')return send(200,await readAdminLogistics(calendarContext));
       if(route==='calendar-admin-write')return send(200,await writeAdminLogistics(calendarContext,await jsonBody(req,config.maxBodyBytes)));
@@ -108,6 +112,8 @@ function resolveRoute(method,path,url) {
     requireValue(keys.length<=1 && keys.every(k=>k==='q') && (url.searchParams.get('q')||'').length<=256,'invalid_query','Enter a program search of up to 256 characters.',400);
     return 'programs';
   }
+  if(method==='GET'&&['/api/calendar/roster','/api/calendar/overview'].includes(path)){const keys=[...url.searchParams.keys()],allowed=path.endsWith('/overview')?['start','end','after']:['after','q','tier'];requireValue(new Set(keys).size===keys.length&&keys.every(k=>allowed.includes(k)),'invalid_query','Choose a bounded student scope.',400);return path.endsWith('/overview')?'calendar-overview':'calendar-roster';}
+  if(method==='GET'&&/^\/api\/calendar\/student\/[1-9][0-9]{0,15}$/.test(path)){requireValue(!url.search,'invalid_query','This endpoint does not accept a query.',400);return 'calendar-student';}
   if(method==='GET'&&path==='/api/calendar/cohort'){const keys=[...url.searchParams.keys()];requireValue(keys.length>=2&&keys.length<=3&&new Set(keys).size===keys.length&&keys.every(k=>['start','end','cursor'].includes(k)),'invalid_query','Choose a bounded Calendar range.',400);return 'calendar-cohort';}
   requireValue(!url.search,'invalid_query','This endpoint does not accept a query.',400);
   if(method==='GET'&&path==='/api/calendar/student-preview')return 'student-preview';

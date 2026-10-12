@@ -42,6 +42,9 @@ function mmiiqg_path($request_uri) {
 /** Explicit API contract, independent of whichever routes a sibling implements. */
 function mmiiqg_api_route($method, $path) {
     if (mmiiq_setting('INTERVIEWIQ_CALENDAR_V2_ENABLED') === 'true') {
+        if($method==='GET'&&$path==='/interviewiq/api/calendar/roster'){return array('target'=>'/api/calendar/roster','max_bytes'=>0,'query'=>'roster');}
+        if($method==='GET'&&$path==='/interviewiq/api/calendar/overview'){return array('target'=>'/api/calendar/overview','max_bytes'=>0,'query'=>'overview');}
+        if($method==='GET'&&preg_match('#^/interviewiq/api/calendar/student/[1-9][0-9]{0,15}$#D',$path)){return array('target'=>substr($path,12),'max_bytes'=>0);}
         if ($method==='GET'&&$path==='/interviewiq/api/calendar/student-preview') { return array('target'=>'/api/calendar/student-preview','max_bytes'=>0); }
         if ($method==='GET'&&$path==='/interviewiq/api/calendar/cohort') { return array('target'=>'/api/calendar/cohort','max_bytes'=>0,'query'=>'calendar'); }
         if (preg_match('#^/interviewiq/api/calendar/admin/([a-f0-9-]{36})$#D',$path,$m)&&mmiiq_uuid($m[1])&&in_array($method,array('GET','POST'),true)) { return array('target'=>substr($path,12),'max_bytes'=>262144); }
@@ -64,6 +67,15 @@ function mmiiqg_api_route($method, $path) {
 }
 
 function mmiiqg_query($route, $raw) {
+    if(in_array($route['query']??'',array('roster','overview'),true)){
+        if(!is_string($raw)||strlen($raw)>2048||preg_match('/%(?![a-fA-F0-9]{2})/',$raw)){return false;}$input=array();parse_str($raw,$input);$keys=array_keys($input);if(count(explode('&',$raw))!==count($keys)){return false;}
+        $allowed=$route['query']==='roster'?array('after','q','tier'):array('start','end','after');foreach($keys as $key){if(!in_array($key,$allowed,true)||!is_string($input[$key])){return false;}}
+        if(isset($input['after'])&&(!preg_match('/^(0|[1-9][0-9]{0,15})$/D',$input['after'])||(float)$input['after']>9007199254740991)){return false;}
+        if(isset($input['q'])&&(!preg_match('//u',$input['q'])||mb_strlen($input['q'])>120||preg_match('/[\x00-\x1f\x7f]/',$input['q']))){return false;}
+        if(isset($input['tier'])&&!in_array($input['tier'],array('all','360','ivprep_complete'),true)){return false;}
+        if($route['query']==='overview'){foreach(array('start','end') as $key){if(!isset($input[$key])||!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$input[$key])){return false;}}}
+        return '?'.http_build_query($input,'','&',PHP_QUERY_RFC3986);
+    }
     if (($route['query']??'')==='calendar') {
         if(!is_string($raw)||strlen($raw)>2048||preg_match('/%(?![a-fA-F0-9]{2})/',$raw)){return false;}$input=array();parse_str($raw,$input);$keys=array_keys($input);sort($keys);if($keys!==array('end','start')&&$keys!==array('cursor','end','start')){return false;}if(count(explode('&',$raw))!==count($keys)){return false;}
         foreach(array('start','end') as $k){if(!is_string($input[$k])||!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$input[$k])){return false;}}if(isset($input['cursor'])&&(!is_string($input['cursor'])||strlen($input['cursor'])>1024||!preg_match('/^[A-Za-z0-9_.-]+$/D',$input['cursor']))){return false;}return '?'.http_build_query($input,'','&',PHP_QUERY_RFC3986);

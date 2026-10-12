@@ -216,7 +216,7 @@ function calendarItems(list){
     const base={interview:i.id, title:title(i), cancelled:isInactive(i)};
     if(i.instant) out.push(Object.assign({}, base, {id:'iv-'+i.id, key:dateKeyInZone(i.instant,F.student_zone), kind:isInactive(i)?'cancelled':'interview', time:fmtTime(i.instant,F.student_zone), sort:i.instant, sub:i.track||P(i.program)?.track||''}));
     else if(i.date) out.push(Object.assign({}, base, {id:'iv-'+i.id, key:i.date, kind:isInactive(i)?'cancelled':'interview', time:'time not set', sort:i.date+'T23:59', sub:i.track||P(i.program)?.track||''}));
-    else out.push(Object.assign({}, base, {id:'iv-'+i.id, key:null, kind:'undated', time:'date unknown', sort:'9999', sub:i.program?P(i.program).track:'program to confirm'}));
+    else out.push(Object.assign({}, base, {id:'iv-'+i.id, key:null, kind:'undated', time:'date unknown', sort:'9999', sub:i.program?(P(i.program)?.track||i.track||'Track unknown'):'program to confirm'}));
     for(const e of (i.related||[])) out.push({id:'rel-'+i.id+'-'+e.id, interview:i.id, title:(e.status==='cancelled'?'Cancelled · ':'')+e.kind+' · '+title(i), key:e.instant?dateKeyInZone(e.instant,F.student_zone):e.date, kind:'related', cancelled:e.status==='cancelled', time:e.instant?fmtTime(e.instant,F.student_zone):'time not set', sort:e.instant||e.date+'T23:59', sub:(e.status==='cancelled'?'cancelled · ':'')+(e.duration_minutes==null?'duration unknown':e.duration_minutes+' min')});
     if(i.deadline && !isInactive(i)) out.push({id:'dl-'+i.id, interview:i.id, title:'Scheduling deadline · '+title(i), key:i.deadline, kind:'deadline', time:'deadline', sort:i.deadline+'T00:00', sub:'reply to the program'});
   }

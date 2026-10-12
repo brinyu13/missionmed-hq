@@ -3,7 +3,7 @@ import {readOwnerSession} from './owner-session.mjs';
 import {requireValue,AppError} from './errors.mjs';
 import {UUID} from './auth.mjs';
 const granted=new WeakMap(),targets=new WeakMap();
-export const CALENDAR_ACTION=/^(?:GET \/api\/calendar\/cohort|(?:GET|POST) \/api\/calendar\/admin(?:\/[a-f0-9-]{36})?|(?:GET|POST) \/api\/interviews\/[a-f0-9-]{36}\/itinerary(?:\/[a-f0-9-]{36})?)$/;
+export const CALENDAR_ACTION=/^(?:GET \/api\/calendar\/(?:cohort|overview|student\/[1-9][0-9]{0,15})|(?:GET|POST) \/api\/calendar\/admin(?:\/[a-f0-9-]{36})?|(?:GET|POST) \/api\/interviews\/[a-f0-9-]{36}\/itinerary(?:\/[a-f0-9-]{36})?)$/;
 export function calendarEnabled(config,actor){return config.calendar?.enabled===true&&actor?.eligible===true&&(actor.role==='admin'&&actor.tier==='admin'||actor.role==='student'&&['360','ivprep_complete'].includes(actor.tier));}
 export function requireCalendar(config,actor){requireValue(calendarEnabled(config,actor),'calendar_unavailable','Shared Calendar and private itineraries are unavailable.',403);}
 export function admissionProof(secret,domain,text){return createHmac('sha256',secret).update(domain+'\n'+text).digest('hex');}

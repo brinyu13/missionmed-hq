@@ -328,7 +328,7 @@ function mmiiq_calendar_permission($request) {
     if ($request->get_method()!=='POST' || (string)$request->get_header('origin')!=='' || strlen($body)>65536 || strlen($body)<2 || !preg_match('/^[a-f0-9]{64}$/D',$signature) || !hash_equals(hash_hmac('sha256',"mmiiq-calendar-request-v1\n".$body,mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET')),$signature)) { return mmiiq_error('calendar_proof_denied'); }
     $i=json_decode($body,true); if (!is_array($i)) { return mmiiq_error('calendar_proof_invalid'); }
     $keys=array_keys($i);sort($keys);$want=array('action','audience','iat','nonce','pairs','session_verifier','subject','wp_user_id');
-    if ($keys!==$want || $i['audience']!=='interviewiq-cohort-admission-v1' || !mmiiq_uuid($i['subject']) || !mmiiq_uuid($i['nonce']) || !is_int($i['wp_user_id']) || $i['wp_user_id']<1 || !is_string($i['session_verifier']) || !preg_match('/^[a-f0-9]{64}$/D',$i['session_verifier']) || !is_int($i['iat']) || $i['iat']>time()+5 || $i['iat']<time()-30 || !is_string($i['action']) || !preg_match('#^(GET /api/calendar/cohort|(GET|POST) /api/calendar/admin/[a-f0-9-]{36}|(GET|POST) /api/interviews/[a-f0-9-]{36}/itinerary(/[a-f0-9-]{36})?)$#D',$i['action']) || !is_array($i['pairs']) || count($i['pairs'])>200 || array_values($i['pairs'])!==$i['pairs']) { return mmiiq_error('calendar_proof_invalid'); }
+    if ($keys!==$want || $i['audience']!=='interviewiq-cohort-admission-v1' || !mmiiq_uuid($i['subject']) || !mmiiq_uuid($i['nonce']) || !is_int($i['wp_user_id']) || $i['wp_user_id']<1 || !is_string($i['session_verifier']) || !preg_match('/^[a-f0-9]{64}$/D',$i['session_verifier']) || !is_int($i['iat']) || $i['iat']>time()+5 || $i['iat']<time()-30 || !is_string($i['action']) || !preg_match('#^(GET /api/calendar/(cohort|overview|student/[1-9][0-9]{0,15})|(GET|POST) /api/calendar/admin/[a-f0-9-]{36}|(GET|POST) /api/interviews/[a-f0-9-]{36}/itinerary(/[a-f0-9-]{36})?)$#D',$i['action']) || !is_array($i['pairs']) || count($i['pairs'])>200 || array_values($i['pairs'])!==$i['pairs']) { return mmiiq_error('calendar_proof_invalid'); }
     $subjects=array();$users=array();foreach($i['pairs'] as $pair){if(!is_array($pair)){return mmiiq_error('calendar_proof_invalid');}$k=array_keys($pair);sort($k);if($k!==array('subject','wp_user_id')||!mmiiq_uuid($pair['subject'])||!is_int($pair['wp_user_id'])||$pair['wp_user_id']<1||isset($subjects[$pair['subject']])||isset($users[$pair['wp_user_id']])){return mmiiq_error('calendar_proof_invalid');}$subjects[$pair['subject']]=true;$users[$pair['wp_user_id']]=true;}
     return true;
 }
@@ -336,13 +336,49 @@ function mmiiq_calendar_admit($request) {
     $permission=mmiiq_calendar_permission($request);if($permission!==true){return $permission;}
     $i=json_decode((string)$request->get_body(),true);$active=mmiiq_session_active($i['wp_user_id'],$i['session_verifier']);$grant=mmiiq_access_for_user($active?get_user_by('id',$i['wp_user_id']):false);$uuid=$active?mmiiq_actor_uuid($i['wp_user_id'],false):null;
     $allowed=$active&&!is_wp_error($grant)&&is_string($uuid)&&hash_equals($i['subject'],$uuid)&&($grant['role']==='admin'||$grant['role']==='student'&&in_array($grant['tier'],array('360','ivprep_complete'),true));
-    if(strpos($i['action'],'/calendar/admin/')!==false||$i['action']!=='GET /api/calendar/cohort'&&count($i['pairs'])>0){$allowed=$allowed&&!is_wp_error($grant)&&$grant['role']==='admin';}
+    if((strpos($i['action'],'/calendar/admin/')!==false||strpos($i['action'],'/calendar/student/')!==false||$i['action']==='GET /api/calendar/overview')||$i['action']!=='GET /api/calendar/cohort'&&count($i['pairs'])>0){$allowed=$allowed&&!is_wp_error($grant)&&$grant['role']==='admin';}
     $pairs=array();foreach($i['pairs'] as $pair){$access=mmiiq_access_for_user(get_user_by('id',$pair['wp_user_id']));$mapping=mmiiq_actor_uuid($pair['wp_user_id'],false);$yes=$allowed&&!is_wp_error($access)&&$access['role']==='student'&&in_array($access['tier'],array('360','ivprep_complete'),true)&&is_string($mapping)&&hash_equals($pair['subject'],$mapping);$pairs[]=array('subject'=>$pair['subject'],'wp_user_id'=>$pair['wp_user_id'],'allowed'=>$yes);}
     $now=time();$payload=wp_json_encode(array('audience'=>$i['audience'],'subject'=>$i['subject'],'wp_user_id'=>$i['wp_user_id'],'nonce'=>$i['nonce'],'request_sha256'=>hash('sha256',(string)$request->get_body()),'action'=>$i['action'],'allowed'=>$allowed,'role'=>$allowed?$grant['role']:null,'tier'=>$allowed?$grant['tier']:null,'pairs'=>$pairs,'iat'=>$now,'exp'=>$now+30));
     $response=new WP_REST_Response(array('payload'=>$payload,'signature'=>hash_hmac('sha256',"mmiiq-calendar-response-v1\n".$payload,mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET'))),200);$response->header('Cache-Control','private, no-store');return $response;
 }
 
+/** Administrator roster uses current enrollment authority; no mappings are provisioned. */
+function mmiiq_directory_permission($request) {
+    if(mmiiq_setting('INTERVIEWIQ_CALENDAR_V2_ENABLED')!=='true'||!mmiiq_enabled()||!mmiiq_secrets_ready()){return mmiiq_error('calendar_unavailable',503);}
+    $body=(string)$request->get_body();$sig=(string)$request->get_header('x-mmed-iiq-proof');
+    if($request->get_method()!=='POST'||(string)$request->get_header('origin')!==''||strlen($body)<2||strlen($body)>65536||!preg_match('/^[a-f0-9]{64}$/D',$sig)||!hash_equals(hash_hmac('sha256',"mmiiq-directory-request-v1\n".$body,mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET')),$sig)){return mmiiq_error('calendar_proof_denied');}
+    $i=json_decode($body,true);if(!is_array($i)){return mmiiq_error('calendar_proof_invalid');}$k=array_keys($i);sort($k);
+    if($k!==array('action','audience','iat','nonce','query','session_verifier','subject','wp_user_id')||$i['audience']!=='interviewiq-calendar-directory-v1'||!mmiiq_uuid($i['subject'])||!mmiiq_uuid($i['nonce'])||!is_int($i['wp_user_id'])||$i['wp_user_id']<1||!is_string($i['session_verifier'])||!preg_match('/^[a-f0-9]{64}$/D',$i['session_verifier'])||!is_int($i['iat'])||$i['iat']>time()+5||$i['iat']<time()-30||!is_string($i['action'])||!preg_match('#^GET /api/calendar/(roster|overview|student/[1-9][0-9]{0,15}|cohort)$#D',$i['action'])||!is_array($i['query'])){return mmiiq_error('calendar_proof_invalid');}
+    $q=$i['query'];$k=array_keys($q);sort($k);
+    if(($q['kind']??'')==='roster'){
+        if($k!==array('after','kind','q','tier')||!is_int($q['after'])||$q['after']<0||$q['after']>9007199254740991||!is_string($q['q'])||strlen($q['q'])>480||mb_strlen($q['q'])>120||preg_match('/[\x00-\x1f\x7f]/',$q['q'])||!in_array($q['tier'],array('all','360','ivprep_complete'),true)||!in_array($i['action'],array('GET /api/calendar/roster','GET /api/calendar/overview'),true)){return mmiiq_error('calendar_proof_invalid');}
+    }elseif(($q['kind']??'')==='subjects'){
+        if($k!==array('ids','kind')||!is_array($q['ids'])||array_values($q['ids'])!==$q['ids']||count($q['ids'])<1||count($q['ids'])>200||count(array_unique($q['ids']))!==count($q['ids'])){return mmiiq_error('calendar_proof_invalid');}
+        foreach($q['ids'] as $id){if(!is_int($id)||$id<1||$id>9007199254740991){return mmiiq_error('calendar_proof_invalid');}}
+        if(strpos($i['action'],'GET /api/calendar/student/')!==0||count($q['ids'])!==1||$i['action']!=='GET /api/calendar/student/'.$q['ids'][0]){return mmiiq_error('calendar_proof_invalid');}
+    }else{return mmiiq_error('calendar_proof_invalid');}
+    return true;
+}
+function mmiiq_calendar_directory($request){
+    $ok=mmiiq_directory_permission($request);if($ok!==true){return $ok;}$i=json_decode((string)$request->get_body(),true);
+    $active=mmiiq_session_active($i['wp_user_id'],$i['session_verifier']);$grant=mmiiq_access_for_user($active?get_user_by('id',$i['wp_user_id']):false);$uuid=$active?mmiiq_actor_uuid($i['wp_user_id'],false):null;
+    $allowed=$active&&!is_wp_error($grant)&&$grant['role']==='admin'&&$grant['tier']==='admin'&&is_string($uuid)&&hash_equals($i['subject'],$uuid);$students=array();$next=null;
+    if($allowed){
+        $q=$i['query'];if($q['kind']==='roster'){global $wpdb;$ids=$wpdb->get_col($wpdb->prepare("SELECT ID FROM {$wpdb->users} WHERE ID > %d ORDER BY ID ASC LIMIT 201",$q['after']));if(!is_array($ids)||$wpdb->last_error!==''){return mmiiq_error('calendar_directory_unavailable',503);}if(count($ids)>200){$ids=array_slice($ids,0,200);$next=(int)end($ids);}}
+        else{$ids=$q['ids'];}
+        foreach($ids as $id){$id=(int)$id;$u=get_user_by('id',$id);$a=mmiiq_access_for_user($u);if(is_wp_error($a)&&in_array($a->get_error_code(),array('enrollment_owner_unavailable','assignment_owner_unavailable','assignment_owner_invalid'),true)){return mmiiq_error('calendar_directory_unavailable',503);}if(is_wp_error($a)||$a['role']!=='student'||!in_array($a['tier'],array('360','ivprep_complete'),true)){continue;}
+            $name=trim((string)get_user_meta($id,'first_name',true).' '.(string)get_user_meta($id,'last_name',true));if($name===''){$name=(string)$u->display_name;}$name=mb_substr(sanitize_text_field($name),0,500);
+            if($q['kind']==='roster'&&($q['tier']!=='all'&&$a['tier']!==$q['tier']||$q['q']!==''&&mb_stripos($name,$q['q'])===false)){continue;}
+            $mapping=mmiiq_actor_uuid($id,false);$status=is_wp_error($mapping)?($mapping->get_error_code()==='identity_unmapped'?'unmapped':'conflict'):'ready';
+            $students[]=array('wpUserId'=>$id,'name'=>$name,'tier'=>$a['tier'],'subject'=>$status==='ready'?$mapping:null,'mappingStatus'=>$status);
+        }
+    }
+    $now=time();$payload=wp_json_encode(array('audience'=>$i['audience'],'subject'=>$i['subject'],'wp_user_id'=>$i['wp_user_id'],'nonce'=>$i['nonce'],'request_sha256'=>hash('sha256',(string)$request->get_body()),'action'=>$i['action'],'allowed'=>$allowed,'role'=>$allowed?'admin':null,'tier'=>$allowed?'admin':null,'students'=>$students,'nextAfter'=>$next,'iat'=>$now,'exp'=>$now+30));
+    $r=new WP_REST_Response(array('payload'=>$payload,'signature'=>hash_hmac('sha256',"mmiiq-directory-response-v1\n".$payload,mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET'))),200);$r->header('Cache-Control','private, no-store');return $r;
+}
+
 function mmiiq_register_rest() {
+    register_rest_route('missionmed-interviewiq/v1', '/calendar-directory', array('methods'=>'POST','permission_callback'=>'mmiiq_directory_permission','callback'=>'mmiiq_calendar_directory'));
     register_rest_route('missionmed-interviewiq/v1', '/calendar-admit', array('methods'=>'POST','permission_callback'=>'mmiiq_calendar_permission','callback'=>'mmiiq_calendar_admit'));
     register_rest_route('missionmed-interviewiq/v1', '/introspect', array('methods' => 'POST',
         'permission_callback' => 'mmiiq_introspection_permission', 'callback' => 'mmiiq_introspection'));
