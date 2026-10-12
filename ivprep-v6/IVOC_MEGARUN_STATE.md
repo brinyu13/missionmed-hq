@@ -1,3 +1,9 @@
+## 2026-10-12 — expired-avatar Start continuity closure (additive filing)
+
+See the latest prefix in `ivprep-v6/handoffs/IVOC_GATE1_GATE2_STATE_DELTA_20261012.md`. Runtime source `9f2327e510a9126afcb3a7c30caecbd74977d6f1` / deployment `78b99643-b405-4a7b-83ef-0a589f91b668` SUCCESS, manifest621b1989/all568 match, health200/anonymous401. Parent authenticated production1896×841 now truthfully displays BLOCKED/00:00/Start unavailable and persistent expired reason despite camera/mic ready; independent local1920×873 is synthetic fixture evidence, not the production viewport.
+QA45 remains expired/OFF/activeNULL/count0/reserved0/credits200/max1, unchanged accounting502b3add. No Start/provider call, native fallback, avatar downgrade or allowance renewal. Accepted73 affected tests +separate69 build +independent12 targeted regression are not human/physical/provider acceptance; no reruns for filing.
+Release5733 authoritatively released18:50:05.007153Z; source5732 already released. This docs-only successor does not replace the deployed source artifact. NOT PRODUCT COMPLETE; earlier ledger follows verbatim as dated history.
+
 ## 2026-10-12 — postrelease exact2256 state delta (additive filing)
 
 See the postrelease prefix in `ivprep-v6/handoffs/IVOC_GATE1_GATE2_STATE_DELTA_20261012.md`. Runtime source `2256d3758ca3c764051551b2bcc3566308e20f3c` / deployment `a459259d-fd1e-494b-be3f-ace027f03902` SUCCESS17:47:35Z; manifestd343d0a7/all568 match, effectiveNIXPACKS `/railway.json`, health200/anonymous401/401 independently verified17:48:47.522–48.464Z.
