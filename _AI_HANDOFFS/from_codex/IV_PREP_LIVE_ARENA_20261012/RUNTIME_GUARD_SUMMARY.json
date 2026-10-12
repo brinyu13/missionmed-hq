@@ -1,0 +1,28 @@
+{
+  "exit_code": 42,
+  "observed_date": "2026-10-12",
+  "local_diff": [
+    "student_os_js",
+    "student_os_css",
+    "class_mmed_student_os_php",
+    "calendar_v4_js",
+    "calendar_v4_css"
+  ],
+  "production_diff": [
+    "student_os_js",
+    "student_os_css",
+    "class_mmed_student_os_php",
+    "calendar_v4_js",
+    "calendar_v4_css",
+    "storyforge_js"
+  ],
+  "missing_local": [
+    "file_vault_js",
+    "file_vault_css",
+    "storyforge_js",
+    "storyforge_css"
+  ],
+  "override_used": false,
+  "production_mutations": false,
+  "source": "actual matrix_runtime_guard.py preflight output in task tool transcript"
+}
