@@ -438,6 +438,7 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
   .room[data-cockpit="true"] #rail-left { grid-template-rows: auto minmax(0,1fr) minmax(0,1fr); }
   .room[data-cockpit="true"] #rail-right { grid-template-rows: minmax(0,1.4fr) repeat(3,minmax(0,1fr)); }
   .room[data-cockpit="true"] .stage-col { grid-column: 2; grid-template-rows: minmax(0,1fr) 40px; gap: 8px; }
+  .room[data-cockpit="true"][data-phase="readiness"] .stage-col { grid-template-rows: minmax(0,1fr) 40px auto; }
   .room[data-cockpit="true"] .meeting-stage { grid-template-rows: auto minmax(0,1fr); }
   .room[data-cockpit="true"] .stage { max-width: none; width: 100%; margin: 0; min-height: 0; }
   .room[data-cockpit="true"] .recorder { grid-column: 1 / -1; height: auto; grid-template-rows: 24px minmax(42px,1fr) 106px; }
@@ -542,5 +543,5 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .room[data-phase="readiness"] .room-devices .field { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin: 0; font-size: 12.5px; color: var(--dim); }
 .room[data-phase="readiness"] .room-devices [data-device-status] { margin: 6px 0 0; }
 .room .under-stage { padding-right: 214px; }
-.room[data-phase="readiness"] .readiness-lines { display:none; }
+.room[data-phase="readiness"] .readiness-lines { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 6px 12px; }
 @media (max-width: 760px) { .room-devices { right: 96px; } .room:not([data-phase="readiness"]) .under-stage { padding-right: 0; } .readiness-dock { grid-template-columns: minmax(0, 1fr); } }

@@ -7,6 +7,16 @@ const read=path=>readFileSync(new URL('../../public/studio-fable/'+path,import.m
 const room=read('app/room.mjs'),css=read('styles/room.css');
 const byId=rows=>Object.fromEntries(rows.map(row=>[row.id,row]));
 
+test('readiness status stays visible and has a reserved desktop row without changing live layout',()=>{
+  // The mounted truthful rows must survive the final CSS cascade, not merely exist in the DOM.
+  assert.doesNotMatch(css,/\.room\[data-phase="readiness"\] \.readiness-lines\s*\{[^}]*display\s*:\s*none\b/);
+  assert.match(css,/\.room\[data-phase="readiness"\] \.readiness-lines\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;[^}]*padding:\s*6px 12px;/);
+  const desktop=css.slice(css.indexOf('@media (min-width: 1101px) {'),css.indexOf('/* Short desktop windows'));
+  assert.match(desktop,/\.room\[data-cockpit="true"\]\[data-phase="readiness"\] \.stage-col\s*\{\s*grid-template-rows:\s*minmax\(0,1fr\) 40px auto;/);
+  assert.match(desktop,/\.room\[data-cockpit="true"\] \.stage-col\s*\{[^}]*grid-template-rows:\s*minmax\(0,1fr\) 40px;/);
+  assert.match(css,/\.room:not\(\[data-phase="readiness"\]\) \.readiness-lines \{ display: none; \}/);
+});
+
 test('three lines follow the existing gating state: idle → checking → ready, and attention routes to the named device only',()=>{
   let rows=byId(projectReadinessLines({mode:'mock',liveInterviewAvailable:true}));
   assert.deepEqual([rows.camera.state,rows.microphone.state,rows.interviewer.state],['idle','idle','ready']);
