@@ -144,9 +144,10 @@ async function command(name,interviewId=null,data={},options={}){
       if(importCommand&&(!myerasEnabled()||importEpoch!==myerasEpoch))throw Error('Import access changed while this request was in flight.');
       if(compositionCommand&&(!loiCompositionEnabled()||compositionEpoch!==loiCompositionEpoch))throw Error('Composition access changed while the request was in flight.');
       if(loiCommand&&(!loiEnabled()||targetCommand&&!loiTargetsEnabled()||loiEpoch!==loiAuthorityEpoch))throw Error('Letter access changed while the request was in flight.');
+      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['threebox.read','threebox.evidence','loi.evidence','loi.export','loitarget.read','loitarget.list','loitarget.saved','loi.preference_read','loi.generation_read','myeras.preview','intake.read','research.read'].includes(name))await refreshWorkspace();
+      if(intakeCommand&&name!=='intake.read'){const id=result?.interviewId||result?.resultId;if(!id||!S.interviews.some(i=>i.id===id&&i.owner===identity))throw Error('The save result could not be confirmed. Your draft is retained. Retry this same save to check its result.');}
       pendingCommands.delete(requestKey);
       for(const [key,value] of draftSnapshot)if(draftValues.get(key)===value)draftValues.delete(key);
-      if(result?.bootstrap||result?.actor)applyBootstrap(result);else if(!['threebox.read','threebox.evidence','loi.evidence','loi.export','loitarget.read','loitarget.list','loitarget.saved','loi.preference_read','loi.generation_read','myeras.preview','intake.read','research.read'].includes(name))await refreshWorkspace();
       const checked=result?.researchCheck,d=checked&&S.demands[checked.interviewId];
       if(deepResearch()&&d&&checked.research&&d.requestId===checked.requestId&&d.programId===checked.programId&&d.registryReleaseId===checked.registryReleaseId&&d.version===checked.version)researchBriefs.set(checked.interviewId,checked);
       if(options.render!==false)render();

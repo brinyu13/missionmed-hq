@@ -24,7 +24,13 @@ async function fixture({role='student',tier='360',jwtTTL=60}={}) {
   }});
   const actor=await authorize({headers:{authorization:`Bearer ${token}`}},'GET /api/programs');
   const requestSecret=randomBytes(48).toString('hex'),calls=[];
-  const client=(response=()=>json(program),settings={})=>createRiseOwner({enabled:true,requestSecret,...settings},{now:()=>time,fetchImpl:async(url,options)=>{calls.push({url,options});return response(url,options);}});
+  const client=(response=()=>json(program),settings={})=>createRiseOwner({enabled:true,requestSecret,...settings},{now:()=>time,fetchImpl:async(url,options)=>{calls.push({url,options});const r=await response(url,options);
+    // Old identity fixtures now travel in the serving search envelope.
+    if(new URL(url).searchParams.get('q')===program.id && r.ok && !r.redirected &&
+      r.headers.get('content-type')?.startsWith('application/json') && !r.headers.has('content-length')) {
+      try {const body=await r.clone().json();if(body.id!==undefined)return json({registryReleaseId:body.registryReleaseId,page:1,total:1,programs:[body]});}catch{}
+    }
+    return r;}});
   return {actor,claims,calls,client,requestSecret,advance:ms=>{time+=ms;},now:()=>time};
 }
 
@@ -38,12 +44,12 @@ test('verified session context never appears in actor serialization, spread or i
 test('signed request matches exact DR-367 bytes and excludes browser credentials',async()=>{
   const h=await fixture();await h.client().getProgram(h.actor,program.id);
   const {url,options}=h.calls[0],headers=options.headers;
-  assert.equal(url,`${origin}/api/rise/v1/interviewiq/programs/rise%3AIM%3A1234567890`);
+  assert.equal(url,`${origin}/api/rise/v1/interviewiq/programs?q=rise%3AIM%3A1234567890&page=1&pageSize=20`);
   assert.equal(options.method,'GET');assert.equal(options.redirect,'error');assert.equal(options.credentials,'omit');assert.equal(options.body,undefined);
   const actorJson=Buffer.from(headers['X-MMED-IIQ-Actor'],'base64url').toString();
   assert.deepEqual(JSON.parse(actorJson),{subject:h.actor.id,wp_user_id:h.actor.wpUserId,session_verifier:h.claims.session_verifier,auth_role:'student',auth_tier:'360'});
   const sha=s=>createHash('sha256').update(s).digest('hex');
-  const canonical=`iiq-owner-v1\nrise\n${seconds}\n${headers['X-MMED-IIQ-Nonce']}\nGET\n${new URL(url).pathname}\n${sha('')}\n${sha(actorJson)}`;
+  const canonical=`iiq-owner-v1\nrise\n${seconds}\n${headers['X-MMED-IIQ-Nonce']}\nGET\n${new URL(url).pathname+new URL(url).search}\n${sha('')}\n${sha(actorJson)}`;
   assert.equal(headers['X-MMED-IIQ-Signature'],createHmac('sha256',h.requestSecret).update(canonical).digest('hex'));
   assert.equal(headers.Cookie,undefined);assert.equal(headers.Origin,undefined);assert.equal(headers.Authorization,undefined);
 });
@@ -213,3 +219,5 @@ test('malformed public labels cannot cross a signed canonical identity',async()=
   await assert.rejects(h.client(()=>json({registryReleaseId:program.registryReleaseId,programs:[wire],page:1,total:1})).searchPrograms(h.actor),{code:'invalid_owner_response'});
  }
 });
+
+test('intake identity uses bounded identity-only route; no research request',async()=>{const h=await fixture();const result=await h.client().getIntakeProgram(h.actor,program.id);assert.equal(result.id,program.id);assert.equal(new URL(h.calls[0].url).pathname,'/api/rise/v1/interviewiq/programs');assert.equal(new URL(h.calls[0].url).searchParams.get('q'),program.id);});
