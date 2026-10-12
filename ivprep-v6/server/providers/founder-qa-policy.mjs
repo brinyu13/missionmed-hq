@@ -4,7 +4,7 @@ const fail=(code,status=409)=>Object.assign(new Error(code),{status});
 const UUID=/^[a-f0-9-]{36}$/;
 const CREDIT_LIMIT=200,RATE_CEILING=30,CLEANUP_SECONDS=30;
 const QA_EXPIRES_AT=Date.parse('2026-10-12T20:30:00Z');
-const CLICK_ALLOWANCE='founder-five-minute-20261012-01',BILLING_PROOF_MS=24*60*60*1000;
+const CLICK_ALLOWANCE='founder-five-minute-20261012-02',BILLING_PROOF_MS=24*60*60*1000;
 const founder=actor=>{if(actor!=='wp:1')throw fail('ivoc_founder_qa_required',403);};
 // Stored policy is operational authority, NOT browser preferences. No endpoint
 // may increase its budget, reset attempts or re-enable a kill. The one registered

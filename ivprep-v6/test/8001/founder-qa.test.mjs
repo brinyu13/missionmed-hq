@@ -91,8 +91,14 @@ test('October 12 renewal admits one bounded test but neither expired nor beyond-
   assert.equal((await h.restart().config()).available,false);
   await assert.rejects(h.restart().start({actor,sessionId:ID2}));assert.equal(h.creates.length,1);
 });
-const clickPolicy={startOnClick:true,allowanceId:'founder-five-minute-20261012-01',startedAt:null,
+const clickPolicy={startOnClick:true,allowanceId:'founder-five-minute-20261012-02',startedAt:null,
   expiresAt:null,creditLimit:200,budgetSeconds:330,maxSessions:1,billingVerifiedAt:1000,prepaidCreditsVerified:2581};
+test('new registered click grant cannot rearm the previous consumed allowance ID',async()=>{
+  const h=harness({duration:300,policy:{...clickPolicy,allowanceId:'founder-five-minute-20261012-01'}});
+  assert.equal((await h.qa.config()).available,false);
+  await assert.rejects(h.qa.start({actor,sessionId:ID}));
+  assert.equal(h.creates.length,0);assert.equal(h.state().sessionCount,0);
+});
 test('unused click grant waits without writes or creates and starts the full clock only on deliberate reservation',async()=>{
   const current=Date.parse('2026-10-12T21:00:00Z');
   const h=harness({duration:300,policy:{...clickPolicy,billingVerifiedAt:current}}),before=structuredClone(h.state());

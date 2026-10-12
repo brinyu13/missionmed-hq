@@ -1,3 +1,9 @@
+## 2026-10-12 - one NEW Founder test02, not a retry/reset of consumed01 (candidate)
+
+Founder explicitly authorized one new five-minute/200-existing-prepaid-credit test. DR393/OSa54ccd451ea54834b6c3bedb9ee5ef968b3e13f3 authorizes only the exact click allowance ID01 to02, direct tests and this additive ledger under PRODUCT5757. No engine, audio, transport or UI changes. The old ID cannot rearm; deliberate Founder Start alone reserves300active+30cleanup seconds, idle15/no paid retry/no overage unchanged.
+Previous provider4d177795-7d81-4769-b46e-0adab8dcd26f COMPLETED, room absent;16.29second terminate receipt user_finished is not proof of a manual Finish click. The five-second avatar disappearance's browser trigger remains UNPROVEN, not fixed by rearm. QA52 whole-state seal a26edbd11f3d1de44df51b300e1c1c377a7c57619772df2caa6eedd29c767252 preserves five attempts/history5 and consumed01 count1/reserved330. Fresh reviewed CAS must archive all prior state and bind the exact verified successor artifact before02 activation. Billing22:30Z:2576prepaid/overageOFF/usage0, not an exact session invoice.
+No provider CREATE or new test consumed by this source change. Production rollback remains de11cd93fa9a728b686819ad57467636d29b2b52/deployment6cadbde8-90af-4936-b4c8-da5600d03f89, manifest4193b393d4e2a6ee334554596777825107d0fdff0c44267b5eb37067f1d13ed5. Human-heard speech/sync/save/cold replay remain acceptance gates. Prior ledger follows unchanged.
+
 ## 2026-10-12 — unused test clock starts on deliberate Start (candidate)
 
 Founder did not Start. Runtime f41c873302bbb91d87c43d65d639755b99a36f39/deployment76572dac-58ea-48e2-9b65-fd8e63cd73dc was healthy/hash-verified; QA46 remained unused (activeNULL/count0/reserved0) but its arbitrary20:30Z waiting-room cutoff expired. DR393/OS4c4b5823 corrects timing for the SAME allowance founder-five-minute-20261012-01, not a renewed session or reset.
