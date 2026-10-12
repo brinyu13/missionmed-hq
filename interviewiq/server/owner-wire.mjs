@@ -22,7 +22,9 @@ function route(operation) {
     return `${SAVED}?${new URLSearchParams({page:String(page),pageSize:String(pageSize)})}`;
   }
   if(['detail','identity'].includes(operation.kind) && Object.keys(operation).length===2 && validProgramId(operation.id))
-    return `${PROGRAMS}/${encodeURIComponent(operation.id)}${operation.kind==='identity'?'/identity':''}`;
+    return operation.kind==='identity'
+      ? `${PROGRAMS}?${new URLSearchParams({q:operation.id,page:'1',pageSize:'20'})}`
+      : `${PROGRAMS}/${encodeURIComponent(operation.id)}`;
   if(operation.kind!=='search' || operation.id!==undefined || !plain(operation.query,['q','page','pageSize']))throw invalid();
   const {q='',page=1,pageSize=20}=operation.query;
   if(typeof q!=='string' || q.length>256 || /[\u0000-\u001f\u007f]/.test(q) ||

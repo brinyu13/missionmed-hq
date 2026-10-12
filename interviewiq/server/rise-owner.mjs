@@ -21,6 +21,18 @@ function identity(value,release,labels=false) {
   }
   return {id:value.id,name:value.name,track:value.track,registryReleaseId:value.registryReleaseId,...(labels?publicLabels:{})};
 }
+// Compatibility with the deployed authenticated canonical registry search.
+// A missing exact match on an incomplete page is unavailable, never not-found.
+function searchedIdentity(value,id,labels=false) {
+  if(!value || !text(value.registryReleaseId,180) || value.page!==1 ||
+    !Number.isSafeInteger(value.total) || value.total<0 || value.total>10000000 ||
+    !Array.isArray(value.programs) || value.programs.length!==Math.min(value.total,20))throw invalid();
+  const programs=value.programs.map(p=>identity(p,value.registryReleaseId,labels));
+  if(new Set(programs.map(p=>p.id)).size!==programs.length)throw invalid();
+  const exact=programs.filter(p=>p.id===id);
+  if(exact.length!==1)throw invalid();
+  return exact[0];
+}
 export function createRiseOwner(config={},dependencies={}) {
   const request=createRiseReadTransport(config,dependencies);
   const now=dependencies.now??Date.now;
@@ -30,11 +42,11 @@ export function createRiseOwner(config={},dependencies={}) {
     },
     async getProgramMedia(actor,id){if(config.programMediaEnabled!==true)throw invalid();const result=await request(actor,{kind:'detail',id}),program=identity(result);if(program.id!==id)throw invalid();return projectOwnerMedia(result.programMedia,program,now());},
     async getIntakeProgram(actor,id) {
-      const result=identity(await request(actor,{kind:'identity',id}),undefined,true);
+      const result=searchedIdentity(await request(actor,{kind:'identity',id}),id,true);
       if(result.id!==id)throw invalid();return result;
     },
     async getProgram(actor,id) {
-      const result=identity(await request(actor,{kind:'identity',id}));
+      const result=searchedIdentity(await request(actor,{kind:'identity',id}),id);
       if(result.id!==id)throw invalid();return result;
     },
     async getResearchCoverage(actor,id) {
