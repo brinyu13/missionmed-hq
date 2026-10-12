@@ -1,3 +1,12 @@
+## 2026-10-12 — V3 mandatory Gate1 / Gate2 state delta (additive filing)
+
+See `ivprep-v6/handoffs/IVOC_GATE1_GATE2_STATE_DELTA_20261012.md` for exact accepted receipts, classifications and remaining gates.
+Implementation/source artifact remains `2256d3758ca3c764051551b2bcc3566308e20f3c` (readiness CSS + direct test only); this docs-only descendant HEAD is not the deployment artifact.
+Production remains source `26b3f743193878aa7d6a2f6d7c7421a496b7418a` / deployment `1c512472-e490-4aa2-9ba9-d5a68382732a`; parent fresh17:28:54Z568/568 hash match, health200/anonymous401/401. QA revision44 remains expired/OFF, accounting unchanged.
+Completed: readiness21; integration38 plus separate5; package69; release-security22; local REAL-BROWSER SYNTHETIC Practice8/Mock2 and bounded Home/tray/optional-calibration/keyboard routing. No provider CREATE/paid Start/deploy or new production recording.
+Standing bounded default-OFF release authority survives, subject fresh protected release gates; source-only/tests/synthetic geometry are not human/provider acceptance. Two-voice human-heard replay, physical telemetry, actual selected-RISE Start and live cross-role acceptance remain unverified. NOT PRODUCT COMPLETE.
+The previous ledger follows verbatim; historical LIVE VERIFIED labels below are dated evidence, not replacement current acceptance for this candidate.
+
 # IVOC final AAA production megarun state
 
 Updated: 2026-10-09 America/New_York
