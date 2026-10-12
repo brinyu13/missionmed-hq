@@ -352,6 +352,9 @@ function mmiiq_directory_permission($request) {
     $q=$i['query'];$k=array_keys($q);sort($k);
     if(($q['kind']??'')==='roster'){
         if($k!==array('after','kind','q','tier')||!is_int($q['after'])||$q['after']<0||$q['after']>9007199254740991||!is_string($q['q'])||strlen($q['q'])>480||mb_strlen($q['q'])>120||preg_match('/[\x00-\x1f\x7f]/',$q['q'])||!in_array($q['tier'],array('all','360','ivprep_complete'),true)||!in_array($i['action'],array('GET /api/calendar/roster','GET /api/calendar/overview'),true)){return mmiiq_error('calendar_proof_invalid');}
+    }elseif(($q['kind']??'')==='owners'){
+        if($k!==array('kind','subjects')||$i['action']!=='GET /api/calendar/overview'||!is_array($q['subjects'])||array_values($q['subjects'])!==$q['subjects']||count($q['subjects'])>200||count(array_unique($q['subjects']))!==count($q['subjects'])){return mmiiq_error('calendar_proof_invalid');}
+        foreach($q['subjects'] as $subject){if(!mmiiq_uuid($subject)){return mmiiq_error('calendar_proof_invalid');}}
     }elseif(($q['kind']??'')==='subjects'){
         if($k!==array('ids','kind')||!is_array($q['ids'])||array_values($q['ids'])!==$q['ids']||count($q['ids'])<1||count($q['ids'])>200||count(array_unique($q['ids']))!==count($q['ids'])){return mmiiq_error('calendar_proof_invalid');}
         foreach($q['ids'] as $id){if(!is_int($id)||$id<1||$id>9007199254740991){return mmiiq_error('calendar_proof_invalid');}}
@@ -369,12 +372,14 @@ function mmiiq_calendar_directory($request){
     $active=mmiiq_session_active($i['wp_user_id'],$i['session_verifier']);$grant=mmiiq_access_for_user($active?get_user_by('id',$i['wp_user_id']):false);$uuid=$active?mmiiq_actor_uuid($i['wp_user_id'],false):null;
     $allowed=$active&&!is_wp_error($grant)&&$grant['role']==='admin'&&$grant['tier']==='admin'&&is_string($uuid)&&hash_equals($i['subject'],$uuid);$students=array();$next=null;
     if($allowed){
-        $q=$i['query'];if($q['kind']==='roster'){global $wpdb;$ids=$wpdb->get_col($wpdb->prepare("SELECT ID FROM {$wpdb->users} WHERE ID > %d ORDER BY ID ASC LIMIT 201",$q['after']));if(!is_array($ids)||$wpdb->last_error!==''){return mmiiq_error('calendar_directory_unavailable',503);}if(count($ids)>200){$ids=array_slice($ids,0,200);$next=(int)end($ids);}}
+        global $wpdb;$q=$i['query'];if($q['kind']==='roster'){$ids=$wpdb->get_col($wpdb->prepare("SELECT ID FROM {$wpdb->users} WHERE ID > %d ORDER BY ID ASC LIMIT 201",$q['after']));if(!is_array($ids)||$wpdb->last_error!==''){return mmiiq_error('calendar_directory_unavailable',503);}if(count($ids)>200){$ids=array_slice($ids,0,200);$next=(int)end($ids);}}
+        elseif($q['kind']==='owners'){$ids=empty($q['subjects'])?array():get_users(array('fields'=>'ID','number'=>201,'count_total'=>false,'orderby'=>'ID','order'=>'ASC','meta_query'=>array('relation'=>'OR',array('key'=>'_missionmed_storyforge_user_id','value'=>$q['subjects'],'compare'=>'IN'),array('key'=>'_missionmed_interviewiq_user_id','value'=>$q['subjects'],'compare'=>'IN'))));if(!is_array($ids)||count($ids)>200||$wpdb->last_error!==''){return mmiiq_error('calendar_directory_unavailable',503);}}
         else{$ids=$q['ids'];}
+        if($ids){if(function_exists('_prime_user_caches')){_prime_user_caches(array_map('intval',$ids));}if(function_exists('update_meta_cache')){update_meta_cache('user',array_map('intval',$ids));}}
         foreach($ids as $id){$id=(int)$id;$u=get_user_by('id',$id);$a=mmiiq_access_for_user($u);if(is_wp_error($a)&&in_array($a->get_error_code(),array('enrollment_owner_unavailable','assignment_owner_unavailable','assignment_owner_invalid'),true)){return mmiiq_error('calendar_directory_unavailable',503);}if(is_wp_error($a)||$a['role']!=='student'||!in_array($a['tier'],array('360','ivprep_complete'),true)){continue;}
             $name=trim((string)get_user_meta($id,'first_name',true).' '.(string)get_user_meta($id,'last_name',true));if($name===''){$name=(string)$u->display_name;}$name=mb_substr(sanitize_text_field($name),0,500);
             if($q['kind']==='roster'&&($q['tier']!=='all'&&$a['tier']!==$q['tier']||!mmiiq_directory_name_matches($name,$q['q']))){continue;}
-            $mapping=mmiiq_actor_uuid($id,false);$status=is_wp_error($mapping)?($mapping->get_error_code()==='identity_unmapped'?'unmapped':'conflict'):'ready';
+            $mapping=mmiiq_actor_uuid($id,false);if($q['kind']==='owners'&&!is_wp_error($mapping)&&!in_array($mapping,$q['subjects'],true)){continue;}$status=is_wp_error($mapping)?($mapping->get_error_code()==='identity_unmapped'?'unmapped':'conflict'):'ready';
             $students[]=array('wpUserId'=>$id,'name'=>$name,'tier'=>$a['tier'],'subject'=>$status==='ready'?$mapping:null,'mappingStatus'=>$status);
         }
     }

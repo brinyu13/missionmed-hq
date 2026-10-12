@@ -287,7 +287,7 @@ function clearCalendarMemory(){calendarRoster=null;calendarSelection=null;calend
 'use strict';
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
-let session=null, commandQueue=Promise.resolve(), serverClockOffset=0;
+let session=null,sessionRefresh=null,sessionEpoch=0,commandQueue=Promise.resolve(),serverClockOffset=0;
 let administratorPreview=false, administratorWorkspace=null;
 const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
 function previewError(){return Error('Administrator Student Preview does not save changes or run integrations. Return to Admin View for your administrator tools.');}
@@ -334,23 +334,32 @@ function sameOriginURL(value){const u=new URL(value,location.origin);if(u.origin
 function apiError(body,status){const message=body?.error?.message||body?.message||`Request failed (${status}).`;const err=new Error(message);err.status=status;err.code=body?.error?.code;return err;}
 async function readJSON(response){let body;try{body=await response.json();}catch{throw Error('The service returned an unreadable response. Your draft remains in this tab.');}if(!response.ok)throw apiError(body,response.status);return body;}
 async function refreshSession(){
+  if(sessionRefresh)return sessionRefresh;
+  const epoch=sessionEpoch,identity=actor?.id;
+  const work=(async()=>{
   const first=await readJSON(await fetch('/wp-admin/admin-ajax.php?action=missionmed_interviewiq_bootstrap',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}}));
   if(!first.nonce||!first.token_endpoint)throw Error('MissionMed could not establish the InterviewIQ session.');
   const signed=await readJSON(await fetch(sameOriginURL(first.token_endpoint),{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json','X-IIQ-Nonce':first.nonce}}));
+  if(epoch!==sessionEpoch||identity!==actor?.id)throw Error('The workspace changed while its session was loading.');
   if(!signed.token)throw Error('MissionMed did not return a signed InterviewIQ session.');
   if(actor&&signed.actor?.id&&signed.actor.id!==actor.id){lockWorkspace('Your MissionMed account changed. Reopen the workspace to continue.');throw Error('Your account changed. Reopen the workspace.');}
   const expires=typeof signed.expires_at==='number'?signed.expires_at*1000:Date.parse(signed.expires_at||'');
   session={token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
+  })();sessionRefresh=work;
+  try{return await work;}finally{if(sessionRefresh===work)sessionRefresh=null;}
 }
 async function apiFetch(path,options={},retried=false){
+  const callEpoch=sessionEpoch;
   if(studentPreview())throw previewError();
   if(coreOnly()&&!(calendarV2()&&(path.startsWith('/calendar/')||/^\/interviews\/[a-f0-9-]{36}\/itinerary/.test(path)))&&path!=='/bootstrap'&&!((deepResearch()||loiCanonicalLookup()||intakeEnabled()||mrxUI())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
-  if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
+  if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
+  const sentSession=session,requestEpoch=sessionEpoch;
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
   if(options.method&&options.method!=='GET')headers.set('X-IIQ-Nonce',session.nonce);
   const response=await fetch(session.apiBase+path,{...options,headers,credentials:'same-origin',cache:'no-store'});
-  if(response.status===401&&!retried){session=null;try{await refreshSession();}catch(error){if(error.status===401||error.status===403)lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}return apiFetch(path,options,true);}
-  if(response.status===401){lockWorkspace('Your session ended. Sign in through MissionMed and reopen your workspace.');}
+  if(requestEpoch!==sessionEpoch)throw Error('Your workspace changed while this request was loading.');
+  if(response.status===401&&!retried){if(session===sentSession)session=null;try{if(!session||session.expiresAt<Date.now()+5000)await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}return apiFetch(path,options,true);}
+  if(response.status===401&&session===sentSession){lockWorkspace('Your session ended. Sign in through MissionMed and reopen your workspace.');}
   if(options.binaryDownload===true){if(!response.ok)return readJSON(response);if(response.headers.get('content-type')!=='application/octet-stream'||!/^attachment; filename="itinerary-(?:[1-9]|10)\.(?:pdf|png|jpg)"$/.test(response.headers.get('content-disposition')||''))throw Error('The private attachment response was invalid.');const blob=await response.blob();if(blob.size<1||blob.size>5242880)throw Error('The attachment exceeded its allowed size.');return {blob,fileName:response.headers.get('content-disposition').split('"')[1]};}
   return readJSON(response);
 }
@@ -471,7 +480,7 @@ function clearPrivateMemory(){clearProgramMediaMemory();clearMRXMemory();clearCa
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
 }
 function lockWorkspace(message){
-  administratorPreview=false;administratorWorkspace=null;
+  administratorPreview=false;administratorWorkspace=null;sessionEpoch++;sessionRefresh=null;
   clearPrivateMemory();S=null;F={};actor=null;capabilities={};integrations={};version=null;session=null;
   for(const id of ['rail','hdr','drawer']){const e=document.getElementById(id);if(e){e.innerHTML='';e.inert=false;e.classList.remove('open');}}
   const main=document.getElementById('main');main.inert=false;main.innerHTML=`<section class="pageIntro" style="padding:48px"><div class="h1">Your workspace is <em>protected</em>.</div><p role="alert">${esc(message)}</p><div class="row"><button class="rowBtn pri" id="retry-connection">Reopen workspace</button><a class="rowBtn" href="/member-dashboard/">Back to Matrix</a></div></section>`;
@@ -1481,7 +1490,7 @@ function renderCalendar(){
  ${calendarAdminControls()}
  ${calendarV2()?`<div class="calendar-controls" role="group" aria-label="Calendar scope"><button class="btn ghost" data-act="calendar-mine" aria-pressed="${S.ui.calendarScope==='mine'}">My Calendar</button><button class="btn ghost" data-act="calendar-all" aria-pressed="${S.ui.calendarScope==='all'}">All eligible cohort events</button></div><p class="tiny">${admin?'Student identity is available only to authorized administrators. Private notes, files, contacts and joining links are excluded from this overview.':'★ Your interviews are gold. Peer events are de-identified; names, joining details and private notes are never shared.'}</p>`:''}
  <div class="calendar-controls"><label>Program<select data-calendar-filter="program"><option value="all">All programs</option>${programs.map(([v,n])=>`<option value="${esc(v)}" ${f.program===v?'selected':''}>${esc(n)}</option>`).join('')}</select></label><label>Specialty<select data-calendar-filter="specialty"><option value="all">All specialties</option>${specialties.map(v=>`<option value="${esc(v)}" ${f.specialty===v?'selected':''}>${esc(v)}</option>`).join('')}</select></label>${btn('calendar-filters-reset','Clear filters','','btn ghost')}</div>
- ${message?`<p role="${error?'alert':'status'}" aria-live="polite">${esc(message)}</p>`:''}${error?`<p>${esc(error)} ${btn('calendar-retry',S.ui.calendarScope==='student'?'Retry selected schedule':'Retry cohort month','','btn ghost')}</p>`:''}${cohortPage?.unmapped&&S.ui.calendarScope==='all'?`<p>${cohortPage.unmapped} eligible students have not established an InterviewIQ workspace.</p>`:''}
+ ${message?`<p role="${error?'alert':'status'}" aria-live="polite">${esc(message)}</p>`:''}${error?`<p>${esc(error)} ${btn('calendar-retry',S.ui.calendarScope==='student'?'Retry selected schedule':'Retry cohort month','','btn ghost')}</p>`:''}${actor.role==='admin'&&S.ui.calendarScope==='all'&&calendarRoster&&!calendarRoster.loading&&!calendarRoster.error&&calendarRoster.students.some(s=>s.mappingStatus==='unmapped')?`<p>${calendarRoster.students.filter(s=>s.mappingStatus==='unmapped').length} eligible students in this search have not established an InterviewIQ workspace.</p>`:''}
  ${undated.length?`<section class="undatedStrip" aria-label="Date unknown"><span class="lbl">Date unknown</span>${undated.map(it=>calendarEventButton(it,true)).join('')}<p class="tiny">Saved interviews without a date remain visible here.</p></section>`:''}
  ${cal.view==='month'?`<div class="calendar-grid-scroll" tabindex="0" aria-label="Scrollable month calendar"><div class="mcv2-month" role="grid" aria-label="${esc(model.title)}"><div class="mcv2-weekdays" role="row">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="mcv2-weekday" role="columnheader">${d}</div>`).join('')}</div><div class="mcv2-month-grid">${model.days.map(day=>{const ev=by[day.key]||[],shown=ev.slice(0,3);return `<div class="mcv2-month-day${day.outside?' is-outside':''}${day.today?' is-today':''}" role="gridcell" tabindex="${focusDay===day.key?0:-1}" data-cal-day="${day.key}" aria-label="${esc(day.fullLabel)}, ${ev.length} events"><span class="mcv2-day-number">${day.label}</span><div class="mcv2-day-events">${shown.map(it=>calendarEventButton(it)).join('')}${ev.length>3?btn('cal-day','+'+(ev.length-3)+' more',`data-day="${day.key}"`,'mcv2-more'):''}</div></div>`;}).join('')}</div></div></div>`:`<section class="mcv2-list-panel" aria-label="${cal.view==='list'?'Interview list':'Agenda'}"><p>${cal.view==='list'&&S.ui.calendarScope!=='all'?'All saved dates':esc(model.title)} · times in ${esc(F.student_zone)}</p>${rows||(!pending&&!error?'<p>No dated interviews in this view.</p>':'')}</section>`}
  </section>`;
