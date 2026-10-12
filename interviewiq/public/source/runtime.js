@@ -1,7 +1,8 @@
+let cohortFlight=null;
 let calendarRoster=null,calendarSelection=null,calendarSchedule=null,calendarLoadSequence=0,calendarRosterSequence=0;
 let calendarEpoch=0,cohortPage=null,itineraryPage=null,itineraryPending=null,adminCalendarTarget=null,calendarMutationPending=null,calendarMutationBusy=false,calendarTargetReadSequence=0,itineraryReadSequence=0;
 const calendarV2=()=>capabilities.calendarV2===true&&!studentPreview()&&['student','admin'].includes(actor?.role);
-function clearCalendarMemory(){calendarRoster=null;calendarSelection=null;calendarSchedule=null;calendarLoadSequence++;calendarRosterSequence++;calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
+function clearCalendarMemory(){cohortFlight=null;calendarRoster=null;calendarSelection=null;calendarSchedule=null;calendarLoadSequence++;calendarRosterSequence++;calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
 'use strict';
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
@@ -102,7 +103,7 @@ function applyBootstrap(input){
   if(sameActor&&capabilities.researchMissions===true&&(b.capabilities?.researchMissions!==true||normalizeRole(b.actor.role)!==actor.role||b.actor.tier!==actor.tier))clearMRXMemory();
   if(sameActor&&capabilities.mrxPublication===true&&b.capabilities?.mrxPublication!==true)clearMRXMemory();
   if(sameActor&&capabilities.threebox===true&&b.capabilities?.threebox!==true)clearThreeboxMemory();
-  if(sameActor&&hadCalendar&&(b.capabilities?.calendarV2!==true||capabilities.adminLogistics===true&&b.capabilities?.adminLogistics!==true))clearCalendarMemory();
+  if(sameActor&&hadCalendar&&(b.actor.tier!==actor.tier||b.capabilities?.calendarV2!==true||capabilities.adminLogistics===true&&b.capabilities?.adminLogistics!==true))clearCalendarMemory();
   actor={...b.actor,role:normalizeRole(b.actor.role)};capabilities=b.capabilities||{};
   if(!sameActor||hadLookup&&!loiCanonicalLookup()){searchSequence++;clearTimeout(searchTimer);}
   integrations=b.integrations||{};version=b.version;
@@ -242,7 +243,7 @@ function forgetDrafts(ids){for(const id of ids)draftValues.delete(draftKey(id));
 function setSaved(message='Saved'){const e=document.getElementById('connection-status');if(e)e.textContent=message;}
 async function boot(){
   const main=document.getElementById('main');main.innerHTML='<section class="pageIntro" style="padding:48px"><div class="h1">Opening your <em>workspace</em>.</div><p role="status">Connecting to your MissionMed account…</p></section>';
-  try{await refreshWorkspace();render();showOpening();}
+  try{await refreshWorkspace();render();showOpening();warmCalendar();}
   catch(error){lockWorkspace(error.message);}
 }
 
