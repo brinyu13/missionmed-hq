@@ -44,7 +44,7 @@ test('deliberate second Mock allowed only after terminal and room proof; same Mo
   await h.qa.start({actor,sessionId:ID2});assert.equal(h.creates.length,2);assert.equal(h.state().reservedSeconds,180);
 });
 test('disabled, expired, source mismatch, billing unverified and insufficient aggregate budget deny before create',async()=>{
-  for(const policy of [{enabled:false},{expiresAt:999},{source:'c'.repeat(40)},{manifestSha256:'c'.repeat(64)},{overageOffVerified:false},{budgetSeconds:89},{maxSessions:0},{creditLimit:201},{budgetSeconds:201},{rateBoundVerified:false},{creditsPerMinuteCeiling:24},{expiresAt:Date.parse('2026-10-11T00:00:00Z')},{reservedSeconds:-1}]){
+  for(const policy of [{enabled:false},{expiresAt:999},{source:'c'.repeat(40)},{manifestSha256:'c'.repeat(64)},{overageOffVerified:false},{budgetSeconds:89},{maxSessions:0},{creditLimit:201},{budgetSeconds:201},{rateBoundVerified:false},{creditsPerMinuteCeiling:24},{expiresAt:Date.parse('2026-10-13T00:00:00Z')},{reservedSeconds:-1}]){
     const h=harness({policy});await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
   }
   const h=harness({release:{ok:false}});assert.equal((await h.qa.config()).available,false);await assert.rejects(h.qa.start({actor,sessionId:ID}));
@@ -74,6 +74,22 @@ test('five-minute test denies duration, budget and credit excess before provider
     const h=harness({duration:change.duration??300,policy:{creditLimit:200,budgetSeconds:330,maxSessions:1,...change.policy}});
     await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
   }
+});
+test('October 12 renewal admits one bounded test but neither expired nor beyond-cutoff policy',async()=>{
+  const current=Date.parse('2026-10-12T19:42:00Z'),cutoff=Date.parse('2026-10-12T20:30:00Z');
+  const policy={creditLimit:200,budgetSeconds:330,maxSessions:1,expiresAt:cutoff};
+  for(const expiresAt of [Date.parse('2026-10-10T00:00:00Z'),cutoff+1]){
+    const denied=harness({duration:300,policy:{...policy,expiresAt}});denied.advance(current-1000);
+    assert.equal((await denied.qa.config()).available,false);
+    await assert.rejects(denied.qa.start({actor,sessionId:ID}));assert.equal(denied.creates.length,0);
+  }
+  const h=harness({duration:300,policy});h.advance(current-1000);
+  assert.equal((await h.qa.config()).available,true);
+  const ticket=await h.qa.start({actor,sessionId:ID});assert.equal(ticket.deadlineMs,current+300000);
+  assert.equal(h.state().reservedSeconds,330);assert.equal(h.state().sessionCount,1);
+  await h.qa.command({actor,sessionId:ID,command:'terminate'});
+  assert.equal((await h.restart().config()).available,false);
+  await assert.rejects(h.restart().start({actor,sessionId:ID2}));assert.equal(h.creates.length,1);
 });
 test('five-minute test requires enough time before expiry for the full cleanup reservation',async()=>{
   const h=harness({duration:300,policy:{creditLimit:200,budgetSeconds:330,maxSessions:1,expiresAt:330999}});

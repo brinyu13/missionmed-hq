@@ -3,7 +3,7 @@ import {verifyQaRelease} from './release-identity.mjs';
 const fail=(code,status=409)=>Object.assign(new Error(code),{status});
 const UUID=/^[a-f0-9-]{36}$/;
 const CREDIT_LIMIT=200,RATE_CEILING=30,CLEANUP_SECONDS=30;
-const QA_EXPIRES_AT=Date.parse('2026-10-10T00:00:00Z');
+const QA_EXPIRES_AT=Date.parse('2026-10-12T20:30:00Z');
 const founder=actor=>{if(actor!=='wp:1')throw fail('ivoc_founder_qa_required',403);};
 // Stored policy is operational authority, NOT browser preferences. No endpoint
 // may increase its budget, reset attempts, extend expiry or re-enable a kill.

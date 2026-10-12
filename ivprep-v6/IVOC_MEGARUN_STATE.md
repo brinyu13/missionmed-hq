@@ -1,3 +1,8 @@
+## 2026-10-12 — one-test expiry prerequisite (not activation)
+
+Founder authorized one participating test, maximum300 seconds/200 existing prepaid credits/no overage/purchases/retry. OS5700b063/DR393 records one finite renewal ending20:30Z. The old hardcoded Oct10 ceiling made a database-only renewal impossible; this candidate changes only that ceiling and direct expiry tests. All prior attempts/history, one-session reservation,30-second cleanup and15-second liveness limits remain intact.
+Production9f2327e/deployment78b99643 remains the pre-release OFF checkpoint. No provider session or allowance mutation performed by this source change. Actual activation requires reviewed exact artifact/runtime hashes, source/manifest pins and a separately fenced full-state CAS preserving history. Source5744 follows normally released5743 (closed input, no mutation). Physical speech/sync/save/cold replay remain Founder acceptance, not synthetic-test claims.
+
 ## 2026-10-12 — expired-avatar Start continuity closure (additive filing)
 
 See the latest prefix in `ivprep-v6/handoffs/IVOC_GATE1_GATE2_STATE_DELTA_20261012.md`. Runtime source `9f2327e510a9126afcb3a7c30caecbd74977d6f1` / deployment `78b99643-b405-4a7b-83ef-0a589f91b668` SUCCESS, manifest621b1989/all568 match, health200/anonymous401. Parent authenticated production1896×841 now truthfully displays BLOCKED/00:00/Start unavailable and persistent expired reason despite camera/mic ready; independent local1920×873 is synthetic fixture evidence, not the production viewport.
