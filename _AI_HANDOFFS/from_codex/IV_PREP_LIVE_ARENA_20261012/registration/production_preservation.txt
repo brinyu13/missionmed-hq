@@ -1,0 +1,10 @@
+Read-only recheck 2026-10-12T13:30:37.003845+00:00
+All eight original Dr J production source hashes still match the initial observed hashes. No production state write was performed.
+a6235ac26e63733fe814ef76c3966bde6f44a0d985f7fbac2fec888fc29d22f9  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-state-contract.php
+721ef0a79d3fe5a91d28e27aa28db903d86babcf7b3ed3e102b0fb91aa2ab6c7  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-worker.js
+3c40979791673333706bc7fa1fa536c33f35a0b258cebc3330342c962699edaa  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js
+036897b3f3ef8d381383225a81178362dd6cc052bd6144d64129232edafe552f  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js
+ce5c606dfa55671c21334041c2bc5e59cb49d2b949d9e0008187b6402dbe0f4b  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3.html
+c26cf6777b3390638e42cc381e57ce1d2c8d8cbf68953d184fd5174425b85678  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-studentflow.js
+b8e0023ee44c65d9373a5354965df765558fad4fcbb661bc1f0d61bc265f945b  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-action.php
+7f0622c06a411bcaca2622f2ce35576cd26e742fc97ef9abd040120650f0d190  /www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-sdk-v3.php

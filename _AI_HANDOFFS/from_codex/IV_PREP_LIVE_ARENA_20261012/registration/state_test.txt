@@ -1,0 +1,34 @@
+PASS Absent cannot be selected
+PASS Foreign student rejected
+PASS Cannot switch student mid interview
+PASS Active interview cannot score
+PASS Exact replay unchanged
+PASS Request collision rejected
+PASS Actor collision rejected
+PASS Stale version rejected
+PASS Independent student totals
+PASS Undo keeps compensating history
+PASS Double undo rejected
+PASS Bounded points
+PASS Failed recording cannot be reviewed
+PASS Request fingerprints private
+14 assertions passed
+PASS Stable initial teams
+PASS Team move preserves individual score
+PASS Foreign team assignment rejected
+PASS Unsafe meeting URL rejected
+PASS Unsafe meeting URL rejected
+PASS Unsafe meeting URL rejected
+PASS Unsafe meeting URL rejected
+PASS Meeting link stored in isolated session only
+PASS Team move blocked during interview
+PASS Meeting switch blocked during interview
+PASS Historical review blocked during recording
+PASS Historical award blocked during recording
+PASS Historical undo blocked during recording
+PASS WP adapter denies non-admin
+PASS WP adapter requires admin and nonce
+PASS WP adapter rejects invalid nonce
+PASS Raw roster limit rejects before admin filtering
+PASS Roster excludes administrator
+32 total state and adapter assertions passed

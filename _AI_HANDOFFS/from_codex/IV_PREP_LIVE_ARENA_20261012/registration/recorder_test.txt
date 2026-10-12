@@ -1,0 +1,17 @@
+PASS Permission denial resets controls
+PASS Missing incoming audio rejects and releases capture
+PASS Separate source presence reported
+PASS Normal stop returns local blob
+PASS Stop releases capture devices
+PASS Empty recording not accepted
+PASS Input ending labels partial recording
+7 recorder control checks passed. No real media acceptance inferred.
+PASS Live preview has video only, no audio feedback path
+PASS Prior reviewed attempt cannot score during new recording; local stop remains available
+PASS Finalized playback clears preview and restores audio
+PASS Unsaved new clip remains selected after finish conflict
+PASS Deferred finish retry retains correct interview selection
+PASS Historical clip cannot discard unsaved new clip
+PASS Recovered clip reopens against saved fingerprint
+PASS Next interview available after recovered clip custody
+Frontend conflict/custody regression passed using mocks; no real media success inferred.

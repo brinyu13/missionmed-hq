@@ -1,0 +1,45 @@
+{
+  "mission": "MX-IVPREP-LIVE-ARENA-20261012",
+  "status": "NOT_DEPLOYED_APPROVAL_REQUIRED",
+  "verified_at": "2026-10-12T13:47:05.270416+00:00",
+  "independent_review": "APPROVE final LOCAL source candidate; no production or human media acceptance",
+  "runtime_files": [
+    {
+      "path": "wp-content/mu-plugins/missionmed-ivprep-live-arena.php",
+      "sha256": "e5f1fd24c4cd90eeba6cbbc9b343fce7ccf5a3838bbb2b66651afe6cea005408",
+      "production_preimage": "ABSENT"
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-ivprep-live-arena/state.php",
+      "sha256": "1aaa20d0a9061f086690735c41e1346ad2c5159ea49d967c139e69568abc63cf",
+      "production_preimage": "ABSENT"
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-ivprep-live-arena/view.php",
+      "sha256": "2a0515e1078c989fb4bc1191fd7bad1f1092c1b69696d8c885ff15a9038fe07e",
+      "production_preimage": "ABSENT"
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-ivprep-live-arena/arena.js",
+      "sha256": "4fb314c892fb0f0aef3af80ad3683ef458a5983a1f48d75b13da7841872a784e",
+      "production_preimage": "ABSENT"
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-ivprep-live-arena/recorder.js",
+      "sha256": "c08034247750f2bc237980478c119df2b2dadb3a240d0027aa3167d6f48cee39",
+      "production_preimage": "ABSENT"
+    },
+    {
+      "path": "wp-content/mu-plugins/missionmed-ivprep-live-arena/arena.css",
+      "sha256": "0c8a9e2eeb6336abce26e9954ce2b62c00ebde899f1f59d2c8944f682dfe4364",
+      "production_preimage": "ABSENT"
+    }
+  ],
+  "runtime_lock_paths_intersect": false,
+  "global_guard_exit": 42,
+  "override": false,
+  "tests_deployed": false,
+  "production_route": "https://missionmedinstitute.com/ivprep-live-arena/",
+  "persistent_prefix": "mmed_ivprep_arena_session_",
+  "rollback": "Deactivate only own MU entry; preserve own data and all DrJ files/state. See runbook."
+}

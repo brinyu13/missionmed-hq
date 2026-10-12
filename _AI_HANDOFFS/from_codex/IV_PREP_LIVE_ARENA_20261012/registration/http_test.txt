@@ -1,0 +1,20 @@
+PASS Anonymous read denied
+PASS Student read denied
+PASS Invalid nonce denied
+PASS Instructor roster access
+PASS Session created with roster
+PASS Simulated save fails honestly
+PASS Failed save persisted no score
+PASS Same request retry persists score
+PASS Duplicate retry not double-awarded
+PASS Reload preserves independent totals
+PASS Second student scored independently
+PASS Undo isolates correct student
+PASS Second class session clean isolation
+PASS Concurrent stale write rejected
+PASS Traversal denied
+PASS Team and meeting survive readback without losing scores
+PASS Source-derived classroom is served
+PASS Original state and provider controllers are not loaded
+PASS Avatar path allowlist rejects traversal
+19 HTTP checks passed. Synthetic recording metadata is not actual media proof.

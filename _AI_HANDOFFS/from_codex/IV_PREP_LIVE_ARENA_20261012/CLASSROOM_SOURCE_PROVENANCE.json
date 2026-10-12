@@ -1,0 +1,77 @@
+{
+  "verified_at": "2026-10-12T13:43:29.852069+00:00",
+  "files": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-preview.html",
+      "sha256": "a3224c7df50f35ccbbda8ab53a358e64032da8c2c960c8fce6be0f3e6fcfdae4",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge.js",
+      "sha256": "65ddd863a4ef820a802a34cbc5cb110c3c1315b0c2f5bf9ecd965b3ce0971ebe",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-embed.js",
+      "sha256": "bfcb542b0034e6872da00b547806fe872a5aa0e2cd7165254fe921af283f0575",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-preview.php",
+      "sha256": "7f20dfdf565fd7a07bf984473cdb65800f4a1d168e22ae8cadbe754e589b44c4",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-01.webp",
+      "sha256": "b8507e6767481e7ea9e0c753e6a266a578a18bdc48d5f60b30a06c5adf289373",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-02.webp",
+      "sha256": "fa813a4fa98dbf52913986e00a41cb0add2cd6c9eab11a18ba7af321a9aff652",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-03.webp",
+      "sha256": "1022f804c584a47d5da7c9fae38f7c2985480c6841d2bb34221bf6bb9c3ceff9",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-04.webp",
+      "sha256": "4aad2e17ebc33200c0fd468efd68a3797bf87b353be8315eec8a064ce09009e5",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-05.webp",
+      "sha256": "4aad2e17ebc33200c0fd468efd68a3797bf87b353be8315eec8a064ce09009e5",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-female-06.webp",
+      "sha256": "3da7fd6b5e943df584ab8bba7e3ffea98c896b821837175f0ec12dd0d474b055",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-male-01.webp",
+      "sha256": "19aea1c07e19bd728ae5dd7c0330306045a7ea2d39edf4f0c2e751e9bf27323c",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/doctor-male-02.webp",
+      "sha256": "19aea1c07e19bd728ae5dd7c0330306045a7ea2d39edf4f0c2e751e9bf27323c",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/superhero-female-01.webp",
+      "sha256": "cbf7c9a4d5d69a5c0ecde0ea15acb9826c805be1a433c88bfb73116dc7262ba7",
+      "production_equal": true
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/superhero-female-02.webp",
+      "sha256": "3da7fd6b5e943df584ab8bba7e3ffea98c896b821837175f0ec12dd0d474b055",
+      "production_equal": true
+    }
+  ],
+  "preexisting_source_files_unchanged": 130,
+  "original_controller_execution": false
+}

@@ -1,0 +1,11 @@
+{
+  "file": "/Users/brianb/Downloads/arena-proof-test-student-a-2026-10-12T13-14-13.423Z.webm",
+  "bytes": 1818597,
+  "sha256": "98530cbacae263d336d581f4622477b2cc8fda8f9c1ce57c9cdf24867df51978",
+  "browser_reported_finalize_ms": 3,
+  "decode": "ffmpeg full decode to null exited0",
+  "video": "VP8 1276x618",
+  "audio": "Opus 48000Hz stereo mixed audio",
+  "acceptance": "Founder reported both voices and video play correctly; agent did not independently listen.",
+  "integrated_acceptance": "pending Founder integrated workflow response"
+}

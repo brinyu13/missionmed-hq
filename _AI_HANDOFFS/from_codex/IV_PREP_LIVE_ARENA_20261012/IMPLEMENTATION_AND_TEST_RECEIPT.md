@@ -1,36 +1,17 @@
-# Implementation and test receipt — BLOCKED, NOT DELIVERED
+# Implementation and test receipt — October12 corrected shell
 
-Observed 2026-10-12T12:45:19.153138+00:00. Source HEAD `c9493bcd941e0377e58416111d367495fd7c3807`.
+Status: local candidate implemented, independently reviewed visually; final local-source independently approved; corrected-shell human rehearsal pending. No production deployment.
 
-## Changed files
+Authority: existing mission MX-IVPREP-LIVE-ARENA-20261012, DR414/415, canonical OS commit f8ef02b6de4c3fc6f32e4e873951a4004492d5cb. Registration independently reviewed, normal canonical push/readback, REGISTRY5697released. Existing implementation PATH5698 covers exact6runtime and5testfiles. Same worktree/branch. Later independent OS work preserved Arena registration. No duplicate registration.
 
-Only this `_AI_HANDOFFS/from_codex/IV_PREP_LIVE_ARENA_20261012/` evidence packet. No product source, production data, provider configuration, migration, runtime lock, OS registry, Brain or donor files modified. Handoff commit is discoverable with `git log -1 --format=%H -- _AI_HANDOFFS/from_codex/IV_PREP_LIVE_ARENA_20261012` after filing; no implementation commit exists.
+Runtime files: MU-plugin entry plus state.php,view.php,arena.css,arena.js,recorder.js. Own prefix `mmed_ivprep_arena_session_`, instructor+nonce permission, version CAS, actor-bound idempotency, append-only scoring and compensating undo. Direct read-only roster SELECTs; no maybe_install/cache-seeding helper. Local recorder blends app audio and mic, stores no cloud media, refuses microphone-only capture. Avatar/classroom reuse provenance in CLASSROOM_CORRECTION.md.
 
-## Checks actually executed
+Tests actually run:
+-32PHP reducer/WordPress-adapter stub assertions: attendance/membership, independent scores, review requirements, retries, request/actor collision, CASversion, undo, bounds, failed media, rawrosteroverflow, admin/nonce, persisted teams, safeWebexlink, active-recording command gates.
+-15JS recorder/frontend checks: denied capture, missing incomingaudio, trackcleanup, nonempty/emptyfinalization, input interruption, video-onlypreview, audiblefinalplayback, historicalscorelock, localstop, finish409reconciliation and clipcustody.
+-19HTTP loopback checks: anonymous/student/nonce denial, synthetic instructor session/roster, failure503/retry, duplicateaward, reload, secondstudent/session isolation, undo, stale409, traversal, team/meetingreadback, source-derivedshell and excluded originalcontrollers.
+-Actual local browser: new classroom session, avatar assetsloaded, studentattendanceconfirmation, selectionenablesstart; screenshot rendered. Original DrJ production tab was inspected read-only.
 
-| Check/command | Result | What it proves |
-|---|---|---|
-| `git status --short --branch`, `git rev-parse HEAD --git-common-dir`, `git remote -v` | 0, initial clean | Isolated source custody |
-| `git ls-remote origin refs/heads/main` for HQ and OS | 0 | Fresh GitHub tips |
-| Fresh OS clone and `python3 <snapshot>/tools/validate_boot_dependencies.py --hq-git-dir /Users/brianb/MissionMed/.git --os-root <snapshot>` | 0, universal PASS | Canonical MR-079 dependency integrity only |
-| Read-only SSH `sha256sum` of eight Drills files | 0, 8/8 match | Narrow production source parity |
-| `python3 /Users/brianb/MissionMed/_SYSTEM/tools/matrix_runtime_guard.py preflight --worktree /Users/brianb/MissionMed_worktrees/matrix-ivprep-live-arena-20261012 --assets all` | **42** | Shared Matrix lock gate failed |
-| `php /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-611/evidence/contract_test.php` | PASS 37/37 (script emits exit 0 on all-pass) | Existing pure privacy, ticket, sequence, atomic JSON contract; temporary synthetic fixture only |
-| Read-only Supabase active-lease SELECT | Successful, 0 rows | No active provider lease at observation; not authority |
-| Anonymous gateway HTTP GET | HTTP 403 | No successful public runtime read established |
-| `bash _SYSTEM/scripts/mm-preflight.sh --edit-scope ...` | 1 at line 177 | Existing empty-array/unbound-variable bug on clean checkout; same with `/opt/homebrew/bin/bash`; script left unchanged |
+Limits: auth/DB integration tests use local fixtures/stubs, not actual WordPress acceptance. Automated finalization metadata is synthetic. Real component recording was human-confirmed and structurally decoded, but corrected-shell full workflow is still pending. No arbitrary automatic participant/media-selection claim.
 
-For handoff-only creation, performed explicit substitute non-overlap checks: exact branch, clean porcelain status, destination absent, exclusive creation. This does not waive any product-write or deployment gate.
-
-## Requested vertical-slice acceptance
-
-1. Correct IV Prep class roster: NOT VERIFIED.
-2. Instructor-confirmed attendance: NOT IMPLEMENTED.
-3. Student A points/leaderboard: NOT VERIFIED.
-4. Refresh persistence: NOT VERIFIED for IV Prep (pure JSON round trip passed only).
-5. Separate Student B totals: NOT VERIFIED.
-6. Duplicate/retry and failed-save flow: NOT VERIFIED; existing retry-deduplication gap identified.
-7. Unauthorized access and Dr J isolation: NOT VERIFIED for IV Prep; existing pure projections/tickets tested only.
-8. Readable Webex sharing: NOT VERIFIED.
-
-No staging or production deployment. No end-to-end readiness claim. Root `npm run build` is an echo placeholder and was not presented as a build check. Integration tests and broader lint/build were not run because no implementation is authorized or changed. Existing production-mutating test scripts were not executed. Independent verifier acceptance remains outstanding.
+Production protection:14classroomdonorfiles match production;130preexisting sourcepreimages unchanged. Globalruntimeguard42 remains with unrelated stale/missing sharedassets; nooverride. New source does not execute original DrJ controllers or write their persistent keys. No production source, state, authentication, enrollment, provider, security-setting or invitation changes.
