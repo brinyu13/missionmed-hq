@@ -131,6 +131,8 @@ body[data-mode="room"] main.view { max-width: none; padding: 0; animation: none;
 .entry-countdown .count { font:800 italic clamp(90px,12vw,180px)/1 var(--font-display); color:var(--gold-flat); font-variant-numeric:tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .entry-countdown .count { animation:none; } }
 .stage-enter p { font-family: var(--font-editorial); color: var(--ink2); max-width: 44ch; margin: 8px 0 0; }
+.room #start-session[data-admission="blocked"] { background: var(--panel, #182235); color: var(--ink2); opacity: 1; cursor: not-allowed; border: 1px solid var(--edge); }
+.room [data-qa-limit][data-admission="blocked"] { color: var(--ink); border-left: 3px solid var(--gold-flat); padding: 6px 10px; text-align: left; }
 /* Readiness errors belong in document flow, never inside a clipped video stage. */
 .readiness-status { margin: 0; }
 .readiness-status:empty, .readiness-status[hidden] { display: none; }

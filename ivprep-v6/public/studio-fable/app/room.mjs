@@ -109,6 +109,22 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   </div>`;
 
   const $=id=>main.querySelector('#'+id),room=$('room'),rails=new RailsController(main);
+  function updateAvatarAdmissionPresentation(){
+    if(started||!avatarBlocked())return;
+    const expired=Number.isFinite(founderQa?.usage?.expiresAt)&&founderQa.usage.expiresAt<=Date.now();
+    const message=expired
+      ?'Avatar authorization required: this Founder test allowance has expired. No interview or recording has started. Ask the Foreman to prepare a newly authorized test.'
+      :AVATAR_UNAVAILABLE;
+    const button=$('start-session'),notice=main.querySelector('[data-qa-limit]');
+    button.disabled=true;button.textContent='Start unavailable';button.dataset.admission='blocked';
+    button.setAttribute('aria-describedby','avatar-admission-note');
+    notice.id='avatar-admission-note';notice.dataset.admission='blocked';notice.textContent=message;
+    $('rec-text').textContent='BLOCKED';$('presence-state').textContent='authorization required';
+    $('presence-sub').textContent='This avatar interview is not authorized to start.';
+    $('presence-line').textContent='Your devices can be ready while avatar authorization is unavailable.';
+    if($('stage').dataset.previewReady==='true')$('enter-note').textContent=message;
+  }
+  updateAvatarAdmissionPresentation();
   if(founderQa){
     const usage=founderQa.usage||{};
     main.querySelector('[data-qa-usage]').textContent=`${founderQa.enabled?'ON':'OFF'} · ${usage.sessionCount||0}/${usage.maxSessions||0} sessions · ${Math.ceil((usage.reservedSeconds||0)*(usage.creditsPerMinuteCeiling||30)/60)}/${usage.creditLimit||0} credits reserved (not invoiced usage) · ${usage.overageOffVerified?'overage OFF verified':'billing not verified'}`;
@@ -119,7 +135,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         if(!response.ok)throw new Error();
         founderQa.enabled=false;founderQa.available=false;
         main.querySelector('[data-qa-limit]').textContent=AVATAR_UNAVAILABLE;
-        if(!started)$('start-session').disabled=true;
+        if(!started){$('start-session').disabled=true;updateAvatarAdmissionPresentation();}
         main.querySelector('[data-qa-status]').textContent='Avatar QA disabled. Active avatar termination requested; no new avatar sessions can start.';
       }catch{main.querySelector('[data-qa-status]').textContent='Disable could not be confirmed. Finish and save, then contact the Foreman.';event.currentTarget.disabled=false;}
     };
@@ -214,6 +230,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         $('stage').dataset.previewReady=String(!value&&ready);
         $('enter-note').textContent=value?'Checking your selected camera and microphone…':ready?'Preview visible · microphone connected. Nothing is recorded until you start.':'The selected devices are not ready. Check the message below, choose another device, or check the preview again.';
         if(!value&&ready){captureReadiness();applyOverlays();}
+        if(avatarBlocked())updateAvatarAdmissionPresentation();
       },onReadinessChanged:readiness=>{
         if(!current()||starting||saving||finished)return;
         if(started){$('room-preference-note').hidden=false;$('room-preference-note').textContent=readiness.message;return;}
@@ -246,7 +263,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       captureReadiness();
       startPreviewAnalytics();applyOverlays();
     }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
-    finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;await disposeDevices?.refresh?.().catch(()=>{});}}
+    finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;await disposeDevices?.refresh?.().catch(()=>{});if(avatarBlocked())updateAvatarAdmissionPresentation();}}
   }
   const onFrame=e=>{
     if(!engine||deviceSwitching||saving||disposed)return;
@@ -276,7 +293,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   async function start(){
     if(!current()||starting||started||deviceSwitching)return;
     if(!preInterviewReady(session.preflight,controller)){void connect();return;}
-    if(avatarBlocked()){$('enter-note').textContent=AVATAR_UNAVAILABLE;$('start-session').disabled=true;return;}
+    if(avatarBlocked()){$('enter-note').textContent=AVATAR_UNAVAILABLE;$('start-session').disabled=true;updateAvatarAdmissionPresentation();return;}
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
     initialPresentationMode=density==='interview'?'interview':'coached';setDensityControls(true);
     main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=true;});
@@ -335,6 +352,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
     }catch(error){if(current()){restoreReadinessPresence();$('stage').dataset.previewReady='false';$('enter-note').textContent=error?.diagnostics?.category==='CLIENT_NETWORK'?'Your connection changed before the interviewer was ready. The interview did not start.':error.message;
       if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href=session.setupReturnHash||'#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
+      if(founderQa&&error.message===AVATAR_UNAVAILABLE){founderQa.available=false;updateAvatarAdmissionPresentation();}
       $('start-session').disabled=true;$('connect-real').disabled=false;
       const back=document.createElement('a');back.href='#/devices?return=room&mode='+mode;back.textContent=' Return to device check';$('enter-note').append(back);}}
     finally{entryAbort=null;starting=false;if(current()){$('entry-countdown').hidden=true;setDensityControls(false);disposeEnvironment.refresh();await disposeDevices?.refresh?.().catch(()=>{});}}
