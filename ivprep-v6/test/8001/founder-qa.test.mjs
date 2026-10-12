@@ -91,6 +91,58 @@ test('October 12 renewal admits one bounded test but neither expired nor beyond-
   assert.equal((await h.restart().config()).available,false);
   await assert.rejects(h.restart().start({actor,sessionId:ID2}));assert.equal(h.creates.length,1);
 });
+const clickPolicy={startOnClick:true,allowanceId:'founder-five-minute-20261012-01',startedAt:null,
+  expiresAt:null,creditLimit:200,budgetSeconds:330,maxSessions:1,billingVerifiedAt:1000,prepaidCreditsVerified:2581};
+test('unused click grant waits without writes or creates and starts the full clock only on deliberate reservation',async()=>{
+  const current=Date.parse('2026-10-12T21:00:00Z');
+  const h=harness({duration:300,policy:{...clickPolicy,billingVerifiedAt:current}}),before=structuredClone(h.state());
+  h.advance(current-1000+2*60*60*1000);
+  for(const qa of [h.qa,h.restart(),h.restart()]){
+    const config=await qa.config();assert.equal(config.available,true);assert.equal(config.maxSeconds,300);
+    assert.equal(config.usage.expiresAt,null);
+  }
+  assert.deepEqual(h.state(),before);assert.equal(h.creates.length,0);
+  const ticket=await h.qa.start({actor,sessionId:ID}),expiry=h.state().expiresAt;
+  assert.equal(ticket.deadlineMs,current+2*60*60*1000+300000);assert.equal(expiry,ticket.deadlineMs+30000);
+  assert.equal(h.state().reservedSeconds,330);assert.equal(h.state().sessionCount,1);
+  h.advance(1000);await h.qa.heartbeat({actor,sessionId:ID,id:ticket.id});await h.restart().config();
+  assert.equal(h.state().expiresAt,expiry);assert.equal((await h.qa.config()).available,false);
+  h.advance(300001);await h.timers.find(t=>t.ms===3000).f();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.stops.length,1);assert.equal(h.creates.length,1);
+  for(const sid of [ID,ID2])await assert.rejects(h.restart().start({actor,sessionId:sid}));
+});
+test('click latch rejects malformed grants and missing, future or stale billing without consuming the test',async()=>{
+  for(const change of [{allowanceId:'other'},{startOnClick:false},{startedAt:1000},{active:{}},{maxSessions:2},
+    {reservedSeconds:1},{sessionCount:1},{billingVerifiedAt:null},{billingVerifiedAt:1001},
+    {prepaidCreditsVerified:199},{overageOffVerified:false},{rateBoundVerified:false},{creditsPerMinuteCeiling:31}]){
+    const h=harness({duration:300,policy:{...clickPolicy,...change}});
+    assert.equal((await h.qa.config()).available,false);await assert.rejects(h.qa.start({actor,sessionId:ID}));
+    assert.equal(h.creates.length,0);
+  }
+  const h=harness({duration:300,policy:clickPolicy}),before=structuredClone(h.state());
+  h.advance(24*60*60*1000-330000+1);
+  assert.equal((await h.qa.config()).available,false);await assert.rejects(h.qa.start({actor,sessionId:ID}));
+  assert.deepEqual(h.state(),before);assert.equal(h.creates.length,0);
+});
+test('click grant requires full 300 seconds, one owner and one atomic reservation',async()=>{
+  for(const duration of [60,299,301]){
+    const h=harness({duration,policy:clickPolicy});await assert.rejects(h.qa.start({actor,sessionId:ID}));
+    assert.equal(h.creates.length,0);assert.equal(h.state().sessionCount,0);
+  }
+  const h=harness({duration:300,policy:clickPolicy});
+  for(const wrong of ['wp:2','student',null])await assert.rejects(h.qa.start({actor:wrong,sessionId:ID}));
+  const results=await Promise.allSettled([h.qa.start({actor,sessionId:ID}),h.restart().start({actor,sessionId:ID2})]);
+  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(h.creates.length,1);
+  assert.equal(h.state().sessionCount,1);assert.equal(h.state().reservedSeconds,330);
+});
+test('pending kill and spent failed startup never rearm a click grant',async()=>{
+  const killed=harness({duration:300,policy:clickPolicy});await killed.qa.kill();
+  await assert.rejects(killed.restart().start({actor,sessionId:ID}));assert.equal(killed.creates.length,0);
+  let h;h=harness({duration:300,policy:clickPolicy,beforeCreate:async()=>h.advance(300001)});
+  await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);
+  assert.equal(h.state().sessionCount,1);assert.equal(h.state().reservedSeconds,330);
+  assert.equal(h.state().expiresAt,331000);await assert.rejects(h.restart().start({actor,sessionId:ID2}));
+});
 test('five-minute test requires enough time before expiry for the full cleanup reservation',async()=>{
   const h=harness({duration:300,policy:{creditLimit:200,budgetSeconds:330,maxSessions:1,expiresAt:330999}});
   await assert.rejects(h.qa.start({actor,sessionId:ID}));assert.equal(h.creates.length,0);

@@ -1,3 +1,9 @@
+## 2026-10-12 — unused test clock starts on deliberate Start (candidate)
+
+Founder did not Start. Runtime f41c873302bbb91d87c43d65d639755b99a36f39/deployment76572dac-58ea-48e2-9b65-fd8e63cd73dc was healthy/hash-verified; QA46 remained unused (activeNULL/count0/reserved0) but its arbitrary20:30Z waiting-room cutoff expired. DR393/OS4c4b5823 corrects timing for the SAME allowance founder-five-minute-20261012-01, not a renewed session or reset.
+Only server policy/direct tests/additive ledger change: exact pending startOnClick latch has no session expiry until deliberate reservation; first CAS consumes1session/330seconds and fixes300active+30cleanup. Config/reload/heartbeat cannot consume or extend it. Existing finite policies remain fail-closed. Billing proof must be server-owned, at most24hours old and valid through all330seconds; stale proof requires a separate no-spend check, never resetting allowance/accounting. Credit200/prepaid-only/overageOFF/idle15/no paid retry/Founder-only unchanged.
+Source5753 exact three-file fence.24 focused tests PASS including long waiting, duplicate Starts, fixed deadline, failure consumption, malformed/stale proof, kill and restart. No provider CREATE or test consumed. Activation still requires exact successor artifact/runtime/pins and reviewed full-state QA46 CAS archiving all previous state; physical speech/sync/save/cold replay remain Founder acceptance.
+
 ## 2026-10-12 — one-test expiry prerequisite (not activation)
 
 Founder authorized one participating test, maximum300 seconds/200 existing prepaid credits/no overage/purchases/retry. OS5700b063/DR393 records one finite renewal ending20:30Z. The old hardcoded Oct10 ceiling made a database-only renewal impossible; this candidate changes only that ceiling and direct expiry tests. All prior attempts/history, one-session reservation,30-second cleanup and15-second liveness limits remain intact.

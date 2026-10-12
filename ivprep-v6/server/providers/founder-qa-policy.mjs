@@ -4,9 +4,11 @@ const fail=(code,status=409)=>Object.assign(new Error(code),{status});
 const UUID=/^[a-f0-9-]{36}$/;
 const CREDIT_LIMIT=200,RATE_CEILING=30,CLEANUP_SECONDS=30;
 const QA_EXPIRES_AT=Date.parse('2026-10-12T20:30:00Z');
+const CLICK_ALLOWANCE='founder-five-minute-20261012-01',BILLING_PROOF_MS=24*60*60*1000;
 const founder=actor=>{if(actor!=='wp:1')throw fail('ivoc_founder_qa_required',403);};
 // Stored policy is operational authority, NOT browser preferences. No endpoint
-// may increase its budget, reset attempts, extend expiry or re-enable a kill.
+// may increase its budget, reset attempts or re-enable a kill. The one registered
+// click grant anchors its previously null expiry exactly once, inside claim CAS.
 export function createFounderQa({env,db,now=Date.now,claimSession,recordReceipt=async()=>{},
   controllerFactory=createEmbodimentCanary,release=verifyQaRelease({env}),setTimer=setTimeout,clearTimer=clearTimeout,fetchImpl=fetch,recoverSession=recoverEmbodimentSession}={}){
   let local=null,recovering=null;
@@ -22,6 +24,25 @@ export function createFounderQa({env,db,now=Date.now,claimSession,recordReceipt=
     }
     throw fail('ivoc_qa_policy_conflict');
   }
+  function clickGrant(s){
+    return s?.startOnClick===true&&s.allowanceId===CLICK_ALLOWANCE&&s.maxSessions===1
+      &&s.budgetSeconds===330&&s.creditLimit===200&&s.creditsPerMinuteCeiling===RATE_CEILING;
+  }
+  function pendingClick(s){
+    return clickGrant(s)&&s.expiresAt===null&&s.startedAt===null&&s.active===null
+      &&s.sessionCount===0&&s.reservedSeconds===0;
+  }
+  function expiryValid(s){
+    if(s?.startOnClick!==true)return Number.isFinite(s?.expiresAt)&&s.expiresAt<=QA_EXPIRES_AT;
+    return pendingClick(s)||(clickGrant(s)&&s.sessionCount===1&&s.reservedSeconds===330
+      &&Number.isSafeInteger(s.startedAt)&&s.startedAt>0&&s.expiresAt===s.startedAt+330000
+      &&(!s.active||s.active.deadlineMs===s.startedAt+300000));
+  }
+  function freshClickBilling(s){
+    return Number.isSafeInteger(s.billingVerifiedAt)&&s.billingVerifiedAt>0&&s.billingVerifiedAt<=now()
+      &&now()+330000<=s.billingVerifiedAt+BILLING_PROOF_MS
+      &&Number.isFinite(s.prepaidCreditsVerified)&&s.prepaidCreditsVerified>=200;
+  }
   function budgetValid(s){
     return s?.rateBoundVerified===true&&s.creditsPerMinuteCeiling===RATE_CEILING
       &&Number.isSafeInteger(s.creditLimit)&&s.creditLimit>0&&s.creditLimit<=CREDIT_LIMIT
@@ -29,15 +50,15 @@ export function createFounderQa({env,db,now=Date.now,claimSession,recordReceipt=
       &&Number.isSafeInteger(s.reservedSeconds)&&s.reservedSeconds>=0&&s.reservedSeconds<=s.budgetSeconds
       &&Number.isSafeInteger(s.sessionCount)&&s.sessionCount>=0&&Array.isArray(s.attempts)
       &&Number.isSafeInteger(s.maxSessions)&&s.maxSessions>0&&s.maxSessions<=Math.floor(s.budgetSeconds/(60+CLEANUP_SECONDS))
-      &&Number.isFinite(s.expiresAt)&&s.expiresAt<=QA_EXPIRES_AT;
+      &&expiryValid(s);
   }
   function availableSeconds(s){
     return budgetValid(s)?Math.max(0,Math.min(1800,s.budgetSeconds-s.reservedSeconds-CLEANUP_SECONDS,
-      Math.floor((s.expiresAt-now())/1000)-CLEANUP_SECONDS)):0;
+      pendingClick(s)?300:Math.floor((s.expiresAt-now())/1000)-CLEANUP_SECONDS)):0;
   }
   function admitted(s){
     return configured&&s?.enabled===true&&s.source===release.source&&s.manifestSha256===release.manifestSha256
-      &&s.overageOffVerified===true&&Number.isFinite(s.expiresAt)&&s.expiresAt>now()
+      &&s.overageOffVerified===true&&(pendingClick(s)?freshClickBilling(s):Number.isFinite(s.expiresAt)&&s.expiresAt>now())
       &&budgetValid(s)&&s.sessionCount<s.maxSessions&&availableSeconds(s)>=60;
   }
   async function config(){
@@ -125,8 +146,11 @@ export function createFounderQa({env,db,now=Date.now,claimSession,recordReceipt=
       claim:async({attemptId,deadlineMs})=>{
         entry.id=attemptId;
         await change(s=>{
+          const click=pendingClick(s);
           if(!admitted(s)||s.active||s.attempts.some(a=>a.sessionId===sessionId)||seconds>availableSeconds(s)
-            ||deadlineMs+CLEANUP_SECONDS*1000>s.expiresAt)throw fail('ivoc_qa_admission_closed',403);
+            ||(click?(seconds!==300||!Number.isSafeInteger(deadlineMs)||deadlineMs<=now()||deadlineMs>now()+300000)
+              :deadlineMs+CLEANUP_SECONDS*1000>s.expiresAt))throw fail('ivoc_qa_admission_closed',403);
+          if(click){s.startedAt=deadlineMs-300000;s.expiresAt=deadlineMs+CLEANUP_SECONDS*1000;}
           s.reservedSeconds+=seconds+CLEANUP_SECONDS;s.sessionCount++;
           s.active={id:attemptId,sessionId,deadlineMs,lastSeen:now(),providerSessionId:null,room:`ivoc-embodiment-${sessionId}`};
           s.attempts.push({...s.active,reservedSeconds:seconds+CLEANUP_SECONDS});return s;
