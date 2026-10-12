@@ -1,3 +1,9 @@
+## 2026-10-12 — postrelease exact2256 state delta (additive filing)
+
+See the postrelease prefix in `ivprep-v6/handoffs/IVOC_GATE1_GATE2_STATE_DELTA_20261012.md`. Runtime source `2256d3758ca3c764051551b2bcc3566308e20f3c` / deployment `a459259d-fd1e-494b-be3f-ace027f03902` SUCCESS17:47:35Z; manifestd343d0a7/all568 match, effectiveNIXPACKS `/railway.json`, health200/anonymous401/401 independently verified17:48:47.522–48.464Z.
+QA44 remains expired/OFF/activeNULL/accounting unchanged; old26b QA pins mismatch/fail closed. No paid Start/provider CREATE/recording. Root authenticated Matrix→Mock→Ready verified three visible readiness rows at three desktop sizes and390×844 without new permissions or Start; physical/audio/human/live-owner acceptance remains separate. NOT PRODUCT COMPLETE.
+SHARED5728 normalreleased17:50:28.504946Z; parent native17:50:49Z noactiveleases. Durable26b rollback357845 remains exact. This subsequent docs HEAD is not the deployed artifact. Previous ledger follows verbatim as dated history.
+
 ## 2026-10-12 — V3 mandatory Gate1 / Gate2 state delta (additive filing)
 
 See `ivprep-v6/handoffs/IVOC_GATE1_GATE2_STATE_DELTA_20261012.md` for exact accepted receipts, classifications and remaining gates.
