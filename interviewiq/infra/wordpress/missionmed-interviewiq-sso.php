@@ -359,6 +359,11 @@ function mmiiq_directory_permission($request) {
     }else{return mmiiq_error('calendar_proof_invalid');}
     return true;
 }
+/** All searched name parts may match around an optional middle name. */
+function mmiiq_directory_name_matches($name,$query){
+    foreach(preg_split('/\s+/u',trim($query),-1,PREG_SPLIT_NO_EMPTY) as $part){if(mb_stripos($name,$part)===false){return false;}}
+    return true;
+}
 function mmiiq_calendar_directory($request){
     $ok=mmiiq_directory_permission($request);if($ok!==true){return $ok;}$i=json_decode((string)$request->get_body(),true);
     $active=mmiiq_session_active($i['wp_user_id'],$i['session_verifier']);$grant=mmiiq_access_for_user($active?get_user_by('id',$i['wp_user_id']):false);$uuid=$active?mmiiq_actor_uuid($i['wp_user_id'],false):null;
@@ -368,7 +373,7 @@ function mmiiq_calendar_directory($request){
         else{$ids=$q['ids'];}
         foreach($ids as $id){$id=(int)$id;$u=get_user_by('id',$id);$a=mmiiq_access_for_user($u);if(is_wp_error($a)&&in_array($a->get_error_code(),array('enrollment_owner_unavailable','assignment_owner_unavailable','assignment_owner_invalid'),true)){return mmiiq_error('calendar_directory_unavailable',503);}if(is_wp_error($a)||$a['role']!=='student'||!in_array($a['tier'],array('360','ivprep_complete'),true)){continue;}
             $name=trim((string)get_user_meta($id,'first_name',true).' '.(string)get_user_meta($id,'last_name',true));if($name===''){$name=(string)$u->display_name;}$name=mb_substr(sanitize_text_field($name),0,500);
-            if($q['kind']==='roster'&&($q['tier']!=='all'&&$a['tier']!==$q['tier']||$q['q']!==''&&mb_stripos($name,$q['q'])===false)){continue;}
+            if($q['kind']==='roster'&&($q['tier']!=='all'&&$a['tier']!==$q['tier']||!mmiiq_directory_name_matches($name,$q['q']))){continue;}
             $mapping=mmiiq_actor_uuid($id,false);$status=is_wp_error($mapping)?($mapping->get_error_code()==='identity_unmapped'?'unmapped':'conflict'):'ready';
             $students[]=array('wpUserId'=>$id,'name'=>$name,'tier'=>$a['tier'],'subject'=>$status==='ready'?$mapping:null,'mappingStatus'=>$status);
         }
