@@ -38,6 +38,8 @@ function mmed_match_tools_rail_6050a() {
        Keep that source text stable; add the rail-only display suffix without
        childList mutations that would make the two owners trigger each other. */
     #sos-sidebar [data-mmed-timeline-label="short"]::after { content: " Builder"; }
+    .mmed-arena-entry { display: block; margin: 18px 0; padding: 14px 18px; border: 1px solid #46556a; border-radius: 8px; color: inherit; text-decoration: none; }
+    .mmed-arena-entry span { display: block; font-size: 12px; opacity: .8; margin-top: 4px; }
     </style>
     <script id="mmed-match-tools-rail-6050a">
     (function () {
@@ -45,7 +47,8 @@ function mmed_match_tools_rail_6050a() {
         var groups = [
             ['FULL SEASON', ['HomeBase', 'RISE', 'StoryForge', 'File Vault']],
             ['APPLICATION PERIOD', ['PS Forge', 'LOR Studio']],
-            ['INTERVIEW SEASON', ['Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline Builder', 'IV Ready Gear']]
+            ['INTERVIEW SEASON', ['Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline Builder', 'IV Ready Gear']],
+            ['PRACTICE', ['Arena']]
         ];
         // Founder-authoritative product maturity only; never used for access decisions.
         var maturity = {
@@ -129,6 +132,30 @@ function mmed_match_tools_rail_6050a() {
                 if (order.some(function (item, index) { return list.children[index] !== item; })) {
                     order.forEach(function (item) { list.appendChild(item); });
                 }
+                // Delegate to the eligible owner's node; never synthesize access.
+                var dashboard = document.querySelector('.mmdv2-in');
+                var arenaEntry = document.querySelector('.mmed-arena-entry');
+                if (!entries.arena && arenaEntry) { arenaEntry.remove(); }
+                if (entries.arena && dashboard) {
+                    if (!arenaEntry) {
+                        arenaEntry = document.createElement('a');
+                        arenaEntry.className = 'mmed-arena-entry';
+                        arenaEntry.innerHTML = '<strong>MissionMed Arena</strong><span>Test your medical knowledge — open Arena →</span>';
+                        arenaEntry.addEventListener('click', function (event) {
+                            event.preventDefault();
+                            var owner = Array.prototype.find.call(document.querySelectorAll('#sos-sidebar a.sos-nav-link'), function (link) {
+                                var label = labelNode(link); return label && key(label.textContent) === 'arena';
+                            });
+                            if (owner) { owner.click(); }
+                        });
+                        dashboard.appendChild(arenaEntry);
+                    }
+                    ['href', 'aria-disabled', 'data-locked'].forEach(function (attribute) {
+                        var value = entries.arena.link.getAttribute(attribute);
+                        if (value === null) { arenaEntry.removeAttribute(attribute); }
+                        else if (arenaEntry.getAttribute(attribute) !== value) { arenaEntry.setAttribute(attribute, value); }
+                    });
+                }
                 Array.prototype.forEach.call(sidebar.querySelectorAll('a.sos-nav-link'), function (link) {
                     var label = labelNode(link);
                     var status = label && maturity[key(label.textContent)];
@@ -145,7 +172,7 @@ function mmed_match_tools_rail_6050a() {
                     if (badge.textContent !== status[1]) { badge.textContent = status[1]; }
                 });
             } finally {
-                observer.observe(sidebar, { childList: true, subtree: true });
+                observer.observe(root || sidebar, { childList: true, subtree: true });
             }
         }
         var observer = new MutationObserver(organize);

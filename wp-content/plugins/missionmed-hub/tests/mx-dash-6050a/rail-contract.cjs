@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(__dirname, '../../../../mu-plugins/m
 const script = source.match(/<script id="mmed-match-tools-rail-6050a">([\s\S]*?)<\/script>/)[1];
 const style = source.match(/<style id="mmed-match-tools-rail-status-6050a">([\s\S]*?)<\/style>/)[1];
 const names = ['StoryForge', 'RISE', 'Timeline', 'HomeBase', 'Arena', 'File Vault', 'PSForge', 'RankList IQ', 'LOR Studio', 'IV Prep On-Call', 'InterviewIQ'];
-const wanted = ['HomeBase', 'RISE', 'StoryForge', 'File Vault', 'PS Forge', 'LOR Studio', 'Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline', 'IV Ready Gear'];
+const wanted = ['HomeBase', 'RISE', 'StoryForge', 'File Vault', 'PS Forge', 'LOR Studio', 'Interview IQ', 'IV Prep On-Call', 'RankList IQ', 'Timeline', 'IV Ready Gear', 'Arena'];
 const statuses = ['🚧 In Development','✓ Ready','✓ Ready','✓ Ready','🚧 In Development','◇ Preview','◇ Preview','◇ Preview','◇ Preview','✓ Ready'];
 function fixture(experience, locked, omit = []) {
   const links = names.filter(n => !omit.includes(n)).map((name, i) => `<li><a class="sos-nav-link" data-original="${i}" href="${locked ? 'javascript:void(0)' : '#app-' + i}" ${locked ? 'data-locked="true" aria-disabled="true" data-route="app-' + i + '"' : ''}><span class="sos-nav-icon">XX</span><span>${name}</span>${locked ? '<svg class="sos-nav-lock-icon"></svg>' : ''}</a></li>`).join('');
@@ -21,7 +21,7 @@ function fixture(experience, locked, omit = []) {
     assert.deepEqual(await page.locator('li:not([hidden]) > a > span:nth-child(2)').allTextContents(),wanted);
     assert.equal(await page.locator('[data-mmed-timeline-label="short"]').count(),1);
     assert.equal(await page.locator('[data-mmed-timeline-label="short"]').evaluate(el=>getComputedStyle(el,'::after').content), '" Builder"');
-    assert.deepEqual(await page.locator('[data-mmed-rail-group]').allTextContents(),['FULL SEASON','APPLICATION PERIOD','INTERVIEW SEASON']);
+    assert.deepEqual(await page.locator('[data-mmed-rail-group]').allTextContents(),['FULL SEASON','APPLICATION PERIOD','INTERVIEW SEASON','PRACTICE']);
     assert.deepEqual(await page.locator('.sos-nav-list .mmed-rail-status').allTextContents(),statuses);
     assert.equal(await page.locator('[data-original="11"] .mmed-rail-status').textContent(),'✓ Ready');
     assert.equal(await page.getByText('LOR Builder',{exact:true}).count(),0);
@@ -38,6 +38,14 @@ function fixture(experience, locked, omit = []) {
       return a===document.querySelector('[data-original="'+i+'"]') && ['href','data-locked','aria-disabled','data-route','class'].every(k=>a.getAttribute(k)===b.getAttribute(k)) && a.querySelectorAll('svg').length===b.querySelectorAll('svg').length;
     }));
     assert.equal(preserved,true);
+    await page.evaluate(()=>{const dashboard=document.createElement('div');dashboard.className='mmdv2-in';document.getElementById('student-os-root').appendChild(dashboard);});
+    await page.waitForTimeout(50);
+    assert.equal(await page.locator('.mmed-arena-entry').count(),1);
+    assert.equal(await page.locator('.mmed-arena-entry').getAttribute('href'),await page.locator('[data-original="4"]').getAttribute('href'));
+    assert.equal(await page.locator('.mmed-arena-entry').getAttribute('data-locked'),locked?'true':null);
+    await page.locator('.mmed-arena-entry').click({force:true});
+    assert.equal(await page.evaluate(()=>clicks),1);
+    await page.evaluate(()=>{clicks=0;});
     assert.equal(await page.locator('[data-original="2"]').isEnabled(),!locked);
     assert.equal(await page.locator('[data-original="2"] .mmed-rail-status').count(),0);
     await page.locator('[data-original="2"]').click({timeout:2000,force:true});
