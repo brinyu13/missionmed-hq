@@ -156,8 +156,8 @@ else
   pass "Branch is non-main."
 fi
 
-declare -a tracked_files
-declare -a untracked_files
+declare -a tracked_files=()
+declare -a untracked_files=()
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
   status_code="${line:0:2}"
@@ -202,7 +202,7 @@ else
   pass "Repo is currently clean."
 fi
 
-declare -a edit_scope
+declare -a edit_scope=()
 if [[ -n "$EDIT_SCOPE_RAW" ]]; then
   for p in $EDIT_SCOPE_RAW; do
     normalized="$(normalize_path "$p")"
@@ -224,7 +224,7 @@ fi
 if [[ "${#edit_scope[@]}" -gt 0 && "$dirty_count" -gt 0 ]]; then
   overlap_count=0
   risky_overlap_count=0
-  for dirty in "${tracked_files[@]}" "${untracked_files[@]}"; do
+  for dirty in ${tracked_files[@]+"${tracked_files[@]}"} ${untracked_files[@]+"${untracked_files[@]}"}; do
     ndirty="$(normalize_path "$dirty")"
     for scope_item in "${edit_scope[@]}"; do
       nscope="$(normalize_path "$scope_item")"
