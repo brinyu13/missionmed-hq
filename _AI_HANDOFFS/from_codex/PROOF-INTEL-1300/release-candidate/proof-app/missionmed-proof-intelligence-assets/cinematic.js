@@ -54,12 +54,15 @@
       [...details.children].filter(el => el !== summary).forEach(el => content.append(el));
       film.append(photo, content); details.append(film);
       const panel = {section, details, film, photo, index};
+      let wasOpen = details.open;
       details.addEventListener('toggle', () => {
-        if (details.open) { setTheme(index); focusUntil = performance.now() + 900; }
-        else {
+        // Initial open-state events must not select the last accordion.
+        if (details.open && !wasOpen) { setTheme(index); focusUntil = performance.now() + 900; }
+        else if (!details.open) {
           details.querySelectorAll('video').forEach(video => video.pause());
           photo.style.transform = 'translate3d(0,0,0)'; photo.style.willChange = 'auto';
         }
+        wasOpen = details.open;
         schedule(true);
       });
       return panel;
