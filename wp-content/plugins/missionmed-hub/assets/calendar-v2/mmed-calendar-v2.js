@@ -24,6 +24,8 @@
 	var eventPrefillCategory = '';
 	var eventPrefillDate = '';
 	var modalViewportHandler = null;
+	var activeWrites = 0;
+	var MATRIX_DASHBOARD_URL = 'https://missionmedinstitute.com/member-dashboard/#dashboard';
 
 	var V1_CATEGORIES = [
 		{ id: 'exam_prep', name: 'ExamPrep', color: '#24b7ed', sortOrder: 10, parentId: '', adminOnly: false },
@@ -48,6 +50,39 @@
 		return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
 			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character];
 		});
+	}
+
+	function trackWrite(factory) {
+		activeWrites += 1;
+		var operation;
+		try { operation = factory(); }
+		catch (error) { activeWrites = Math.max(0, activeWrites - 1); throw error; }
+		return Promise.resolve(operation).then(function (value) {
+			activeWrites = Math.max(0, activeWrites - 1);
+			return value;
+		}, function (error) {
+			activeWrites = Math.max(0, activeWrites - 1);
+			throw error;
+		});
+	}
+
+	function fieldHasChanged(field) {
+		if (!field || field.disabled) return false;
+		if (field.type === 'checkbox' || field.type === 'radio') return field.checked !== field.defaultChecked;
+		if (field.tagName === 'SELECT') return Array.prototype.some.call(field.options, function (option) { return option.selected !== option.defaultSelected; });
+		return field.value !== field.defaultValue;
+	}
+
+	function hasUnsavedCalendarWork(root) {
+		return Array.prototype.some.call(root.querySelectorAll('.mcv2-event-form, .mcv2-todo-detail, [data-create-todo]'), function (form) {
+			return Array.prototype.some.call(form.querySelectorAll('input, select, textarea'), fieldHasChanged);
+		});
+	}
+
+	function announceWithoutRender(root, message) {
+		announcement = message;
+		var live = root.querySelector('.mcv2-live');
+		if (live) live.textContent = message;
 	}
 
 	function categoryLabel(category) {
@@ -424,7 +459,7 @@
 			'<div class="mcv2-shell' + (mobileRailOpen ? ' is-rail-open' : '') + '">' +
 			'<header class="mcv2-topbar">' +
 				'<button type="button" class="mcv2-sources-toggle" data-toggle-sources aria-expanded="' + mobileRailOpen + '">Sources</button>' +
-				'<a class="mcv2-matrix-link" href="#" aria-label="Return to Matrix">&larr; Matrix</a>' +
+				'<a class="mcv2-matrix-link" data-return-matrix href="' + MATRIX_DASHBOARD_URL + '" aria-label="Return to Matrix Dashboard">&larr; Return to Matrix</a>' +
 				'<div class="mcv2-wordmark"><strong>MissionMed<span>//</span>Calendar</strong><small>Mission:Residency division</small></div>' +
 				'<div class="mcv2-topbar-tools">' + perspectiveControl(state) + '<span class="mcv2-timezone">&#9673; ' + esc(state.timezoneLabel) + '</span></div>' +
 			'</header>' +
@@ -456,6 +491,7 @@
 			'</main></div>' +
 			renderDrawer(state) + renderEventForm(state) + renderTodoDetail(state) + renderSyncDialog(state) + renderSettings(state) +
 			'<div class="mcv2-live" aria-live="polite">' + esc(announcement) + '</div>';
+		if (root.querySelector('[data-return-matrix]')) document.body.classList.add('matrix-calendar-native-return');
 		syncModalViewport(root);
 		bind(root, state);
 		if (drawerNeedsFocus) {
@@ -544,13 +580,27 @@
 		catch (error) { announcement = error.message; render(instance.state); return; }
 		announcement = 'Saving ' + candidate.title + '\u2026';
 		render(instance.state);
-		instance.createEvent(candidate).then(function () {
+		trackWrite(function () { return instance.createEvent(candidate); }).then(function () {
 			announcement = candidate.title + ' scheduled.';
 			render(instance.state);
 		}).catch(function () { announcement = 'The drill was not scheduled. Nothing changed.'; render(instance.state); });
 	}
 
 	function bind(root, state) {
+		var matrixReturn = root.querySelector('[data-return-matrix]');
+		if (matrixReturn) matrixReturn.addEventListener('click', function (event) {
+			if (activeWrites > 0) {
+				event.preventDefault();
+				announceWithoutRender(root, 'Please wait for the current Calendar save to finish.');
+				matrixReturn.focus();
+				return;
+			}
+			if (hasUnsavedCalendarWork(root) && !global.confirm('Return to Matrix? Unsaved Calendar changes will be lost.')) {
+				event.preventDefault();
+				announceWithoutRender(root, 'Return canceled. Your Calendar changes are still here.');
+				matrixReturn.focus();
+			}
+		});
 		root.querySelectorAll('[data-toggle-sources]').forEach(function (button) { button.addEventListener('click', function () { mobileRailOpen = !mobileRailOpen; render(instance.state); }); });
 		root.querySelectorAll('[data-view]').forEach(function (button) { button.addEventListener('click', function () { instance.setView(button.getAttribute('data-view')); }); });
 		root.querySelectorAll('[data-perspective]').forEach(function (button) { button.addEventListener('click', function () { perspective = effectivePerspective(state, button.getAttribute('data-perspective')); armedDrill = null; drillsOpen = false; announcement = perspective === 'administrator' ? 'Administrator presentation enabled.' : 'Student presentation enabled. Administrative capability has not changed.'; render(instance.state); }); });
@@ -569,7 +619,7 @@
 			button.addEventListener('click', function () { armedDrill = { topic: button.getAttribute('data-drill-topic'), level: button.getAttribute('data-drill-level') }; announcement = armedDrill.topic + ' selected. Choose a calendar day.'; render(instance.state); });
 			button.addEventListener('dragstart', function (event) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-mmed-drill', JSON.stringify({ topic: button.getAttribute('data-drill-topic'), level: button.getAttribute('data-drill-level') })); });
 		});
-		root.querySelectorAll('[data-category-id]').forEach(function (button) { button.addEventListener('click', function () { var id = button.getAttribute('data-category-id'); var visible = button.getAttribute('aria-pressed') !== 'true'; var label = button.getAttribute('aria-label') || button.textContent.trim(); label = label.replace(/^(Hide|Show)\s+/i, ''); instance.setCategoryVisibility(id, visible).then(function () { announcement = (visible ? 'Showing ' : 'Hiding ') + label + '.'; render(instance.state); }).catch(function () { announcement = 'Category visibility was not saved.'; render(instance.state); }); }); });
+		root.querySelectorAll('[data-category-id]').forEach(function (button) { button.addEventListener('click', function () { var id = button.getAttribute('data-category-id'); var visible = button.getAttribute('aria-pressed') !== 'true'; var label = button.getAttribute('aria-label') || button.textContent.trim(); label = label.replace(/^(Hide|Show)\s+/i, ''); trackWrite(function () { return instance.setCategoryVisibility(id, visible); }).then(function () { announcement = (visible ? 'Showing ' : 'Hiding ') + label + '.'; render(instance.state); }).catch(function () { announcement = 'Category visibility was not saved.'; render(instance.state); }); }); });
 		root.querySelectorAll('[data-drag-category]').forEach(function (button) { button.addEventListener('dragstart', function (event) { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('application/x-mmed-category', button.getAttribute('data-drag-category')); }); });
 		root.querySelectorAll('[data-toggle-collapse]').forEach(function (button) {
 			button.addEventListener('click', function (e) {
@@ -584,9 +634,9 @@
 				}, 0);
 			});
 		});
-		root.querySelectorAll('[data-toggle-todo]').forEach(function (checkbox) { checkbox.addEventListener('change', function () { var todo = state.todos.filter(function (item) { return String(item.id) === String(checkbox.getAttribute('data-toggle-todo')); })[0]; if (!todo) return; todo = Object.assign({}, todo, { completed: checkbox.checked }); instance.updateTodo(todo).catch(function () { render(instance.state); }); }); });
-		var createTodoForm = root.querySelector('[data-create-todo]'); if (createTodoForm) createTodoForm.addEventListener('submit', function (event) { event.preventDefault(); var input = createTodoForm.querySelector('input[name="title"]'); if (!input || !input.value.trim()) return; instance.createTodo({ title: input.value.trim(), category: 'personal' }).then(function () { announcement = 'Task added.'; render(instance.state); }).catch(function () { announcement = 'The task was not saved.'; render(instance.state); }); });
-		root.querySelectorAll('[data-favorite-event]').forEach(function (button) { button.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(button.getAttribute('data-favorite-event')); })[0]; if (!target) return; instance.toggleFavorite(target).then(function () { announcement = 'Favorite updated.'; render(instance.state); }).catch(function () { announcement = 'Favorite was not saved.'; render(instance.state); }); }); });
+		root.querySelectorAll('[data-toggle-todo]').forEach(function (checkbox) { checkbox.addEventListener('change', function () { var todo = state.todos.filter(function (item) { return String(item.id) === String(checkbox.getAttribute('data-toggle-todo')); })[0]; if (!todo) return; todo = Object.assign({}, todo, { completed: checkbox.checked }); trackWrite(function () { return instance.updateTodo(todo); }).catch(function () { render(instance.state); }); }); });
+		var createTodoForm = root.querySelector('[data-create-todo]'); if (createTodoForm) createTodoForm.addEventListener('submit', function (event) { event.preventDefault(); var input = createTodoForm.querySelector('input[name="title"]'); if (!input || !input.value.trim()) return; trackWrite(function () { return instance.createTodo({ title: input.value.trim(), category: 'personal' }); }).then(function () { announcement = 'Task added.'; render(instance.state); }).catch(function () { announcement = 'The task was not saved.'; render(instance.state); }); });
+		root.querySelectorAll('[data-favorite-event]').forEach(function (button) { button.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(button.getAttribute('data-favorite-event')); })[0]; if (!target) return; trackWrite(function () { return instance.toggleFavorite(target); }).then(function () { announcement = 'Favorite updated.'; render(instance.state); }).catch(function () { announcement = 'Favorite was not saved.'; render(instance.state); }); }); });
 		root.querySelectorAll('[data-join-event]').forEach(function (button) { button.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(button.getAttribute('data-join-event')); })[0]; if (!target) return; button.disabled = true; instance.getJoinInfo(target).then(function (info) { button.disabled = false; if (info.joinUrl) global.open(info.joinUrl, '_blank', 'noopener'); else { announcement = info.reason || 'Join opens when the session window is active.'; render(instance.state); } }).catch(function () { button.disabled = false; announcement = 'Join information is temporarily unavailable.'; render(instance.state); }); }); });
 		root.querySelectorAll('[data-replay-event]').forEach(function (button) { button.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(button.getAttribute('data-replay-event')); })[0]; if (!target) return; button.disabled = true; instance.refreshRecording(target).then(function (result) { button.disabled = false; if (result && result.event && result.event.replayUrl) global.open(result.event.replayUrl, '_blank', 'noopener'); else { announcement = 'Replay is not ready yet.'; render(instance.state); } }).catch(function () { button.disabled = false; announcement = 'Replay is temporarily unavailable.'; render(instance.state); }); }); });
 		var openSettings = root.querySelector('[data-open-settings]'); if (openSettings) openSettings.addEventListener('click', function () { root.querySelector('#mcv2-settings').showModal(); });
@@ -616,7 +666,7 @@
 			global.setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 500);
 			syncOpen = false; announcement = 'Calendar export ready.'; render(instance.state);
 		}); });
-		var remove = root.querySelector('[data-delete-event]'); if (remove) remove.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(remove.getAttribute('data-delete-event')); })[0]; if (!target || !global.confirm('Delete this event? This cannot be undone.')) return; instance.deleteEvent(target).then(function () { selectedEventId = ''; announcement = 'Event deleted.'; render(instance.state); }).catch(function () { announcement = 'The event was not deleted. Nothing changed.'; render(instance.state); }); });
+		var remove = root.querySelector('[data-delete-event]'); if (remove) remove.addEventListener('click', function () { var target = state.events.filter(function (event) { return String(event.id) === String(remove.getAttribute('data-delete-event')); })[0]; if (!target || !global.confirm('Delete this event? This cannot be undone.')) return; trackWrite(function () { return instance.deleteEvent(target); }).then(function () { selectedEventId = ''; announcement = 'Event deleted.'; render(instance.state); }).catch(function () { announcement = 'The event was not deleted. Nothing changed.'; render(instance.state); }); });
 		var newEventBtn = root.querySelector('[data-new-event]'); if (newEventBtn) newEventBtn.addEventListener('click', function () { eventFormMode = 'create'; eventFormId = ''; eventPrefillCategory = ''; eventPrefillDate = ''; formReturnEventId = ''; formNeedsFocus = true; selectedEventId = ''; render(instance.state); });
 		var editBtn = root.querySelector('[data-edit-event]'); if (editBtn) editBtn.addEventListener('click', function () { eventFormMode = 'edit'; eventFormId = editBtn.getAttribute('data-edit-event'); formReturnEventId = eventFormId; formNeedsFocus = true; selectedEventId = ''; render(instance.state); });
 		root.querySelectorAll('[data-close-form]').forEach(function (btn) { btn.addEventListener('click', function () { closeEventForm(root); }); });
@@ -670,17 +720,17 @@
 				if (!replayUrl) delete updatedMeta.replay_url;
 				var updated = Object.assign({}, ev, { title: title, category: cat, eventType: eventType, start: times.start, end: times.end, description: notes, joinUrl: meetUrl, meetingPlatform: meetPlat, replayUrl: replayUrl, audience: audience, important: imp, meta: updatedMeta });
 				announcement = 'Saving changes\u2026';
-				instance.updateEvent(updated).then(function () { eventFormMode = ''; eventFormId = ''; announcement = 'Event updated.'; render(instance.state); global.setTimeout(function () { returnFormFocus(root); }, 0); }).catch(function () { submitEvent.disabled = false; form.removeAttribute('aria-busy'); submitEvent.textContent = 'Save Changes'; showFormError(form, 'The event was not updated. Nothing changed.'); });
+				trackWrite(function () { return instance.updateEvent(updated); }).then(function () { eventFormMode = ''; eventFormId = ''; announcement = 'Event updated.'; render(instance.state); global.setTimeout(function () { returnFormFocus(root); }, 0); }).catch(function () { submitEvent.disabled = false; form.removeAttribute('aria-busy'); submitEvent.textContent = 'Save Changes'; showFormError(form, 'The event was not updated. Nothing changed.'); });
 			} else {
 				var candidate = { title: title, category: cat, start: times.start, end: times.end, description: notes, joinUrl: meetUrl, meetingPlatform: meetPlat, audience: audience, important: imp, allDay: false, eventType: eventType, meta: meta };
 				announcement = 'Creating event\u2026';
-				instance.createEvent(candidate).then(function () { eventFormMode = ''; announcement = 'Event created.'; render(instance.state); global.setTimeout(function () { returnFormFocus(root); }, 0); }).catch(function () { submitEvent.disabled = false; form.removeAttribute('aria-busy'); submitEvent.textContent = 'Create Event'; showFormError(form, 'The event was not created. Nothing changed.'); });
+				trackWrite(function () { return instance.createEvent(candidate); }).then(function () { eventFormMode = ''; announcement = 'Event created.'; render(instance.state); global.setTimeout(function () { returnFormFocus(root); }, 0); }).catch(function () { submitEvent.disabled = false; form.removeAttribute('aria-busy'); submitEvent.textContent = 'Create Event'; showFormError(form, 'The event was not created. Nothing changed.'); });
 			}
 		});
 		var deleteFormEvent = root.querySelector('[data-delete-form-event]'); if (deleteFormEvent) deleteFormEvent.addEventListener('click', function () {
 			var target = (instance.state.events || []).filter(function (e) { return String(e.id) === String(deleteFormEvent.getAttribute('data-delete-form-event')); })[0];
 			if (!target || !global.confirm('Delete this event? This cannot be undone.')) return;
-			instance.deleteEvent(target).then(function () { eventFormMode = ''; eventFormId = ''; announcement = 'Event deleted.'; render(instance.state); }).catch(function () { announcement = 'The event was not deleted.'; render(instance.state); });
+			trackWrite(function () { return instance.deleteEvent(target); }).then(function () { eventFormMode = ''; eventFormId = ''; announcement = 'Event deleted.'; render(instance.state); }).catch(function () { announcement = 'The event was not deleted.'; render(instance.state); });
 		});
 		root.querySelectorAll('[data-todo-detail]').forEach(function (btn) { btn.addEventListener('click', function (e) { e.stopPropagation(); todoDetailId = btn.getAttribute('data-todo-detail'); render(instance.state); }); });
 		root.querySelectorAll('[data-close-todo-detail]').forEach(function (btn) { btn.addEventListener('click', function () { todoDetailId = ''; render(instance.state); }); });
@@ -691,12 +741,12 @@
 			if (!todo) return;
 			var updated = Object.assign({}, todo, { title: (form.querySelector('[name="todo-title"]').value || '').trim() || todo.title, priority: form.querySelector('[name="todo-priority"]').value, dueDate: form.querySelector('[name="todo-date"]').value, notes: form.querySelector('[name="todo-notes"]').value, meetingPlatform: form.querySelector('[name="todo-meeting-platform"]').value, meetingUrl: form.querySelector('[name="todo-meeting-url"]').value, completed: form.querySelector('[name="todo-done"]').checked });
 			saveTodo.disabled = true;
-			instance.updateTodo(updated).then(function () { todoDetailId = ''; announcement = 'Task updated.'; render(instance.state); }).catch(function () { saveTodo.disabled = false; announcement = 'The task was not updated.'; render(instance.state); });
+			trackWrite(function () { return instance.updateTodo(updated); }).then(function () { todoDetailId = ''; announcement = 'Task updated.'; render(instance.state); }).catch(function () { saveTodo.disabled = false; announcement = 'The task was not updated.'; render(instance.state); });
 		});
 		var deleteTodo = root.querySelector('[data-delete-todo]'); if (deleteTodo) deleteTodo.addEventListener('click', function () {
 			var todo = (instance.state.todos || []).filter(function (t) { return String(t.id) === String(deleteTodo.getAttribute('data-delete-todo')); })[0];
 			if (!todo || !global.confirm('Delete this task?')) return;
-			instance.deleteTodo(todo).then(function () { todoDetailId = ''; announcement = 'Task deleted.'; render(instance.state); }).catch(function () { announcement = 'The task was not deleted.'; render(instance.state); });
+			trackWrite(function () { return instance.deleteTodo(todo); }).then(function () { todoDetailId = ''; announcement = 'Task deleted.'; render(instance.state); }).catch(function () { announcement = 'The task was not deleted.'; render(instance.state); });
 		});
 		root.querySelectorAll('[data-drag-event]').forEach(function (el) {
 			el.addEventListener('dragstart', function (event) { dragEventId = el.getAttribute('data-drag-event'); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', dragEventId); });
@@ -715,7 +765,7 @@
 					if (!ev || !ev.writable) return;
 					var moved = global.MMEDCalendarCore.moveEventToDate(ev, day);
 					announcement = 'Moving event\u2026';
-					instance.updateEvent(moved).then(function () { announcement = 'Event moved.'; render(instance.state); }).catch(function () { announcement = 'The event was not moved.'; render(instance.state); });
+					trackWrite(function () { return instance.updateEvent(moved); }).then(function () { announcement = 'Event moved.'; render(instance.state); }).catch(function () { announcement = 'The event was not moved.'; render(instance.state); });
 				} else if (event.dataTransfer.types.indexOf('application/x-mmed-category') !== -1) {
 					eventPrefillCategory = event.dataTransfer.getData('application/x-mmed-category');
 					eventPrefillDate = day;
@@ -742,7 +792,7 @@
 					var end = global.MMEDCalendarCore.resizeEnd(target.start, Math.max(28, startHeight + pointer.clientY - startY));
 					var updated = Object.assign({}, target, { end: end });
 					announcement = 'Saving duration…';
-					instance.updateEvent(updated).then(function () { announcement = 'Duration adjusted.'; render(instance.state); }).catch(function () { announcement = 'Duration was not adjusted.'; render(instance.state); });
+					trackWrite(function () { return instance.updateEvent(updated); }).then(function () { announcement = 'Duration adjusted.'; render(instance.state); }).catch(function () { announcement = 'Duration was not adjusted.'; render(instance.state); });
 				}
 				global.addEventListener('pointermove', move); global.addEventListener('pointerup', finish);
 			});
@@ -757,7 +807,7 @@
 				var updated = global.MMEDCalendarCore.adjustEventDuration(ev, delta);
 				if (!updated) return;
 				btn.disabled = true;
-				instance.updateEvent(updated).then(function () {
+				trackWrite(function () { return instance.updateEvent(updated); }).then(function () {
 					announcement = 'Duration adjusted.';
 					render(instance.state);
 				}).catch(function () {
@@ -818,6 +868,8 @@
 		mobileRailOpen = false;
 		eventPrefillCategory = '';
 		eventPrefillDate = '';
+		activeWrites = 0;
+		document.body.classList.remove('matrix-calendar-native-return');
 		document.body.classList.remove('matrix-app-mode-calendar', 'matrix-calendar-storyforge');
 		document.body.removeAttribute('data-matrix-calendar-experience');
 	}

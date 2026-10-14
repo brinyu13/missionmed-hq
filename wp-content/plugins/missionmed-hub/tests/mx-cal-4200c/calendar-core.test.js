@@ -19,6 +19,38 @@ test('StoryForge renderer defers route mounting to Matrix Runtime v2', () => {
 	);
 });
 
+test('Calendar exposes one owner-native Return to Matrix control at the exact dashboard route', () => {
+	assert.match(v2Source, /MATRIX_DASHBOARD_URL = 'https:\/\/missionmedinstitute\.com\/member-dashboard\/#dashboard'/);
+	assert.match(v2Source, /class="mcv2-matrix-link" data-return-matrix href="' \+ MATRIX_DASHBOARD_URL \+ '" aria-label="Return to Matrix Dashboard">&larr; Return to Matrix<\/a>/);
+	assert.match(v2Source, /document\.body\.classList\.add\('matrix-calendar-native-return'\)/);
+	assert.match(v2Source, /document\.body\.classList\.remove\('matrix-calendar-native-return'\)/);
+	assert.match(v2Styles, /body\.matrix-calendar-native-return #mmed-matrix-app-return \{ display: none !important; \}/);
+});
+
+test('Return to Matrix preserves dirty work and blocks every active Calendar write', () => {
+	assert.match(v2Source, /function hasUnsavedCalendarWork\(root\)/);
+	assert.match(v2Source, /\.mcv2-event-form, \.mcv2-todo-detail, \[data-create-todo\]/);
+	assert.match(v2Source, /field\.checked !== field\.defaultChecked/);
+	assert.match(v2Source, /option\.selected !== option\.defaultSelected/);
+	assert.match(v2Source, /field\.value !== field\.defaultValue/);
+	assert.match(v2Source, /if \(activeWrites > 0\) \{[\s\S]*event\.preventDefault\(\);[\s\S]*Please wait for the current Calendar save to finish\.[\s\S]*matrixReturn\.focus\(\);[\s\S]*return;/);
+	assert.match(v2Source, /hasUnsavedCalendarWork\(root\) && !global\.confirm\('Return to Matrix\? Unsaved Calendar changes will be lost\.'\)/);
+	assert.match(v2Source, /Return canceled\. Your Calendar changes are still here\./);
+	const writes = [...v2Source.matchAll(/instance\.(?:createEvent|updateEvent|deleteEvent|toggleFavorite|setCategoryVisibility|createTodo|updateTodo|deleteTodo)\([^;\n]*/g)];
+	assert.equal(writes.length, 14, 'all current V2 mutation entry points must remain in the write fence');
+	for (const write of writes) {
+		const lineStart = v2Source.lastIndexOf('\n', write.index) + 1;
+		const prefix = v2Source.slice(lineStart, write.index);
+		assert.match(prefix, /trackWrite\(function \(\) \{ return /, `unfenced Calendar mutation: ${write[0]}`);
+	}
+});
+
+test('Return to Matrix remains legible, focusable, and motion-safe at mobile width', () => {
+	assert.match(v2Styles, /\.mmed-calendar-v2 button:focus-visible, \.mmed-calendar-v2 a:focus-visible, \.mmed-calendar-v2 input:focus-visible \{ outline: 3px solid var\(--mcv2-cyan\);/);
+	assert.match(v2Styles, /@media \(max-width: 560px\) \{\s*\.mmed-calendar-v2 \.mcv2-matrix-link \{[^}]*max-width: 112px;[^}]*text-overflow: ellipsis;/s);
+	assert.match(v2Styles, /prefers-reduced-motion: reduce[\s\S]*\.mcv2-matrix-link \{ transition: none; \}/);
+});
+
 test('StoryForge Month view exposes overflow instead of clipping live events', () => {
 	assert.match(v2Source, /global\.innerWidth <= 560 \? 4 : global\.innerHeight <= 520 \? 2 : 3/);
 	assert.match(v2Source, /var monthDays = displayedMonthDays\(model\)/);

@@ -1,4 +1,5 @@
 /* MX-CAL-4200C StoryForge Calendar renderer. Every component selector is locally scoped. */
+body.matrix-calendar-native-return #mmed-matrix-app-return { display: none !important; }
 .mmed-calendar-v2 {
 	--mcv2-bg: #0a0d14;
 	--mcv2-panel: #101725;
@@ -296,7 +297,11 @@
 	letter-spacing: .18em;
 	text-decoration: none;
 	text-transform: uppercase;
+	white-space: nowrap;
+	transition: border-color .16s ease, background-color .16s ease, color .16s ease, transform .16s ease;
 }
+.mmed-calendar-v2 .mcv2-matrix-link:hover { border-color: #5b789e; background: #111b2a; color: #fff; transform: translateY(-1px); }
+.mmed-calendar-v2 .mcv2-matrix-link:active { transform: translateY(0); }
 .mmed-calendar-v2 .mcv2-wordmark strong {
 	display: block;
 	font-size: 20px;
@@ -1597,4 +1602,10 @@
 	.mmed-calendar-v2 .mcv2-command-card::after { animation: none !important; transform: none !important; }
 	.mmed-calendar-v2 .mcv2-command-action,
 	.mmed-calendar-v2 .mcv2-command-head .mcv2-close { transition: none !important; }
+	.mmed-calendar-v2 .mcv2-matrix-link { transition: none; }
+	.mmed-calendar-v2 .mcv2-matrix-link:hover { transform: none; }
+}
+
+@media (max-width: 560px) {
+	.mmed-calendar-v2 .mcv2-matrix-link { max-width: 112px; padding: 7px 6px; overflow: hidden; font-size: 8px; letter-spacing: .05em; text-overflow: ellipsis; }
 }
