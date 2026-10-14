@@ -68,3 +68,12 @@
 - Scope: STAT human async duel contract repair apply/validate/deploy preparation in clean isolated context.
 - Files: LIVE/stat.html, supabase/migrations/20260427131000_mr_stat_human_async_duel_contract_repair_035.sql, VALIDATION/stat_async_duel_contract_035.sql
 - Notes: Applied scoped MR-035 migration to RankListIQ (`fglyvdykwgbuivikqoah`) via isolated Supabase workdir, aligned frontend human duel pack activation to canonical sealed pack path, normalized submit payload to `choice_index`, aligned incoming challenge detection to `duel_challenges` query path with roster fallback, and added rollback-safe SQL harness for two-user async contract validation.
+
+## [2026-10-14 01:13 UTC] MX-ARENA-AVATAR-20261013
+
+**Files Modified:** LIVE/arena.html, _SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json, arena/assets/branding/missionmed-institute-logo-9f960ed9c3.png (CDN)
+**Change:** Remove Arena Beta Preview banner; official MissionMed Institute logo across Avatar Studio surfaces; two-step avatar deletion confirmation (capture-phase Escape/backdrop isolation, retry after failed delete); Download blob fix; reference-photo integrity check; gender toggle on preview step. Base = live CDN bytes bd44e33f0c8b75dc28bf63190f0ab9c462af1700df287e7bcd377116dea7444c; released r1 4caa7d90… 00:48Z, r2 a1d76893… 01:04Z, r3 (final) candidate 4d6580fa0b8c4752b0921db8247b35b01097c8438910eb73d518e8a3f099da28 01:09Z.
+**Risk Level:** HIGH
+**Deployed:** via release/deploy_arena_single_surface.sh (single surface: html-system/LIVE/arena.html + one immutable brand asset)
+**Deployed By:** Fable (founder-authorized), from the device VM
+**Rollback Hash:** bd44e33f0c8b75dc28bf63190f0ab9c462af1700df287e7bcd377116dea7444c (release/receipts/arena.html.ROLLBACK_bd44e33f)
