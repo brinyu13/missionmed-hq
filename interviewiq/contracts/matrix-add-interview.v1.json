@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0",
+  "id": "interviewiq.interview.add.v1",
+  "appId": "interviewiq",
+  "label": "Add Interview",
+  "purpose": "Open your existing InterviewIQ interview intake. Opening does not save an interview.",
+  "aliases": [
+    "add interview",
+    "new interview",
+    "interview invitation"
+  ],
+  "negativeContexts": [
+    "practice interview",
+    "mentor appointment",
+    "add calendar"
+  ],
+  "kind": "open_form",
+  "effect": "navigation_only",
+  "launchContractId": "interviewiq.navigation.add-interview.v1",
+  "launch": {
+    "url": "https://missionmedinstitute.com/interviewiq/?iiq_entry=add-interview&iiq_contract=1",
+    "intent": "add-interview",
+    "version": 1
+  },
+  "availability": "unverified",
+  "maturity": "Preview",
+  "permissionKey": "intakeV2",
+  "owner": "InterviewIQ / IIQ-1200 sole release owner",
+  "fallbackActionId": "interviewiq.open.v1",
+  "productionEnabled": false,
+  "evidence": {
+    "status": "unverified",
+    "sourceCommit": null,
+    "releaseId": null,
+    "acceptedAt": null,
+    "receipt": null
+  },
+  "fallback": {
+    "id": "interviewiq.open.v1",
+    "kind": "open_app",
+    "url": "https://missionmedinstitute.com/interviewiq/",
+    "productionEnabled": false,
+    "evidence": {
+      "status": "unverified"
+    }
+  },
+  "accessPolicy": {
+    "projection": "server-backed InterviewIQ capabilities.intakeV2",
+    "roles": [
+      "student"
+    ],
+    "tiers": [
+      "360",
+      "ivprep_complete"
+    ],
+    "administratorPreview": false,
+    "unknown": "denied",
+    "destinationRechecks": true
+  }
+}

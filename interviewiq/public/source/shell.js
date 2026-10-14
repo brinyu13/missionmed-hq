@@ -274,7 +274,7 @@ function renderDrawer(){
   }
   w.innerHTML=`<div class="scrim" data-act="drawer-close"></div><aside class="mcv2-drawer ${d.kind==='myeras'?'myerasModal':d.kind==='intake'?'intakeModal':''}" role="dialog" aria-modal="true" aria-label="${d.kind==='myeras'?'Import MyERAS programs':d.kind==='intake'?'Add interview':'Calendar detail'}" aria-describedby="drawer-desc"><button class="close" type="button" data-act="drawer-close" aria-label="Close">×</button><div id="drawer-desc">${inner}</div></aside>`;
   applyDrafts();markComingSoonActions();loadProgramMedia();w.classList.add('open'); for(const id of ['main','hdr','rail'])document.getElementById(id).inert=true;
-  setTimeout(()=>{ const first=w.querySelector('input,select,button.rowBtn,button.mcv2-event,.close'); (first||w.querySelector('.close'))?.focus(); },0);
+  setTimeout(()=>{ const first=d.kind==='intake'?w.querySelector('input[type="text"]:not([disabled]),textarea:not([disabled]),select:not([disabled])'):w.querySelector('input,select,button.rowBtn,button.mcv2-event,.close'); (first||w.querySelector('.close'))?.focus(); },0);
 }
 
 /* ---------------- INTERVIEWS (list + room) ---------------- */

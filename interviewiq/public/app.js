@@ -523,9 +523,28 @@ function pendingDraft(id,fallback=''){const key=draftKey(id);return draftValues.
 function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){if(field.type==='file')continue;const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
 function forgetDrafts(ids){for(const id of ids)draftValues.delete(draftKey(id));}
 function setSaved(message='Saved'){const e=document.getElementById('connection-status');if(e)e.textContent=message;}
+// Fixed owner-native navigation intent; never a role grant or form submission.
+function parseInterviewIQEntry(search){
+  const q=new URLSearchParams(search),intents=q.getAll('iiq_entry'),versions=q.getAll('iiq_contract');
+  for(const key of q.keys()){const base=key.trimStart().replace(/[ .]/g,'_').split(/[\[\0]/)[0];if((base==='iiq_entry'||base==='iiq_contract')&&key!==base)return null;}
+  return intents.length===1&&intents[0]==='add-interview'&&versions.length===1&&versions[0]==='1'?{intent:'add-interview',version:1}:null;
+}
+let interviewIQEntryConsumed=false;
+function applyInterviewIQEntry(entry,identity,epoch){
+  if(!entry||interviewIQEntryConsumed)return false;
+  interviewIQEntryConsumed=true;
+  const url=new URL(location.href);url.searchParams.delete('iiq_entry');url.searchParams.delete('iiq_contract');
+  try{history.replaceState(history.state,'',url.pathname+url.search+url.hash);}catch{notice('Reopen InterviewIQ normally to add an interview.');return false;}
+  if(!S||actor?.id!==identity||sessionEpoch!==epoch||!intakeEnabled()){
+    notice('Add Interview requires your current eligible student workspace.');return false;
+  }
+  if(intakeFlow?.busy||intakeFlow?.awaitingConfirmation){notice('Your current interview draft is retained. Finish confirming its save before adding another.');return false;}
+  openIntake({dataset:{}},{preserveCurrent:true});return true;
+}
 async function boot(){
   const main=document.getElementById('main');main.innerHTML='<section class="pageIntro" style="padding:48px"><div class="h1">Opening your <em>workspace</em>.</div><p role="status">Connecting to your MissionMed account…</p></section>';
-  try{await refreshWorkspace();render();showOpening();warmCalendar();}
+  const entry=parseInterviewIQEntry(location.search);
+  try{await refreshWorkspace();render();const identity=actor.id,epoch=sessionEpoch;showOpening(()=>applyInterviewIQEntry(entry,identity,epoch));warmCalendar();}
   catch(error){lockWorkspace(error.message);}
 }
 
@@ -1561,7 +1580,7 @@ function renderDrawer(){
   }
   w.innerHTML=`<div class="scrim" data-act="drawer-close"></div><aside class="mcv2-drawer ${d.kind==='myeras'?'myerasModal':d.kind==='intake'?'intakeModal':''}" role="dialog" aria-modal="true" aria-label="${d.kind==='myeras'?'Import MyERAS programs':d.kind==='intake'?'Add interview':'Calendar detail'}" aria-describedby="drawer-desc"><button class="close" type="button" data-act="drawer-close" aria-label="Close">×</button><div id="drawer-desc">${inner}</div></aside>`;
   applyDrafts();markComingSoonActions();loadProgramMedia();w.classList.add('open'); for(const id of ['main','hdr','rail'])document.getElementById(id).inert=true;
-  setTimeout(()=>{ const first=w.querySelector('input,select,button.rowBtn,button.mcv2-event,.close'); (first||w.querySelector('.close'))?.focus(); },0);
+  setTimeout(()=>{ const first=d.kind==='intake'?w.querySelector('input[type="text"]:not([disabled]),textarea:not([disabled]),select:not([disabled])'):w.querySelector('input,select,button.rowBtn,button.mcv2-event,.close'); (first||w.querySelector('.close'))?.focus(); },0);
 }
 
 /* ---------------- INTERVIEWS (list + room) ---------------- */
@@ -2080,7 +2099,7 @@ document.addEventListener('input',ev=>{
   const timer=setTimeout(async()=>{try{await command(kind==='why'?'prep.save':'debrief.save',i.id,data,{render:false});if(draftValues.get(scope)===value)draftValues.delete(scope);setSaved('Saved');const status=document.getElementById('autosave-'+i.id);if(status)status.textContent='Saved '+fmtStamp(now());}catch(error){setSaved('Draft not saved');notice(error.message);}finally{if(autosaveTimers.get(timerKey)===timer)autosaveTimers.delete(timerKey);}},650);
   autosaveTimers.set(timerKey,timer);
 });
-window.addEventListener('beforeunload',ev=>{if(autosaveTimers.size||pendingAudio.size){ev.preventDefault();ev.returnValue='';}});
+window.addEventListener('beforeunload',ev=>{if(autosaveTimers.size||pendingAudio.size||intakeHasUnsavedWork()){ev.preventDefault();ev.returnValue='';}});
 window.addEventListener('pagehide',()=>stopSpeech());
 window.addEventListener('beforeprint',()=>document.querySelectorAll('.support').forEach(el=>el.style.display=S.ui.printSel.support?'block':'none'));
 let searchTimer=null,searchSequence=0;
@@ -2216,7 +2235,8 @@ function requireIntakeUI({allowRetry=false}={}){if(!intakeVisible())throw Error(
 function intakeAuthority(){return {actor:actor?.id,epoch:intakeEpoch,flow:intakeFlow};}
 function intakeCurrent(a){return a.actor===actor?.id&&a.epoch===intakeEpoch&&a.flow===intakeFlow&&intakeEnabled();}
 function freshIntake(day){return {step:1,identity:{programId:null,registryReleaseId:null,confirmed:false,provisionalConfirmed:false,invitationLabel:''},positionType:'UNKNOWN',track:'',deadline:null,schedule:{date:day||null,time:null,zone:F.student_zone||'UTC',fold:null,duration:null,travel_minutes:null,format:'unknown',joining:''},details:{},experiences:[],events:[],matches:[],searchText:'',searchTotal:null,specialtyFilter:'',calView:{},program:null,busy:false,help:false,saveResult:null,error:null};}
-function openIntake(el={dataset:{}}){requireIntakeUI({allowRetry:true});if(!intakeFlow||!intakeFlow.awaitingConfirmation&&(intakeFlow.saveResult||intakeFlow.editId))intakeFlow=freshIntake(el.dataset?.day);openDrawer({kind:'intake',returnTo:el.dataset?.day?'[data-cal-day="'+el.dataset.day+'"]':null});}
+function openIntake(el={dataset:{}},{preserveCurrent=false}={}){requireIntakeUI({allowRetry:true});if(!intakeFlow||!intakeFlow.awaitingConfirmation&&(intakeFlow.saveResult||!preserveCurrent&&intakeFlow.editId))intakeFlow=freshIntake(el.dataset?.day);if(intakeFlow.initialBody===undefined)intakeFlow.initialBody=JSON.stringify(intakeBody());openDrawer({kind:'intake',returnTo:el.dataset?.day?'[data-cal-day="'+el.dataset.day+'"]':null});}
+function intakeHasUnsavedWork(){return !!(intakeFlow&&!intakeFlow.saveResult&&(intakeFlow.busy||intakeFlow.awaitingConfirmation||intakeFlow.searchText?.trim()||intakeFlow.initialBody!==undefined&&JSON.stringify(intakeBody())!==intakeFlow.initialBody));}
 function intakeSet(path,value){if(!intakeFlow||intakeFlow.busy||intakeFlow.awaitingConfirmation||!intakeVisible())return;const bits=path.split('.');if(bits.some(k=>['__proto__','constructor','prototype'].includes(k)))return;let obj=intakeFlow;for(const k of bits.slice(0,-1)){if(!obj[k]||typeof obj[k]!=='object')return;obj=obj[k];}obj[bits.at(-1)]=value;intakeFlow.error=null;}
 function intakeBody(){const f=intakeFlow;return f.editId?{expectedIntakeVersion:f.expectedIntakeVersion,positionType:f.positionType,track:f.track,details:f.details,experiences:f.experiences}:{identity:f.identity,positionType:f.positionType,track:f.track,deadline:f.deadline,schedule:f.schedule,details:f.details,experiences:f.experiences,events:f.events};}
 async function saveIntake(){if(studentPreview())throw previewError();requireStudent();requireIntakeUI({allowRetry:true});const f=intakeFlow;if(!f||f.busy||f.saveResult)throw Error('Wait for this interview save.');const a=intakeAuthority();const saveData=f.pendingSaveData||clone(intakeBody());f.pendingSaveData=saveData;f.busy=true;f.error=null;renderDrawer();try{const r=await command(f.editId?'intake.update':'intake.create',f.editId||null,saveData,{render:false});if(!intakeCurrent(a))throw Error('Private interview authority changed.');const id=r.interviewId||r.resultId;if(!id||!S.interviews.some(i=>i.id===id&&i.owner===actor.id))throw Error('The saved interview was not confirmed. Your draft is retained.');f.saveResult={id,edited:!!f.editId};f.pendingSaveData=null;f.awaitingConfirmation=false;f.step=8;render();return r;}catch(error){if(intakeCurrent(a)){f.awaitingConfirmation=!error.status||(!error.code&&error.status>=500);if(!f.awaitingConfirmation)f.pendingSaveData=null;f.errorCode=error.code||null;f.error=error.code==='intake_identity_unavailable'?error.message:error.code==='owner_service_unavailable'?"We couldn't confirm this save. Your entered information is still here. Please try again.":error.status===409?error.message+' Your draft is kept; review the latest version before saving again.':!error.status?"We couldn't confirm this save. Your entered information is still here. Retry this same save to check its result.":error.message;}throw error;}finally{if(intakeCurrent(a)){f.busy=false;renderDrawer();}}}
@@ -2236,7 +2256,7 @@ Object.assign(A,{
  'intake-event-remove'(el){requireIntakeUI();if(intakeFlow.busy)return;intakeFlow.events.splice(+el.dataset.index,1);renderDrawer();},
  'intake-experience-add'(){requireIntakeUI();if(intakeFlow.experiences.length>=20)throw Error('Add at most 20 prior experiences.');intakeFlow.details.relationshipState='YES';intakeFlow.experiences.push({kind:'CLERKSHIP',department:null,startDate:null,endDate:null,description:'',contact:null,confirmed:false});renderDrawer();},
  'intake-experience-remove'(el){requireIntakeUI();if(intakeFlow.busy)return;intakeFlow.experiences.splice(+el.dataset.index,1);renderDrawer();},
- 'intake-edit'(el){requireIntakeUI();const i=S.interviews.find(i=>i.id===el.dataset.id);requireOwn(i);const d=i.intake;intakeFlow={...freshIntake(null),editId:i.id,expectedIntakeVersion:d?.version??0,step:4,identity:{invitationLabel:i.unresolved_input,programId:i.program,registryReleaseId:d?.registryReleaseId,confirmed:!!i.program},program:{name:i.programName},positionType:d?.positionType||'UNKNOWN',track:d?.track||i.track||'',schedule:{date:i.date,time:i.wall?.slice(11,16)||null,zone:i.zone,format:i.format,fold:i.fold},details:clone(d?.details||{}),experiences:clone(d?.experiences||[])};openDrawer({kind:'intake'});},
+ 'intake-edit'(el){requireIntakeUI();const i=S.interviews.find(i=>i.id===el.dataset.id);requireOwn(i);const d=i.intake;intakeFlow={...freshIntake(null),editId:i.id,expectedIntakeVersion:d?.version??0,step:4,identity:{invitationLabel:i.unresolved_input,programId:i.program,registryReleaseId:d?.registryReleaseId,confirmed:!!i.program},program:{name:i.programName},positionType:d?.positionType||'UNKNOWN',track:d?.track||i.track||'',schedule:{date:i.date,time:i.wall?.slice(11,16)||null,zone:i.zone,format:i.format,fold:i.fold},details:clone(d?.details||{}),experiences:clone(d?.experiences||[])};intakeFlow.initialBody=JSON.stringify(intakeBody());openDrawer({kind:'intake'});},
  'intake-done'(){requireIntakeUI();const id=intakeFlow?.saveResult?.id;clearIntakeMemory();closeDrawer();if(id){S.ui.open=id;S.ui.route='interviews';S.ui.section='schedule';}render();},
  // V2 game-like controls: choice cards, visual calendar picker and post-save navigation. None of these change the save contract.
  'intake-choice'(el){requireIntakeUI();if(intakeFlow.busy)return;const field=el.dataset.field||'';if(!field)return;const raw=el.dataset.value??'';const value=field.endsWith('.fold')?(raw===''?null:Number(raw)):raw;intakeSet(field,value);renderDrawer();},
@@ -2399,10 +2419,10 @@ document.addEventListener('change',ev=>{const t=ev.target;if(t.matches('[data-ca
 const OPENING_TAB_KEY='interviewiq_opening_seen_this_tab';
 const OPENING_TOTAL_MS=5000, OPENING_FADE_MS=650, OPENING_REDUCED_MOTION_MS=1000;
 let openingShown=false;
-function showOpening(){
-  const node=document.getElementById('interviewiqOpening');if(!node)return;
+function showOpening(afterOpening){
+  const node=document.getElementById('interviewiqOpening');if(!node){afterOpening?.();return;}
   let seen=openingShown;try{seen=seen||sessionStorage.getItem(OPENING_TAB_KEY)==='1';}catch{}
-  if(seen){node.hidden=true;return;}
+  if(seen){node.hidden=true;afterOpening?.();return;}
   openingShown=true;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const shell=['main','hdr','rail','drawer'].map(id=>document.getElementById(id)).filter(Boolean);
@@ -2418,6 +2438,7 @@ function showOpening(){
     shell.forEach((el,k)=>{el.inert=priorInert[k];});
     skip?.removeEventListener('click',skipOpening);
     document.getElementById('main')?.focus({preventScroll:true});
+    afterOpening?.();
   };
   const finish=immediate=>{
     if(finished){if(immediate)cleanup();return;}finished=true;

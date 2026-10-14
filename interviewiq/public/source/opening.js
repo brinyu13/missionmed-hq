@@ -2,10 +2,10 @@
 const OPENING_TAB_KEY='interviewiq_opening_seen_this_tab';
 const OPENING_TOTAL_MS=5000, OPENING_FADE_MS=650, OPENING_REDUCED_MOTION_MS=1000;
 let openingShown=false;
-function showOpening(){
-  const node=document.getElementById('interviewiqOpening');if(!node)return;
+function showOpening(afterOpening){
+  const node=document.getElementById('interviewiqOpening');if(!node){afterOpening?.();return;}
   let seen=openingShown;try{seen=seen||sessionStorage.getItem(OPENING_TAB_KEY)==='1';}catch{}
-  if(seen){node.hidden=true;return;}
+  if(seen){node.hidden=true;afterOpening?.();return;}
   openingShown=true;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const shell=['main','hdr','rail','drawer'].map(id=>document.getElementById(id)).filter(Boolean);
@@ -21,6 +21,7 @@ function showOpening(){
     shell.forEach((el,k)=>{el.inert=priorInert[k];});
     skip?.removeEventListener('click',skipOpening);
     document.getElementById('main')?.focus({preventScroll:true});
+    afterOpening?.();
   };
   const finish=immediate=>{
     if(finished){if(immediate)cleanup();return;}finished=true;

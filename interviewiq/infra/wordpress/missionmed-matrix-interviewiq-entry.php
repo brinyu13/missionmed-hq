@@ -65,6 +65,17 @@ add_action('wp_footer','mmiiq_matrix_entry',41);
 /** Query-only response decoration: the immutable application/gateway files are unchanged. */
 function mmiiq_discovery_calendar_bridge() {
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET' || ($_GET['iiq_entry'] ?? '') !== 'calendar') { return; }
+    // Count raw query fields: PHP's last-value projection cannot reject duplicate intents.
+    $intent_fields = array('iiq_entry' => array(), 'iiq_contract' => array());
+    foreach (explode('&', (string) wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_QUERY)) as $field) {
+        $pair = explode('=', $field, 2); $key = urldecode($pair[0]);
+        $normalized = str_replace(array(' ', '.'), '_', ltrim($key));
+        $base = preg_split('/[\[\x00]/', $normalized, 2)[0];
+        if (isset($intent_fields[$base]) && $key !== $base) { return; }
+        if (isset($intent_fields[$key])) { $intent_fields[$key][] = urldecode($pair[1] ?? ''); }
+    }
+    if (count($intent_fields['iiq_entry']) !== 1 || $intent_fields['iiq_entry'][0] !== 'calendar' || count($intent_fields['iiq_contract']) > 1 || (count($intent_fields['iiq_contract']) === 1 && $intent_fields['iiq_contract'][0] !== '1')) { return; }
+
     $path = (string) wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
     if ($path !== '/interviewiq/') { return; }
     $access = mmiiq_discovery_access();

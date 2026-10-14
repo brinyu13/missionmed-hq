@@ -241,9 +241,28 @@ function pendingDraft(id,fallback=''){const key=draftKey(id);return draftValues.
 function applyDrafts(){for(const field of document.querySelectorAll('input[id],textarea[id],select[id]')){if(field.type==='file')continue;const key=draftKey(field.id);if(draftValues.has(key)){const value=draftValues.get(key);if(field.multiple&&Array.isArray(value)){for(const option of field.options)option.selected=value.includes(option.value);}else if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}}
 function forgetDrafts(ids){for(const id of ids)draftValues.delete(draftKey(id));}
 function setSaved(message='Saved'){const e=document.getElementById('connection-status');if(e)e.textContent=message;}
+// Fixed owner-native navigation intent; never a role grant or form submission.
+function parseInterviewIQEntry(search){
+  const q=new URLSearchParams(search),intents=q.getAll('iiq_entry'),versions=q.getAll('iiq_contract');
+  for(const key of q.keys()){const base=key.trimStart().replace(/[ .]/g,'_').split(/[\[\0]/)[0];if((base==='iiq_entry'||base==='iiq_contract')&&key!==base)return null;}
+  return intents.length===1&&intents[0]==='add-interview'&&versions.length===1&&versions[0]==='1'?{intent:'add-interview',version:1}:null;
+}
+let interviewIQEntryConsumed=false;
+function applyInterviewIQEntry(entry,identity,epoch){
+  if(!entry||interviewIQEntryConsumed)return false;
+  interviewIQEntryConsumed=true;
+  const url=new URL(location.href);url.searchParams.delete('iiq_entry');url.searchParams.delete('iiq_contract');
+  try{history.replaceState(history.state,'',url.pathname+url.search+url.hash);}catch{notice('Reopen InterviewIQ normally to add an interview.');return false;}
+  if(!S||actor?.id!==identity||sessionEpoch!==epoch||!intakeEnabled()){
+    notice('Add Interview requires your current eligible student workspace.');return false;
+  }
+  if(intakeFlow?.busy||intakeFlow?.awaitingConfirmation){notice('Your current interview draft is retained. Finish confirming its save before adding another.');return false;}
+  openIntake({dataset:{}},{preserveCurrent:true});return true;
+}
 async function boot(){
   const main=document.getElementById('main');main.innerHTML='<section class="pageIntro" style="padding:48px"><div class="h1">Opening your <em>workspace</em>.</div><p role="status">Connecting to your MissionMed account…</p></section>';
-  try{await refreshWorkspace();render();showOpening();warmCalendar();}
+  const entry=parseInterviewIQEntry(location.search);
+  try{await refreshWorkspace();render();const identity=actor.id,epoch=sessionEpoch;showOpening(()=>applyInterviewIQEntry(entry,identity,epoch));warmCalendar();}
   catch(error){lockWorkspace(error.message);}
 }
 
