@@ -156,7 +156,58 @@ function fixture(experience, locked, omit = []) {
     const preview=arenaFixture(false).replace('<style>body','<style>.mmdv2-in{max-width:1080px;margin:24px auto}#sos-sidebar{display:none}body');
     fs.writeFileSync(path.join(process.env.GX_EVIDENCE_DIR,'arena-preview.html'),preview);
   }
+  // GX tranche A: current canonical destinations and locked owner routes, not labels.
+  const destinations=['#profile','#appointments','#timeline','#arena','#filevault','https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/start','messages','drjlivedrills','settings'];
+  function catalogFixture({experience='matrix2',missing=false,unknown=false,ambiguous=false,wrongTimeline=false}={}) {
+    const native=destinations.map((href,i)=>`<a class="sos-nav-link" data-native="${i}" ${i===2?'data-app-id="timeline"':''} ${i>5?'data-route="'+href+'" aria-disabled="true" data-locked="true"':''} href="${i>5?'javascript:void(0)':i===2?'https://missionmedinstitute.com/'+(wrongTimeline?'wrong':'timeline')+'/':href}"><span>Native ${i}</span></a>`);
+    const cards=destinations.map((href,i)=>`<a class="mmdv2-acard" href="${i>5?'#dashboard':href}" ${i>5?'aria-disabled="true" data-catalog-locked="'+href+'"':''}>Card ${i}</a>`).join('');
+    const catalog='<div class="mmdv2-sechead"><h2 class="mmdv2-h2">Everything else in Matrix</h2></div><div class="mmdv2-catalog">'+cards+(unknown?'<a class="mmdv2-acard" href="#new-unique">Unique</a>':'')+'</div>';
+    return fixture(experience,false,['Arena','File Vault','Timeline','LOR Studio'])
+      .replace('</aside></div>','<nav id="native-owners">'+native.filter((_,i)=>!missing||i!==0).join('')+(ambiguous?native[0]:'')+'</nav></aside><main class="mmdv2-in"><div id="welcome">Welcome</div><div id="featured">Featured</div>'+catalog+'<div id="today">Today</div></main></div>')
+      .replace('<script>window.mmedDashboardV2=', '<script>window.catalogHTML='+JSON.stringify(catalog)+';window.mmedDashboardV2=');
+  }
+  for(const options of [{},{missing:true},{unknown:true},{ambiguous:true},{wrongTimeline:true},{experience:'classic'}]) {
+    await page.setContent(catalogFixture(options));
+    const shouldRemove=Object.keys(options).length===0;
+    assert.equal(await page.locator('.mmdv2-catalog').count(),shouldRemove?0:1);
+    assert.equal(await page.getByRole('heading',{name:'Everything else in Matrix'}).count(),shouldRemove?0:1);
+    assert.equal(await page.locator('#welcome,#featured,#today').count(),3);
+    assert.equal(await page.evaluate(()=>originals.filter(a=>!a.classList.contains('mmdv2-acard')).every(a=>a.isConnected)),true);
+    if(shouldRemove) {
+      for(const viewport of [{width:1440,height:1000},{width:390,height:844}]) {
+        await page.setViewportSize(viewport);
+        assert.equal(await page.locator('[data-native]').count(),9);
+        await page.locator('[data-native="6"]').click({force:true});
+      }
+      assert.equal(await page.evaluate(()=>clicks),2);
+      await page.evaluate(()=>{window.detachedOwner=document.querySelector('[data-native="0"]');detachedOwner.remove();});
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.mmdv2-catalog').count(),1);
+      assert.equal(await page.evaluate(()=>originals.filter(a=>a.classList.contains('mmdv2-acard')).every(a=>a.isConnected)),true);
+      await page.locator('.mmdv2-acard').first().click();
+      assert.equal(await page.evaluate(()=>clicks),3);
+      await page.evaluate(()=>document.querySelector('#native-owners').appendChild(detachedOwner));
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.mmdv2-catalog').count(),0);
+      await page.evaluate(()=>document.querySelector('[data-native="0"]').hidden=true);
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.mmdv2-catalog').count(),1);
+      await page.evaluate(()=>document.querySelector('[data-native="0"]').hidden=false);
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.mmdv2-catalog').count(),0);
+      await page.evaluate(()=>document.querySelector('.mmdv2-in').insertAdjacentHTML('beforeend',catalogHTML));
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.mmdv2-catalog').count(),0);
+      assert.equal(await page.evaluate(()=>new Promise(resolve=>setTimeout(()=>resolve(true),20))),true);
+    }
+    if(options.missing) {
+      await page.evaluate(()=>{const a=document.createElement('a');a.className='sos-nav-link';a.href='#profile';a.innerHTML='<span>Late owner</span>';document.querySelector('#native-owners').appendChild(a);});
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator('.mmdv2-catalog').count(),0);
+    }
+  }
   await browser.close();
+  console.log('PASS: catalog coverage all9, exact route/Timeline alias, locked owner retention, missing/ambiguous/new unique fail-safe, late owner, rerender stability, Classic untouched, desktop/390x844');
   console.log('PASS: GX PHP route/auth isolation, artwork contract, keyboard, locked/unlocked/current-owner delegation, owner removal/reinjection, image failure, reduced motion, desktop and exact390x844 no overflow');
   console.log('PASS: exact Founder maturity map/Calendar, no LOR Builder, desktop/390x844 badge and lock coexistence, exact groups/order, locked/unlocked node identity/attributes/icons/handlers, omitted eligibility, late owner injection, idempotence, exact Gear URL, Classic unchanged');
 })().catch(e=>{console.error(e);process.exit(1);});

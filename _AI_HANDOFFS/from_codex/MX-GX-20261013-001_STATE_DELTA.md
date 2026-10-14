@@ -62,7 +62,7 @@ Independent reviewer reproduced exact live/rollback hashes and permissions and i
 | Arena showcase | LIVE; exact reviewed file deployed, student desktop/mobile and owner navigation verified |
 | Remove Everything else in Matrix | Queued; not implemented or production verified |
 | Full-body student avatar | Queued; not implemented or production verified |
-| Intelligent search / capability registry | Dashboard infrastructure queued; InterviewIQ external under IVIQ AUDIT, owner production proof pending |
+| Intelligent search / capability registry | ON HOLD by latest Founder directive; no new search or IIQ search integration |
 | Universal Return to Matrix | Queued; native owner-scoped integrations unverified |
 | Dark/Light/Auto persistent appearance | Queued; owner-scoped integrations unverified |
 
@@ -73,3 +73,13 @@ No overall completion claim. InterviewIQ, Calendar, StoryForge, six reconciled s
 Registry epoch5783, manifest epoch5784 and prior candidate epoch5785 released normally/provider-clear. Fresh release lease `80c00081-58eb-46f4-9670-2d86b29ab80d`, epoch5802, session `gx-arena-20261014T111451Z`, owner `codex-mx-gx-20261013-001`, SHARED:MATRIX-SHELL, exact same three paths, granted/continuously heartbeated. Final provider receipt is recorded in the existing sandbox tracker after normal release, without reacquiring a source lease merely to write its own closeout.
 
 Next independent Dashboard upgrade requires its own exact registered binding; no broader write authority inferred from this completed Arena tranche. No stale bulk checkout deployment.
+
+## Non-search tranche A — candidate, 2026-10-14
+
+Latest Founder attachment703f5627-3374-4bc1-b1d1-fcceaf84ce5e authorizes independently fenced non-search completion; search remains ON HOLD. DR-424 registered at canonical OSdce038ed028cb09e2ecc7a5c5f632e4d6a7a52ce after independent exact-six-path approval and BOOT/lint. Registry5809 released normally/provider readback confirmed. Fresh product lease211d1329-604e-4aa8-bf59-eefbfd739cd7 epoch5811 covers only this handoff, existing extension and focused contract test.
+
+Candidate removes only exact Everything else in Matrix heading/adjacent catalog when every canonical destination has exactly one retained native owner. Nine current destinations covered, including existing external Timeline alias/LOR URL and three locked owner route IDs. No new route/access decisions. Retains original nodes/listeners/position for restoration if owner disappears, hides, changes route/access, or becomes ambiguous. Unknown unique destination keeps discovery UI. Arena source section, artwork and CTA unchanged.
+
+Reviewed candidate extension SHA691fc601cb5a521356d81845564367b3f773637277b26fc5b7a6c9e740738894; focused test SHAec6e974e1af7ed406110cd865d7ed9bfdb325a3d48d4f9f05fcc7c5fb493f9c4. Local PHP/Chromium, full15 canonical runtime guard and Git whitespace PASS. Tests cover initial coverage, wrong Timeline, unknown/missing/ambiguous owners, removal/restoration with original listeners, hide/unhide, reinjection/rerender stability, desktop390x844, Classic, existing rail and Arena contracts. Independent reviewer caught and required the now-fixed owner-disappearance restoration edge case before release.
+
+Production still preimage d0f80e70e81d30917a8388bae86f2f84597dd8e87831019512ae9a35223500d3 at candidate checkpoint. Deployment/student acceptance not yet claimed. Next: exact candidate review, commit/clean preflight, private backup/CAS single-file deployment and student desktop/mobile verification. No runtime lock changes, other app modifications, or overall completion claim.

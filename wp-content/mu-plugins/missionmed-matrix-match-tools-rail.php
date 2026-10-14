@@ -84,6 +84,56 @@ function mmed_match_tools_rail_6050a() {
                 return node.tagName === 'SPAN' && !node.classList.contains('sos-nav-icon') && !node.classList.contains('sos-nav-badge') && !node.classList.contains('mmed-rail-status');
             });
         }
+        var catalogRecords = [];
+        var observerOptions = { childList: true, subtree: true, attributes: true,
+            attributeFilter: ['href', 'hidden', 'data-locked', 'aria-disabled', 'data-route', 'data-app-id'] };
+        // Remove only redundant discovery UI, never an app's access/navigation owner.
+        function removeCoveredCatalog(dashboard, sidebar) {
+            if (!dashboard) { return; }
+            var owners = Array.prototype.filter.call(sidebar.querySelectorAll('a.sos-nav-link'), function (link) {
+                return !link.closest('[hidden]');
+            });
+            catalogRecords = catalogRecords.filter(function (record) { return record.marker.isConnected; });
+            Array.prototype.forEach.call(dashboard.querySelectorAll('.mmdv2-sechead'), function (heading) {
+                var title = heading.querySelector('.mmdv2-h2');
+                var catalog = heading.nextElementSibling;
+                if (!title || title.textContent.trim() !== 'Everything else in Matrix' ||
+                    !catalog || !catalog.classList.contains('mmdv2-catalog')) { return; }
+                if (catalogRecords.some(function (record) { return record.heading === heading; })) { return; }
+                var marker = document.createComment('GX catalog discovery position');
+                heading.before(marker);
+                catalogRecords.push({ heading: heading, catalog: catalog, marker: marker });
+            });
+            catalogRecords.forEach(function (record) {
+                var heading = record.heading;
+                var catalog = record.catalog;
+                var cards = Array.prototype.slice.call(catalog.querySelectorAll('a.mmdv2-acard'));
+                function isLocked(link) {
+                    return link.getAttribute('aria-disabled') === 'true' || link.getAttribute('data-locked') === 'true';
+                }
+                var covered = cards.length > 0 && cards.every(function (card) {
+                    var lockedRoute = card.getAttribute('data-catalog-locked');
+                    var href = card.getAttribute('href');
+                    return owners.filter(function (owner) {
+                        if (lockedRoute) {
+                            return isLocked(card) && isLocked(owner) && owner.getAttribute('data-route') === lockedRoute;
+                        }
+                        if (!href || href === '#' || href === '#dashboard' || /^javascript:/i.test(href) || isLocked(owner)) { return false; }
+                        // Verified native Timeline launcher replaces the legacy shell hash.
+                        if (href === '#timeline' && owner.getAttribute('data-app-id') === 'timeline') {
+                            return owner.getAttribute('href') === 'https://missionmedinstitute.com/timeline/';
+                        }
+                        return owner.getAttribute('href') === href;
+                    }).length === 1;
+                });
+                // Missing, ambiguous or newly introduced destinations retain their discovery UI.
+                if (covered) { heading.remove(); catalog.remove(); }
+                else if (!heading.isConnected || !catalog.isConnected) {
+                    // Restore the original nodes/listeners if an eligibility owner disappears.
+                    record.marker.after(heading, catalog);
+                }
+            });
+        }
         function organize() {
             if (!window.mmedDashboardV2 || window.mmedDashboardV2.experience !== 'matrix2') { return; }
             var sidebar = document.getElementById('sos-sidebar');
@@ -153,6 +203,7 @@ function mmed_match_tools_rail_6050a() {
                 }
                 // Delegate to the eligible owner's node; never synthesize access.
                 var dashboard = document.querySelector('.mmdv2-in');
+                removeCoveredCatalog(dashboard, sidebar);
                 var arenaEntry = document.querySelector('.mmed-arena-entry');
                 if (!entries.arena && arenaEntry) { arenaEntry.remove(); }
                 if (entries.arena && dashboard) {
@@ -194,12 +245,12 @@ function mmed_match_tools_rail_6050a() {
                     if (badge.textContent !== status[1]) { badge.textContent = status[1]; }
                 });
             } finally {
-                observer.observe(root || sidebar, { childList: true, subtree: true });
+                observer.observe(root || sidebar, observerOptions);
             }
         }
         var observer = new MutationObserver(organize);
         var root = document.getElementById('student-os-root');
-        if (root) { observer.observe(root, { childList: true, subtree: true }); }
+        if (root) { observer.observe(root, observerOptions); }
         organize();
         window.addEventListener('pagehide', function () { observer.disconnect(); }, { once: true });
     })();
