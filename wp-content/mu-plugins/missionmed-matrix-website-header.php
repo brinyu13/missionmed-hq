@@ -30,11 +30,11 @@ function missionmed_matrix_website_header_excluded() {
 add_filter(
 	'wpcode_snippet_output',
 	static function ( $output, $snippet ) {
-		if ( ! missionmed_matrix_website_header_excluded() || ! is_object( $snippet ) || ! method_exists( $snippet, 'get_id' ) ) {
+		if ( ! is_object( $snippet ) || ! method_exists( $snippet, 'get_id' ) || 6023 !== (int) $snippet->get_id() ) {
 			return $output;
 		}
 
-		return 6023 === (int) $snippet->get_id() ? '' : $output;
+		return missionmed_matrix_website_header_excluded() ? '' : $output;
 	},
 	10,
 	2

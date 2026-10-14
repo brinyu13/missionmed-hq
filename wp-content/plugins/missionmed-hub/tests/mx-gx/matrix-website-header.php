@@ -4,6 +4,7 @@ define( 'ABSPATH', __DIR__ );
 define( 'LOGGED_IN_COOKIE', 'test_logged_in_cookie' );
 $filters = array();
 $state = array( 'admin' => false, 'ajax' => false, 'page' => true, 'cookie_user' => 12, 'user' => 12 );
+$cookie_validations = 0;
 
 function add_filter( $name, $callback, $priority, $args ) {
 	global $filters;
@@ -25,7 +26,8 @@ function wp_parse_url( $uri, $component ) {
 	return parse_url( $uri, $component );
 }
 function wp_validate_auth_cookie( $cookie, $scheme ) {
-	global $state;
+	global $state, $cookie_validations;
+	++$cookie_validations;
 	return 'logged_in' === $scheme && 'valid' === $cookie ? $state['cookie_user'] : false;
 }
 function get_current_user_id() {
@@ -52,6 +54,7 @@ $_SERVER['REQUEST_URI'] = '/member-dashboard/?app=calendar';
 $_COOKIE[ LOGGED_IN_COOKIE ] = 'valid';
 check_header( 'authenticated canonical Matrix', true );
 
+$cookie_validations = 0;
 $snippet = new class {
 	public function get_id() { return 6024; }
 };
@@ -60,6 +63,9 @@ if ( 'other' !== $filters['wpcode_snippet_output']( 'other', $snippet ) ) {
 }
 if ( 'missing' !== $filters['wpcode_snippet_output']( 'missing', null ) ) {
 	throw new RuntimeException( 'missing snippet changed' );
+}
+if ( 0 !== $cookie_validations ) {
+	throw new RuntimeException( 'unrelated snippets validated auth cookies' );
 }
 
 foreach ( array( '/member-dashboard', '/member-dashboard/#calendar' ) as $uri ) {
