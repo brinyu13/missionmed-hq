@@ -28,7 +28,7 @@ class MMPS_Page {
 	}
 
 	protected static function back_url() {
-		return apply_filters( 'mmps_file_vault_url', home_url( '/member-dashboard/#filevault' ) );
+		return 'https://missionmedinstitute.com/member-dashboard/#dashboard';
 	}
 
 	/* ---------------- Matrix / File Vault entry ---------------- */

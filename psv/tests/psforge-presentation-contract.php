@@ -28,7 +28,7 @@ psforge_check(str_contains($ui, 'Your Personal Statement.') && str_contains($ui,
 psforge_check(str_contains($ui, 'Start Personalizing') && str_contains($ui, 'Continue My Statements') && str_contains($ui, '>PS Library<'), 'primary, returning-user and library actions are explicit');
 psforge_check(str_contains($ui, 'Start with your PS') && str_contains($ui, 'Choose programs') && str_contains($ui, 'PSForge personalizes') && str_contains($ui, 'You review') && str_contains($ui, 'Prepare MyERAS'), 'five-step student journey is visible');
 psforge_check(str_contains($ui, "approved ? '<button class=\"btn cy\"") && str_contains($ui, 'Prepare for MyERAS'), 'MyERAS entry appears only when approved statements exist');
-psforge_check(str_contains($ui, 'class="matrixBack"') && str_contains($ui, 'Back to Matrix'), 'shell preserves an explicit Matrix return');
+psforge_check(str_contains($ui, 'class="matrixBack"') && str_contains($ui, 'Return to Matrix'), 'shell preserves an explicit Matrix return');
 psforge_check(str_contains($css, '.psforgeWordmark') && str_contains($css, '.psforgeHeat') && str_contains($css, '@keyframes psforgeGlint'), 'StoryForge-family wordmark, forge light and entry motion are present');
 psforge_check(str_contains($css, '@media (max-width:390px)') && str_contains($css, '.psforgeJourney{grid-template-columns:1fr') && str_contains($css, '@media (prefers-reduced-motion:reduce)'), 'phone and reduced-motion presentation contracts are present');
 

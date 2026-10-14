@@ -510,7 +510,7 @@
 	function header() {
 		var pv = S.boot.provider, pill;
 		if (pv.provider === 'openai-responses') { pill = '<span class="pill ok hideS"><span class="dot"></span>AI writer ready</span>'; } else if (pv.provider === 'simulator') { pill = '<span class="pill warn hideS"><span class="dot"></span>Practice writer</span>'; } else { pill = '<span class="pill warn hideS"><span class="dot"></span>Writer not configured</span>'; }
-		return '<header class="hdr"><a class="matrixBack" href="' + esc(cfg.backUrl) + '" aria-label="Back to Matrix"><span aria-hidden="true">←</span><span>Back to Matrix</span></a><div class="brand"><span class="brandTitle"><span>PS</span><em>Forge</em></span><span class="brandSub">Program-Specific Personal Statements</span></div><span class="hdrSpace"></span>' +
+		return '<header class="hdr"><a class="matrixBack" data-matrix-return href="' + esc(cfg.backUrl) + '" aria-label="Return to Matrix Dashboard"><span aria-hidden="true">←</span><span>Return to Matrix</span></a><div class="brand"><span class="brandTitle"><span>PS</span><em>Forge</em></span><span class="brandSub">Program-Specific Personal Statements</span></div><span class="hdrSpace"></span>' +
 			'<span class="pill vi">Private · verified access</span>' + pill +
 			'<span class="hdrNav"><button class="btn sm ghost" data-act="go" data-view="batch">Batch' + (S.boot.batches && S.boot.batches.length ? ' · ' + S.boot.batches.length : '') + '</button>' +
 			'<button class="btn sm ghost" data-act="go" data-view="library">PS Library' + (S.boot.library.length ? ' · ' + S.boot.library.length : '') + '</button>' +
@@ -694,7 +694,7 @@
 		}).join(' ');
 	}
 	/* Review adapter: AI candidates stay immutable; selection and draft overlays are local. */
-	var review = { runs: {}, dialogReturn: null, dialogScroll: 0, pendingLeave: null };
+	var review = { runs: {}, dialogReturn: null, dialogScroll: 0, pendingLeave: null, returnBypass: false };
 	function reviewState(run) {
 		if (!review.runs[run.runId]) { review.runs[run.runId] = { overlays: {}, heads: {}, capabilities: null, loading: false, loaded: false, scroll: 0 }; }
 		return review.runs[run.runId];
@@ -889,6 +889,11 @@
 	function hasReviewDrafts() {
 		return Object.keys(review.runs).some(function(id){return Object.keys(review.runs[id].overlays).some(function(c){var o=review.runs[id].overlays[c];return o.dirty || o.saving;});});
 	}
+	function hasBusyWork() { return S.batch.running || Object.keys(S.busy).some(function(key){return !!S.busy[key];}); }
+	function hasReturnDrafts() {
+		var f=S.rootForm;
+		return (S.view==='root' && ((f.source==='PASTED' && !!f.text.trim()) || (f.source==='UPLOADED' && !!f.uploadFile))) || (S.view==='admin' && !!S.admin.importText.trim());
+	}
 	function reviewQuestion(title,body,actions) {
 		review.dialogReturn=document.activeElement; review.dialogScroll=window.scrollY;
 		var d=document.createElement('dialog'); d.className='reviewDialog reviewQuestion'; d.setAttribute('aria-labelledby','review-dialog-title');
@@ -908,6 +913,20 @@
 		var work=saveFirst?dirty.reduce(function(p,c){return p.then(function(){return saveReviewEdit(run,c,false);});},Promise.resolve()):Promise.resolve();
 		work.then(function(){if(!saveFirst){dirty.forEach(function(c){delete rs.overlays[c.candidateId];});} closeReviewDialog();review.pendingLeave=null;review.leaveBypass=true;if(pending && pending.isConnected){pending.click();}review.leaveBypass=false;}).catch(function(){var n=app.querySelector('[data-question-error]');if(n){n.textContent='Edits could not all be saved. Stay here; your drafts are retained.';}});
 	}
+	function returnLeaveGuard(event,el) {
+		if(review.returnBypass || !el || !el.hasAttribute('data-matrix-return')){return false;}
+		if(hasBusyWork()){
+			event.preventDefault(); event.stopImmediatePropagation();
+			reviewQuestion('Please wait before returning to Matrix','A private PSForge upload, save, generation, research, batch, or MyERAS preparation step is still finishing. Stay here until it completes so no work is interrupted.','<button class="btn primary" data-act="close-review-dialog" autofocus>Stay in PSForge</button>');
+			return true;
+		}
+		if(reviewLeaveGuard(event,el,'external-link')){event.stopImmediatePropagation();return true;}
+		if(!hasReturnDrafts()){return false;}
+		event.preventDefault(); event.stopImmediatePropagation(); review.pendingLeave=el;
+		reviewQuestion('Leave PSForge with an unfinished draft?','Your pasted statement, selected upload, or prompt-package draft has not been saved. Stay here to keep working, or leave PSForge without saving this draft.','<button class="btn" data-act="leave-keep" autofocus>Stay in PSForge</button><button class="btn primary" data-act="return-leave">Leave PSForge</button>');
+		return true;
+	}
+	app.addEventListener('click',function(event){var a=event.target.closest('a[data-matrix-return]');if(a){returnLeaveGuard(event,a);}},true);
 	app.addEventListener('click',function(event){var a=event.target.closest('a[href]');if(a && a.target!=='_blank' && reviewLeaveGuard(event,a,'external-link')){event.stopImmediatePropagation();}},true);
 	function researchNeeded(run) {
 		var id = S.current, packet = S.prompt[id], html = '<div class="panel gold mt"><div class="row"><span class="tag vi">Deep research needed</span><span class="h2">' + esc(programLabel(run.program)) + '</span></div><p class="mid mtS">' + (run.reasons || []).map(esc).join(' ') + ' Nothing was sent to the AI and nothing was invented.</p>';
@@ -1108,6 +1127,7 @@
 		else if (act === 'confirm-restore') { closeReviewDialog(); saveReviewEdit(S.runs[S.current],selectedOption(S.runs[S.current]),true).catch(function(){}); }
 		else if (act === 'leave-keep') { closeReviewDialog(); review.pendingLeave=null; }
 		else if (act === 'leave-discard' || act === 'leave-save') { finishReviewLeave(act==='leave-save'); }
+		else if (act === 'return-leave') { closeReviewDialog(); review.pendingLeave=null; review.returnBypass=true; window.location.assign(cfg.backUrl); window.setTimeout(function(){review.returnBypass=false;},1500); }
 		else if (act === 'save') { save(el.getAttribute('data-status'), el.getAttribute('data-ack') === '1'); }
 		else if (act === 'research-prompt') { researchPrompt(id); }
 			else if (act === 'boost-start') { boostIssue(id, el.getAttribute('data-provider'), false); }
@@ -1201,7 +1221,8 @@
 		else if (t.hasAttribute('data-bind') && t.tagName === 'SELECT') { S.rootForm[t.getAttribute('data-bind')] = t.value; }
 	});
 
-	window.addEventListener('beforeunload',function(event){ if(hasReviewDrafts()){event.preventDefault();event.returnValue='';} });
+	window.addEventListener('beforeunload',function(event){ if(!review.returnBypass && (hasReviewDrafts() || hasReturnDrafts() || hasBusyWork())){event.preventDefault();event.returnValue='';} });
+	window.addEventListener('pageshow',function(){review.returnBypass=false;});
 	window.addEventListener('resize',function(){ if(S.view==='preview'){patchPreview(false);} });
 	boot();
 })();

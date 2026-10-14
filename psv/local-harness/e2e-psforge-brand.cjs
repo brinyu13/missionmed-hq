@@ -34,13 +34,14 @@ function ok(name, value) {
 	ok('split PSForge wordmark and descriptor are visible', await page.locator('.psforgeWordmark').innerText() === 'PSForge' && await page.getByText('PROGRAM-SPECIFIC PERSONAL STATEMENTS', { exact: true }).isVisible());
 	ok('five-second promise is visible', await page.locator('.psforgePromise h2').innerText() === 'Your Personal Statement.\nPersonalized for every residency program.');
 	ok('Start Personalizing is the primary action', await page.locator('.psforgePrimary').innerText() === 'Start Personalizing');
-ok('PS Library is a visible secondary action', await page.getByRole('button', { name: 'PS Library', exact: true }).isVisible());
+	ok('PS Library is a visible secondary action', await page.locator('.psforgeActions').getByRole('button', { name: 'PS Library', exact: true }).isVisible());
 	ok('journey shows all five steps', await page.locator('.psforgeJourney li').count() === 5);
-	ok('shell has a same-origin Matrix return', await page.locator('.matrixBack').getAttribute('href').then(href => /member-dashboard\/#filevault/.test(href || '')));
+	ok('shell has the canonical Matrix Dashboard return', await page.locator('.matrixBack').getAttribute('href').then(href => href === 'https://missionmedinstitute.com/member-dashboard/#dashboard'));
 	ok('desktop landing has no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 	await page.screenshot({ path: shots + '/desktop.png', fullPage: true });
 
 	await page.setViewportSize({ width: 390, height: 844 });
+	ok('phone keeps the Return to Matrix label visible', await page.locator('.matrixBack').getByText('Return to Matrix', { exact: true }).isVisible());
 	ok('phone title and primary action remain visible', await page.locator('.psforgeWordmark').isVisible() && await page.locator('.psforgePrimary').isVisible());
 	ok('phone actions stack to one column', await page.locator('.psforgeActions').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length === 1));
 	ok('phone journey stacks to one column', await page.locator('.psforgeJourney').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length === 1));
