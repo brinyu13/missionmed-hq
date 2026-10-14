@@ -88,7 +88,20 @@ add_action('template_redirect', function() {
     }
     if ($path === '/testimonials') { wp_safe_redirect(home_url('/testimonials/'), 301); exit; }
     header('Content-Type: text/html; charset=utf-8');
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') { readfile(mm_proof_1300_paths()['assets'] . 'index.html'); }
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+        // This registered route has its own renderer; restore native WordPress head hooks.
+        global $wp_query;
+        if ($wp_query instanceof WP_Query) { $wp_query->is_404 = false; }
+        ob_start(); wp_head(); $native_head = (string) ob_get_clean();
+        // Keep the approved page title; native hooks supply the existing global header.
+        $native_head = preg_replace('~<title\b[^>]*>.*?</title>~is', '', $native_head);
+        $html = (string) file_get_contents(mm_proof_1300_paths()['assets'] . 'index.html');
+        $html = str_replace('<!-- Native MissionMed global header -->', $native_head, $html);
+        if (is_user_logged_in()) {
+            $html = str_replace('class="variant-e variant-f proof-global-header"', 'class="variant-e variant-f proof-global-header logged-in"', $html);
+        }
+        echo $html;
+    }
     exit;
 }, 1);
 

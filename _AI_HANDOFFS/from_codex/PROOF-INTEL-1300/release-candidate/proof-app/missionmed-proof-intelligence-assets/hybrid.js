@@ -60,7 +60,7 @@ async function init(){try{const r=await fetch('api/featured');if(!r.ok)throw Err
  b=e.target.closest('[data-jump]');if(b){e.preventDefault();let i=+b.dataset.jump;const target=$('#theme-'+D.themes[i].id);target.querySelector('details')?.setAttribute('open','');target.scrollIntoView({block:'start'});setTheme(i);return}
  b=e.target.closest('.v4-vid-poster');if(b){const block=b.closest('[data-video-block]'),v=block.querySelector('video');try{await v.play();b.hidden=true;block.querySelector('.video-state').textContent='Playing recording'}catch{block.querySelector('.video-state').textContent='Recording unavailable. Read the source story instead.'}}
  });
- $('.menu').onclick=()=>{const open=$('#mobile-menu').hidden;$('#mobile-menu').hidden=!open;$('.menu').setAttribute('aria-expanded',String(open))};$('#mobile-menu').onclick=e=>{if(e.target.closest('a')){$('#mobile-menu').hidden=true;$('.menu').setAttribute('aria-expanded','false')}};
+
  $('#close-reader').onclick=close;$('#reader').addEventListener('cancel',e=>{e.preventDefault();close()});window.addEventListener('scroll',()=>$('#nav').classList.toggle('is-scrolled',scrollY>30),{passive:true});
  if(location.hash.startsWith('#story-')){let [id,sourceKey]=location.hash.slice(7).split('~');if(!D.stories.some(s=>s.id===id)){try{const r=await fetch('api/stories?'+new URLSearchParams({id,limit:1}));if(r.ok){const data=await r.json();for(const story of data.stories){if(!D.stories.some(s=>s.id===story.id))D.stories.push(story)}if(data.stories[0])id=data.stories[0].id}}catch{}}openStory(id,false,sourceKey||'primary');}
  document.dispatchEvent(new Event('proof-ready'));
