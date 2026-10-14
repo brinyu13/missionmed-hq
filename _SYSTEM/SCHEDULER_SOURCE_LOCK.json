@@ -192,6 +192,15 @@
       "source_rev": "MX-APPT-5003G",
       "bytes": 294940,
       "note": "Scheduler-owned non-search tranche: normalizes the existing StoryForge V2 top-nav, rail, and Settings return controls to the exact Matrix Dashboard URL; keeps the compact keyboard-accessible top-nav label visible at 390px; warns on unfinished booking or reschedule selections; preserves state when the warning is canceled; and blocks navigation while booking, reschedule, or cancellation mutation work is in flight. No auth, entitlement, appointment API, schema, runtime, theme, search, or sibling-product contract changed."
+    },
+    {
+      "utc": "2026-10-14T13:11:39Z",
+      "ticket": "MX-GX-20261013-001 / DR-427",
+      "action": "guarded-live-activation",
+      "sha256": "e070132cd376f38da996493adb9866233dd3bc61230eee6d5e36535d53847323",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 294940,
+      "note": "Founder-approved StoryForge V2 Scheduler candidate published to immutable scheduler_v1.e070132cd376.html and the LIVE Scheduler alias. Publisher post-write verification plus independent cache-busted public readback matched this SHA-256 exactly; immutable rollback scheduler_v1.e9e480a9c72b.html remained byte-exact. Authenticated student desktop QA loaded the live catalogue and appointment state, verified the exact native Return to Matrix target and dashboard navigation, and proved that dismissing the unfinished-draft leave warning preserved the selected appointment type. No appointment was created, rescheduled, or canceled."
     }
   ]
 }
