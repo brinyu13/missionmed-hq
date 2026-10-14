@@ -119,5 +119,5 @@
   window.addEventListener('pagehide', () => { ++generation; snapshot = null; cfg.snapshot = null; draftMode = null; available = false; restoring = true; restoreRequested = false;
     root.removeAttribute(attribute); root.setAttribute('data-mmed-appearance-restoring', '1'); });
   window.addEventListener('pageshow', event => { if (event.persisted) refresh(true); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(true); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(restoring); });
 })();

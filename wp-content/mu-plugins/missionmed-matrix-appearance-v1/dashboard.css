@@ -1,11 +1,12 @@
 /* Native Dashboard canvas only; cinematic artwork and other apps stay owned. */
 .mmdv2 .mmed-appearance-v1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%;font:600 12px/1.4 'Archivo',system-ui,sans-serif}
 .mmdv2 .mmed-appearance-v1 label{display:flex;align-items:center;gap:8px;margin:0;color:var(--mid)}
-.mmdv2 .mmed-appearance-v1 select,.mmdv2 .mmed-appearance-v1 button{min-height:38px;padding:6px 10px;border:1px solid #657e98;border-radius:7px;background:#0b2338;color:#eef3fb;font:inherit}
+.mmdv2 .mmed-appearance-v1 select,.mmdv2 .mmed-appearance-v1 button{min-height:44px;padding:6px 10px;border:1px solid #657e98;border-radius:7px;background:#0b2338;color:#eef3fb;font:inherit}
 .mmdv2 .mmed-appearance-v1 button:disabled,.mmdv2 .mmed-appearance-v1 select:disabled{cursor:not-allowed;color:#c0cddc;opacity:1}
 .mmdv2 .mmed-appearance-v1 [role=status]{flex-basis:100%;max-width:32ch;color:var(--mid)}
 .mmdv2 .mmed-appearance-v1 :focus-visible{outline:3px solid #39d6ff;outline-offset:3px}
-html[data-mmed-appearance-restoring="1"] .mmdv2{visibility:hidden}
+/* Unconfirmed restore uses the safe native dark canvas plus a readable status,
+   never a blank Dashboard or global loader. Controls alone stay disabled. */
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2{
  --bg:#f3f7fc;--bg2:#eaf1f8;--card:#fff;--card2:#eaf1f8;--edge:#a1b1c2;--edge2:#657e98;
  --tx:#142a40;--mid:#3b5269;--dim:#4d6279;--em:#87530a;--em2:#995a10;--emGlow:135,83,10;
