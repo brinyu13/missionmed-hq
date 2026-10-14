@@ -92,7 +92,14 @@ add_action('template_redirect', function() {
         // This registered route has its own renderer; restore native WordPress head hooks.
         global $wp_query;
         if ($wp_query instanceof WP_Query) { $wp_query->is_404 = false; }
-        ob_start(); wp_head(); $native_head = (string) ob_get_clean();
+        // Yoast may have cached a 404 presentation before this registered route renders.
+        $route_robots = static function($robots) {
+            if ((string) get_option('blog_public') === '1') { $robots['index'] = 'index'; }
+            return $robots;
+        };
+        add_filter('wpseo_robots_array', $route_robots, 99);
+        try { ob_start(); wp_head(); $native_head = (string) ob_get_clean(); }
+        finally { remove_filter('wpseo_robots_array', $route_robots, 99); }
         // Keep the approved page title; native hooks supply the existing global header.
         $native_head = preg_replace('~<title\b[^>]*>.*?</title>~is', '', $native_head);
         $html = (string) file_get_contents(mm_proof_1300_paths()['assets'] . 'index.html');
