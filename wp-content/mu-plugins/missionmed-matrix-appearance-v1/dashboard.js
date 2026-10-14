@@ -7,7 +7,7 @@
   const modes = ['dark', 'light', 'auto'];
   const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   let snapshot = safe(cfg.snapshot), available = !!cfg.available, saving = false, restoring = false;
-  let generation = 0, status = initialStatus(), observer, draftMode = null, restoreRequested = false;
+  let generation = 0, status = initialStatus(), observer, draftMode = null, restoreRequested = false, refreshRequested = false;
   function safe(s) {
     const states = ['valid', 'absent', 'invalid', 'ambiguous'];
     if (!s || s.contract !== 'matrix.appearance.preference.v1' || s.version !== 1 ||
@@ -87,12 +87,14 @@
       if (restoreRequested) { restoreRequested = false; refresh(true); }
       else {
         apply();
-        if (mine === generation && status.includes('unconfirmed') && available) refresh(false);
+        if (refreshRequested || (mine === generation && status.includes('unconfirmed') && available)) refresh(false);
       }
+      refreshRequested = false;
     }
   }
   async function refresh(conceal) {
     if (saving) {
+      refreshRequested = true; ++generation;
       if (conceal) { restoreRequested = true; snapshot = null; cfg.snapshot = null; draftMode = null;
         restoring = true; available = false; status = 'Confirming appearance...'; apply(); }
       return;
@@ -116,7 +118,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
   if (media) { if (media.addEventListener) media.addEventListener('change', apply); else if (media.addListener) media.addListener(apply); }
   window.addEventListener('hashchange', () => { apply(); mount(); });
-  window.addEventListener('pagehide', () => { ++generation; snapshot = null; cfg.snapshot = null; draftMode = null; available = false; restoring = true; restoreRequested = false;
+  window.addEventListener('pagehide', () => { ++generation; snapshot = null; cfg.snapshot = null; draftMode = null; available = false; restoring = true; restoreRequested = false; refreshRequested = false;
     root.removeAttribute(attribute); root.setAttribute('data-mmed-appearance-restoring', '1'); });
   window.addEventListener('pageshow', event => { if (event.persisted) refresh(true); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(restoring); });
