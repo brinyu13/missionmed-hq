@@ -60,7 +60,7 @@ Independent reviewer reproduced exact live/rollback hashes and permissions and i
 | Upgrade | State |
 |---|---|
 | Arena showcase | LIVE; exact reviewed file deployed, student desktop/mobile and owner navigation verified |
-| Remove Everything else in Matrix | Queued; not implemented or production verified |
+| Remove Everything else in Matrix | LIVE; tranche A deployed and genuine student desktop/390x844 verified below |
 | Full-body student avatar | Queued; not implemented or production verified |
 | Intelligent search / capability registry | ON HOLD by latest Founder directive; no new search or IIQ search integration |
 | Universal Return to Matrix | Queued; native owner-scoped integrations unverified |
@@ -83,3 +83,15 @@ Candidate removes only exact Everything else in Matrix heading/adjacent catalog 
 Reviewed candidate extension SHA691fc601cb5a521356d81845564367b3f773637277b26fc5b7a6c9e740738894; focused test SHAec6e974e1af7ed406110cd865d7ed9bfdb325a3d48d4f9f05fcc7c5fb493f9c4. Local PHP/Chromium, full15 canonical runtime guard and Git whitespace PASS. Tests cover initial coverage, wrong Timeline, unknown/missing/ambiguous owners, removal/restoration with original listeners, hide/unhide, reinjection/rerender stability, desktop390x844, Classic, existing rail and Arena contracts. Independent reviewer caught and required the now-fixed owner-disappearance restoration edge case before release.
 
 Production still preimage d0f80e70e81d30917a8388bae86f2f84597dd8e87831019512ae9a35223500d3 at candidate checkpoint. Deployment/student acceptance not yet claimed. Next: exact candidate review, commit/clean preflight, private backup/CAS single-file deployment and student desktop/mobile verification. No runtime lock changes, other app modifications, or overall completion claim.
+
+### Tranche A deployment and student acceptance
+
+Supersedes candidate-only checkpoint: candidate3f7a46f2d8a0e63e62ad73f08f8b709f0431dbe9 committed/pushed/readback, independent exact source/test APPROVE, clean-source scoped preflight PASS. The pre-commit preflight correctly flagged own sensitive dirty source; no bypass used, committed candidate then reran clean. Existing default-branch dependency alerts unchanged and not investigated here.
+
+One-file atomic deployment at approximately11:54UTC: origin691fc601cb5a521356d81845564367b3f773637277b26fc5b7a6c9e740738894, mode0644 uid1000 gid33. Readable rollback `/www/theresidencyacademy_209/private/mx-gx-20261013-001/20261014T1154Z.before.php` SHA d0f80e70e81d30917a8388bae86f2f84597dd8e87831019512ae9a35223500d3, mode0600/private directory0700. Candidate private sibling retained, temporary staging consumed. Fresh candidate PHP lint/hash and live preimage CAS passed. No cache purge necessary: ordinary authenticated production reload shows new result without query cache-busting. No database, access, manifest, service or sibling asset mutation.
+
+Real existing student session: desktop and exact390x844 show zero catalog/heading and all nine retained destinations (six canonical href owners including Timeline/LOR, three locked native route owners). Mobile document has no horizontal overflow. Desktop600/mobile300 Arena image selection intact; CTA delegates to #arena, existing Enter Arena remains present; Dashboard return rerender remains catalog-free. Native Med Messenger still opens LOCKED modal without route/access change. HomeBase Option C mobile and Escape/focus restoration pass; visible card art/morph remains operational after viewport scroll. An offscreen screenshot initially had unloaded canvas surfaces; inspected actual scrolled viewport confirmed existing cards rendered normally, and final evidence crops show Today→Arena. Existing first-paint branded skeleton observed; not a full timing/filmstrip audit. No new captured console errors/warnings. Classic and absent/locked-owner scenarios are synthetic contract evidence, not additional live personas.
+
+PII-free screenshots in existing sandbox `arena-local-qa/nonsearch-a-desktop.png` and `nonsearch-a-390x844.png`; temporary mobile viewport reset. Independent release acceptance and final provider-clear receipt recorded at closeout. Overall non-search mission still incomplete; avatar/navigation/appearance require their registered owner-scoped tranches.
+
+Independent final tranche A release verdict: APPROVE. Reviewer independently re-read exact live/rollback hashes/permissions and both production crops, reran candidate tests, and read saved `NONSEARCH_A_POSTDEPLOY_GUARD.txt` (full15PASS). Executor browser acceptance attribution retained. Closeout requires this handoff push/readback then normal epoch5811 release/provider-zero, recorded in sandbox tracker without reacquiring product write ownership solely for its receipt. Tranche A is complete subject to that mechanical closeout; no broader mission completion.
