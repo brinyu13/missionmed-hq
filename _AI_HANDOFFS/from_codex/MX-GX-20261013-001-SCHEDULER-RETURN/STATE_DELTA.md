@@ -13,7 +13,7 @@
 - DR-441 permits correction of this file and citation of independent read-only
   acceptance only. It grants no product, source, deployment, backend, data,
   auth, identity, entitlement, account, profile or appointment mutation.
-- Current correction fence: exact PATH
+- Correction fence, now normally released: exact PATH
   `PATH:46842ba106527d7b9df4cb5a1273cae35774cd078c5c8e0b41d23c6a08a22ea6`,
   lease `7469ed06-ba82-48a3-8c9d-74c4220c6883`, epoch `5959`.
 
@@ -136,8 +136,15 @@ above supplies the read-only production acceptance.
 
 ## Closeout status
 
-- Truthful correction commit/readback: pending this exact fenced transaction.
-- Current correction lease normal release: pending until after commit/readback.
-- Exact-task provider-zero after that release: pending readback; it will be
-  recorded only under the separately fenced DR-441 closeout step.
+- Truthful correction commit/readback: PASS at
+  `2ebbf28900180b3a24ab0609c3334b3cdc8771d4`; exact approved report bytes were
+  non-force pushed and read back from the remote branch.
+- Correction lease normal release: PASS for
+  `7469ed06-ba82-48a3-8c9d-74c4220c6883` / epoch `5959` at
+  `2026-10-14T20:36:01.559955Z`.
+- Correction exact-task provider-zero readback: PASS, zero active claims.
+- This final closeout line is written under fresh exact PATH lease
+  `e7bfd93f-4147-4196-84f1-955a7a589c7a` / epoch `5962`. Its own normal release
+  and terminal provider-zero readback necessarily follow this commit/readback
+  and are reported as the external final receipt; they are not preclaimed here.
 - Product code/source/live bytes: unchanged.
