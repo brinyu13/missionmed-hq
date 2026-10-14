@@ -1,6 +1,7 @@
 (function (window, document) {
 	"use strict";
 
+	var MATRIX_DASHBOARD_URL = "https://missionmedinstitute.com/member-dashboard/#dashboard";
 	var STATUS = {
 		draft: { label: "Draft", tone: "muted" },
 		uploaded: { label: "Uploaded", tone: "muted" },
@@ -300,6 +301,9 @@
 		this.destroyed = false;
 		this.listeners = [];
 		this.requests = new Set();
+		this.pendingWrites = 0;
+		this.reviewBaseline = null;
+		this.scoreBaseline = null;
 		this.transfers = new Set();
 		this.timers = new Set();
 		this.fileSearchTimer = 0;
@@ -419,6 +423,13 @@
 			this.legacyGuardObserver.observe(this.root, { childList: true, characterData: true, subtree: true });
 		}
 
+		this.listen(this.root, "click", function (event) { self.handleMatrixReturn(event); }, { capture: true });
+		this.listen(window, "beforeunload", function (event) {
+			if (self.hasPendingWrites() || self.hasUnsavedWork()) {
+				event.preventDefault();
+				event.returnValue = "";
+			}
+		});
 		this.listen(this.root, "click", function (event) { self.handleClick(event); });
 		this.listen(this.refs.settings, "click", function (event) {
 			event.preventDefault();
@@ -477,14 +488,13 @@
 	};
 
 	FileVaultV2.prototype.shellMarkup = function () {
-		var matrixUrl = String(this.config.matrixUrl || "/member-dashboard/");
 		return [
 			'<section class="mmed-fv2 fv2-cinematic" data-fv2-app aria-label="MissionMed File Vault">',
 			this.introVisible ? '<div class="fv2-intro" data-fv2-intro role="dialog" aria-modal="true" aria-labelledby="fv2-intro-title" aria-describedby="fv2-intro-description"><div class="fv2-intro-mark" aria-hidden="true">M</div><span>MissionMed / Mission Residency</span><h1 id="fv2-intro-title">FILE <em>VAULT</em></h1><p id="fv2-intro-description">Your Residency Document Workspace</p><button type="button" data-fv2-action="skip-intro">Enter File Vault</button></div>' : '',
 			'<span class="sos-filevault-v1 fv2-v1-guard-sentinel" hidden aria-hidden="true"></span>',
 			'<div class="fv2-atmosphere" aria-hidden="true"><i></i><i></i></div><div class="fv2-frame" data-fv2-frame' + (this.introVisible ? ' aria-hidden="true" inert' : '') + '>',
 			'<header class="fv2-hud">',
-			'<a class="fv2-matrix-return" href="' + escAttr(matrixUrl) + '" aria-label="Return to Matrix" data-matrix-app-mode-return="1" data-matrix-dashboard-return="true">' + icon("arrowLeft") + '<span>Matrix</span></a>',
+			'<a class="fv2-matrix-return" href="' + escAttr(MATRIX_DASHBOARD_URL) + '" aria-label="Return to Matrix" data-matrix-app-mode-return="1" data-matrix-dashboard-return="true">' + icon("arrowLeft") + '<span>Return to Matrix</span></a>',
 			'<div class="fv2-brand" aria-label="MissionMed File Vault"><img class="fv2-mobile-brand" src="' + escAttr(CINEMATIC_ASSETS + 'missionmed-logo.png') + '" alt="MissionMed Institute" width="279" height="110"><span class="fv2-brand-matrix">MissionMed</span><span class="fv2-brand-slash">//</span><strong>FileVault</strong></div>',
 			'<div class="fv2-hud-context"><span class="fv2-lens" data-fv2-lens>Vault</span><span class="fv2-student" data-fv2-student></span></div>',
 			'<div class="fv2-hud-actions">',
@@ -549,6 +559,8 @@
 		var controller = typeof window.AbortController === "function" ? new window.AbortController() : null;
 		var signal = controller ? controller.signal : externalSignal || null;
 		var abortFromExternal = null;
+		var isWrite = !/^(GET|HEAD|OPTIONS)$/i.test(method);
+		if (isWrite) this.pendingWrites += 1;
 		if (controller) {
 			this.requests.add(controller);
 			if (externalSignal && typeof externalSignal.addEventListener === "function") {
@@ -559,6 +571,7 @@
 		}
 
 		function finish() {
+			if (isWrite) self.pendingWrites -= 1;
 			if (controller) self.requests.delete(controller);
 			if (externalSignal && abortFromExternal && typeof externalSignal.removeEventListener === "function") {
 				externalSignal.removeEventListener("abort", abortFromExternal);
@@ -884,10 +897,9 @@
 		var uploadCta = subjectMode || !isStaffRole(role) || this.isStudentLens()
 			? '<button type="button" class="fv2-rail-upload" data-fv2-action="navigate" data-fv2-view="upload"' + (this.capability("upload") && this.storageReady() ? "" : " disabled") + '>' + icon("upload") + '<span>Upload</span></button>'
 			: (this.capability("share_mission_file") ? '<button type="button" class="fv2-rail-upload" data-fv2-action="open-share-upload" data-fv2-share-source="missionmed"' + (this.storageReady() ? "" : " disabled") + '>' + icon("upload") + '<span>Share Mission File</span></button>' : "");
-		var matrixUrl = String(this.config.matrixUrl || "/member-dashboard/");
 		var viewAs = isAdmin ? '<div class="fv2-view-as"><span>Viewing as</span>' + lensButtons + "</div>" : "";
 		var accountName = String(this.config.viewerName || (role === "admin" ? "MissionMed administrator" : (role === "mentor" ? "MissionMed mentor" : (this.state.data && this.state.data.student && this.state.data.student.display_name) || "MissionMed student")));
-		return '<div class="fv2-rail-brand"><img src="' + escAttr(CINEMATIC_ASSETS + 'missionmed-logo.png') + '" alt="MissionMed Institute" width="279" height="110"><strong>File<em>Vault</em></strong><span>SECURE. ORGANIZE. ACHIEVE.</span></div>' + uploadCta + '<div class="fv2-rail-label">' + esc(roleLabel) + "</div>" + markup + '<a class="fv2-rail-matrix" href="' + escAttr(matrixUrl) + '">' + icon("arrowLeft") + '<span>Back to Matrix</span></a><div class="fv2-rail-bottom"><p class="fv2-rail-motto">Your Next Chapter.<br><strong>Better Prepared.</strong></p>' + viewAs + '<div class="fv2-rail-account"><span>' + esc(accountName.charAt(0).toUpperCase() || "M") + '</span><strong>' + esc(accountName) + '</strong></div><div class="fv2-rail-foot"><span>Private by design</span><span>Secure document workflow</span></div></div>';
+		return '<div class="fv2-rail-brand"><img src="' + escAttr(CINEMATIC_ASSETS + 'missionmed-logo.png') + '" alt="MissionMed Institute" width="279" height="110"><strong>File<em>Vault</em></strong><span>SECURE. ORGANIZE. ACHIEVE.</span></div>' + uploadCta + '<div class="fv2-rail-label">' + esc(roleLabel) + "</div>" + markup + '<div class="fv2-rail-bottom"><p class="fv2-rail-motto">Your Next Chapter.<br><strong>Better Prepared.</strong></p>' + viewAs + '<div class="fv2-rail-account"><span>' + esc(accountName.charAt(0).toUpperCase() || "M") + '</span><strong>' + esc(accountName) + '</strong></div><div class="fv2-rail-foot"><span>Private by design</span><span>Secure document workflow</span></div></div>';
 	};
 
 	FileVaultV2.prototype.viewMarkup = function () {
@@ -1588,6 +1600,45 @@
 		}, 0);
 	};
 
+	FileVaultV2.prototype.reviewDraftSnapshot = function () {
+		return JSON.stringify([this.state.reviewStatus, this.state.reviewNote]);
+	};
+
+	FileVaultV2.prototype.scoreDraftSnapshot = function () {
+		return JSON.stringify([this.state.scoreDraft, this.state.scoreNotes]);
+	};
+
+	FileVaultV2.prototype.hasPendingWrites = function () {
+		var upload = this.state.upload;
+		return this.pendingWrites > 0 || Object.keys(this.state.busy).some(function (key) { return !!this.state.busy[key]; }, this) || !!(upload && (upload.active || ["hashing", "signing", "transferring", "confirming"].indexOf(upload.phase) !== -1));
+	};
+
+	FileVaultV2.prototype.hasUnsavedWork = function () {
+		var upload = this.state.upload;
+		if (upload && upload.phase !== "success" && (upload.file || upload.dirty)) return true;
+		if (this.reviewBaseline !== null && this.reviewBaseline !== this.reviewDraftSnapshot()) return true;
+		if (this.scoreBaseline !== null && this.scoreBaseline !== this.scoreDraftSnapshot()) return true;
+		return Array.prototype.some.call(this.root.querySelectorAll('[data-fv2-form="comment"] textarea,[data-fv2-form="internal-note"] textarea'), function (field) {
+			return field.value !== field.defaultValue;
+		});
+	};
+
+	FileVaultV2.prototype.handleMatrixReturn = function (event) {
+		var link = event.target && event.target.closest ? event.target.closest(".fv2-matrix-return") : null;
+		if (!link || !this.root.contains(link) || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		if (this.hasPendingWrites()) {
+			this.toast("Please wait", "Finish or stop the current upload, save, or share before returning to Matrix.", "info");
+			return;
+		}
+		if (this.hasUnsavedWork() && !window.confirm("Leave File Vault and discard your unsaved changes?")) return;
+		if (this.state.upload && this.state.upload.phase !== "success") this.abortUpload(true);
+		if (currentInstance === this) publicUnmount();
+		else this.unmount();
+		window.location.assign(MATRIX_DASHBOARD_URL);
+	};
+
 	FileVaultV2.prototype.handleClick = function (event) {
 		var button = event.target.closest("[data-fv2-action]");
 		if (!button || !this.root.contains(button) || button.disabled) return;
@@ -1654,6 +1705,7 @@
 				if (uploadInput) uploadInput.click();
 				break;
 			case "remove-upload-file":
+				if (this.state.upload) this.state.upload.dirty = true;
 				if (this.state.upload) {
 					this.state.upload.file = null;
 					this.state.upload.fileError = "";
@@ -1872,6 +1924,7 @@
 
 	FileVaultV2.prototype.handleChange = function (event) {
 		var target = event.target;
+		if (this.state.upload && this.state.overlay === "upload" && target.matches("input:not([type=search]),select,textarea") && this.refs.overlay.contains(target)) this.state.upload.dirty = true;
 		if (target.matches("[data-fv2-home-upload-type]")) {
 			this.state.homeUploadType = target.value;
 			this.render({ focusKey: "home-upload-type" });
@@ -2022,6 +2075,7 @@
 
 	FileVaultV2.prototype.handleInput = function (event) {
 		var target = event.target;
+		if (this.state.upload && this.state.overlay === "upload" && target.matches("input:not([type=search]),select,textarea") && this.refs.overlay.contains(target)) this.state.upload.dirty = true;
 		if (target.matches("[data-fv2-header-search]")) {
 			this.state.fileSearch = target.value;
 			this.state.view = "files";
@@ -2179,6 +2233,7 @@
 		var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
 		if (!file) return;
 		if (this.state.overlay === "upload" && this.state.upload && this.refs.overlay && this.refs.overlay.contains(dropzone)) {
+			this.state.upload.dirty = true;
 			this.state.upload.file = file;
 			this.state.upload.fileError = this.validateFile(file, this.state.upload.documentType);
 			this.state.upload.sha256 = "";
@@ -2445,6 +2500,8 @@
 		this.state.documentLoading = false;
 		this.state.documentError = "";
 		this.state.workspaceTab = "score";
+		this.reviewBaseline = null;
+		this.scoreBaseline = null;
 		this.state.reviewStatus = "reviewed";
 		this.state.reviewNote = "";
 		this.state.scoreDraft = {};
@@ -2723,6 +2780,8 @@
 		var reviewOptions = this.reviewStatusOptions(documentItem);
 		this.state.reviewStatus = reviewOptions.length ? reviewOptions[0].value : "";
 		this.state.reviewNote = documentItem.review_note || "";
+		this.reviewBaseline = this.reviewDraftSnapshot();
+		this.scoreBaseline = this.scoreDraftSnapshot();
 	};
 
 	FileVaultV2.prototype.upsertDocument = function (documentItem) {
@@ -2896,12 +2955,14 @@
 			this.toast("Review note required", "Describe the changes the student should make.", "error");
 			return;
 		}
+		var savedDraft = this.reviewDraftSnapshot();
 		this.state.busy.review = true;
 		this.render({ focusKey: "workspace-score" });
 		this.request("PUT", "/files/" + positiveInt(documentItem.id) + "/status", { status: status, note: note }).then(function (updated) {
 			if (!self.studentContextMatches(studentContext)) return;
 			self.upsertDocument(updated);
 			self.state.documentDetail = updated;
+			self.reviewBaseline = savedDraft;
 			self.toast("Review status saved", String(updated.status_label || statusInfo(status).label) + " is now recorded.", "success");
 			self.playSuccessSound();
 			return self.refreshAfterMutation(studentContext);
@@ -2927,6 +2988,7 @@
 			var key = slugify(label);
 			categories[key] = boundedInt(self.state.scoreDraft[key], 0, 10);
 		});
+		var savedDraft = this.scoreDraftSnapshot();
 		this.state.busy.score = true;
 		this.render({ focusKey: "workspace-score" });
 		this.request("POST", "/files/" + positiveInt(documentItem.id) + "/score", {
@@ -2940,6 +3002,7 @@
 			documentItem.scores = scores;
 			documentItem.latest_score = score;
 			self.upsertDocument(documentItem);
+			self.scoreBaseline = savedDraft;
 			self.toast("Score saved", String(score.total_score) + "/" + String(self.scoreMaximum(score, rubric)) + " is now recorded for v" + String(score.version) + ".", "success");
 			self.playSuccessSound();
 			return self.refreshAfterMutation(studentContext);
@@ -3402,6 +3465,7 @@
 				readyForReview: !this.roleIsStaff() && !shareSource,
 				shareDestination: !this.roleIsStaff() && !shareSource ? String(options.shareDestination || "staff") : "",
 			shareAsMissionFile: shareSource === "missionmed",
+			dirty: !!options.file,
 			file: options.file || null,
 			fileError: "",
 			phase: "idle",

@@ -6999,3 +6999,20 @@ body.admin-bar.matrix-app-mode-file-vault #mmed-matrix-app-return {
  .fv2-cinematic .fv2-category-copy strong{width:calc((100% + 5px) / .8);transform:scaleX(.8);overflow-wrap:normal;}
  .fv2-cinematic .fv2-category-card:is(:hover,:focus-visible) .fv2-category-copy strong{transform:scale(.824,1.03);}
 }
+
+/* DR-426: one native, keyboard-visible return in the existing header. */
+.fv2-cinematic .fv2-matrix-return {
+ display:inline-flex;flex:0 0 auto;min-height:44px;padding:0 10px;
+ color:#fff3d6;border-color:#a87835;background:#101923;
+ font-size:12px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap;
+}
+.fv2-cinematic .fv2-matrix-return span {display:inline;}
+.fv2-cinematic .fv2-matrix-return:hover {color:#fff;background:#302415;border-color:#ffbd64;}
+.fv2-cinematic .fv2-matrix-return:focus-visible {outline:2px solid #ffbd64;outline-offset:3px;}
+.fv2-cinematic .fv2-hud-actions {width:auto;min-width:0;flex:1;}
+.fv2-cinematic .fv2-header-search {min-width:0;}
+@media(max-width:760px){
+ .fv2-cinematic .fv2-hud {gap:8px;}
+ .fv2-cinematic .fv2-hud-actions {gap:8px;}
+ .fv2-cinematic .fv2-matrix-return {width:auto;min-width:0;padding:0 8px;font-size:11px;}
+}
