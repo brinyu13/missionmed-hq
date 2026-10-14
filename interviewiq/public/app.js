@@ -2068,7 +2068,7 @@ async function dispatchAction(button){
   catch(error){notice(error.message);setSaved('Save not confirmed');}
   finally{activeActions.delete(key);if(button.isConnected)button.removeAttribute('aria-busy');}
 }
-document.addEventListener('click',ev=>{const b=ev.target.closest('[data-act]');if(!b)return;if(b.tagName==='INPUT'&&b.type==='checkbox')return;ev.preventDefault();ev.stopPropagation();void dispatchAction(b);});
+document.addEventListener('click',ev=>{const b=ev.target.closest('[data-act]');if(!b)return;if(b.tagName==='INPUT'&&b.type==='checkbox')return;if(ev.detail>1&&S?.ui.drawer?.kind==='intake'&&b.dataset.act==='drawer-close'){ev.preventDefault();ev.stopPropagation();return;}ev.preventDefault();ev.stopPropagation();void dispatchAction(b);});
 document.addEventListener('click',ev=>{const cell=ev.target.closest('[data-cal-day]');if(!cell||ev.target.closest('[data-act]')||!S)return;A['cal-day']({dataset:{day:cell.dataset.calDay}});});
 document.addEventListener('change',ev=>{const b=ev.target;if(b.matches('[data-act]')&&b.type==='checkbox')void dispatchAction(b);});
 document.addEventListener('keydown',ev=>{
