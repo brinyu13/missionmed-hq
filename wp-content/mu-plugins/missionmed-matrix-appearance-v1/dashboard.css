@@ -21,6 +21,7 @@ html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 :
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 :is(.mmdv2-row,.mmdv2-ic){background:var(--bg2);color:var(--tx)}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 :is(.mmdv2-chip,.mmdv2-link,.mmdv2-rrel button):hover{color:var(--tx);background:var(--bg2)}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 .mmdv2-seg button.on{background:#142a40;color:#fff}
+html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 .mmdv2-btn-ghost{background:#fff;color:#142a40;border-color:#657e98}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 .mmdv2-bar{background:#c1cfde}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 :focus-visible{outline:3px solid #005c7a;outline-offset:3px}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2 .mmed-appearance-v1 :is(select,button){background:#fff;color:#142a40;border-color:#657e98}
@@ -34,6 +35,8 @@ html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-d
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-ed{background:rgba(222,233,245,.9);color:#142a40;color-scheme:light}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-edlg{background:#fff;border-color:#657e98}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-ed :is(input[type=text],input[type=url],textarea){background:#f3f7fc;border-color:#657e98;color:#142a40}
+html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-ed :is(input,textarea)::placeholder{color:#4d6279;opacity:1}
+html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-ed .mmdv2-edstatus{color:#87530a}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-ed :is(.mmdv2-f>span,.mmdv2-f small,.mmdv2-dlb,.mmdv2-link){color:#3b5269}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-ed :is(.mmdv2-btn-ghost,.mmdv2-danger){background:#eaf1f8;border-color:#657e98;color:#142a40}
 html[data-mmed-dashboard-appearance="light"] :is(#student-os-root,body) .mmdv2-ed :focus-visible{outline:3px solid #005c7a;outline-offset:3px}
