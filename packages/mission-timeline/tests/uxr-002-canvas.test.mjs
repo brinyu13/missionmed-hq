@@ -43,6 +43,7 @@ import {
   updateInlineLabelDraft
 } from "../web/js/uxr-002/canvas.js";
 import {CATEGORIES,HISTORY_LIMIT,VISIBILITY} from "../web/js/uxr-002/constants.js";
+import {categoriesWithVolunteer} from "../web/js/uxr-002/volunteer-category.js";
 import {defaultDocument} from "../web/js/uxr-002/store.js";
 
 const canvasSource=await readFile(
@@ -503,12 +504,16 @@ test("M8 keyboard move, resize, lane, Details, F2 trap state, Delete, announceme
   assert.equal(store.document.events.some(({id}) => id === "clinical"),true);
 });
 
-test("M8 add-event popover contains the shared six-category dataset and adds one canonical event at temporal center",() => {
+test("M8 add-event popover contains the shared six-category dataset plus first-class Volunteer and adds one canonical event at temporal center",() => {
   const state = {...createCanvasState(),addEventOpen:true};
   const html = renderAddEventPopover(state);
   const ids = [...html.matchAll(/data-add-category="([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(ids,CATEGORIES.map(({id}) => id));
-  for (const category of CATEGORIES) {
+  // TL-AAA-STABILIZE-20261013: Volunteer is a first-class chooser entry after Work; the six
+  // shared categories remain, in order, and Volunteer persists as work + VOLUNTEER_EXPERIENCE.
+  assert.deepEqual(ids,categoriesWithVolunteer(CATEGORIES).map(({id}) => id));
+  assert.deepEqual(ids.filter((id) => id !== "volunteer"),CATEGORIES.map(({id}) => id));
+  assert.equal(ids[ids.indexOf("work")+1],"volunteer");
+  for (const category of categoriesWithVolunteer(CATEGORIES)) {
     assert.match(html,new RegExp(`>${category.label.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}<`));
   }
 

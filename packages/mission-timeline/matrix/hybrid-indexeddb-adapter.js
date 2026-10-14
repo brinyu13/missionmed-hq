@@ -92,6 +92,8 @@ function historyVersion(version) {
 }
 
 export class HybridIndexedDbAdapter extends IndexedDbAdapter {
+  /** Longest the server may lag continuous local editing before a flush is forced. */
+  static FLUSH_MAX_WAIT_MS = 8_000;
   constructor({ apiClient, programId, deviceId = `browser-${crypto.randomUUID()}`, onStatus = () => {}, remoteSyncConsent = false, ...indexedDb } = {}) {
     super(indexedDb);
     this.kind = "HYBRID_INDEXED_DB";
@@ -102,6 +104,7 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
     this.remoteSyncConsent = remoteSyncConsent === true;
     this.flushing = null;
     this.flushTimer = null;
+    this.flushDeadline = 0;
     this.syncStatus = Object.freeze({
       state: "LOCAL_ONLY",
       event: "INITIAL",
@@ -406,8 +409,19 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
 
   scheduleFlush(delay = 2_500) {
     if (!this.remoteSyncConsent) return;
+    // TL-AAA-STABILIZE-20261013: a purely trailing debounce never reached the server while a
+    // student kept editing faster than the delay (12 rotations in 29 s synced nothing). The
+    // first scheduled flush fixes a deadline; later reschedules may shorten the wait but never
+    // push it past that deadline, so the server lags live editing by at most FLUSH_MAX_WAIT_MS.
+    const now = Date.now();
+    if (!this.flushDeadline) this.flushDeadline = now + HybridIndexedDbAdapter.FLUSH_MAX_WAIT_MS;
+    const bounded = Math.max(0, Math.min(delay, this.flushDeadline - now));
     clearTimeout(this.flushTimer);
-    this.flushTimer = setTimeout(() => this.flush().catch(() => {}), delay);
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null;
+      this.flushDeadline = 0;
+      this.flush().catch(() => {});
+    }, bounded);
   }
 
   async flush() {

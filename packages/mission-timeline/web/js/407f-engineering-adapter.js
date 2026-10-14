@@ -277,6 +277,7 @@ import {
   localEntitlementScenarioFromLocation
 } from "./uxr-002/entitlement.js";
 import {parseMonth,uid} from "./uxr-002/utils.js";
+import {categoriesWithVolunteer,chooserCategoryId,resolveChosenCategory} from "./uxr-002/volunteer-category.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -1308,7 +1309,17 @@ export function timelineRenderSignature(document){
        polaroid never re-rendered and stayed "DROP PHOTO" until an unrelated edit. */
     mediaItems:document?.mediaItems||null,
     interview:document?.metadata?.interview||null,
-    specialties:document?.specialties||document?.specialtyVariants||null
+    specialties:document?.specialties||document?.specialtyVariants||null,
+    /* TL-AAA-STABILIZE-20261013 — every remaining composer input. With these in the
+       signature a wizard draft keystroke (builder.drafts) no longer has to force a
+       full recomposition; only a material presentation change re-renders the board. */
+    exams:document?.exams||null,
+    layoutLock:document?.layoutLock===true,
+    rotationLor:document?.rotationLor||null,
+    examReviewCorrections:document?.builder?.examReviewCorrections||null,
+    aiExamReviewQueue:document?.builder?.aiExamReviewQueue||null,
+    stickyNote:document?.metadata?.stickyNote||"",
+    presentationMonth:[document?.metadata?.presentationCurrentMonth||"",document?.metadata?.renderCurrentMonth||"",document?.metadata?.localTestPrototype?true:false]
   });
 }
 
@@ -1336,7 +1347,7 @@ export function currentFounderBuilderStep407F(bridgeState,document){
   return Math.max(1,Math.min(7,Number.isInteger(active)&&active>0?active:Number.isInteger(saved)&&saved>0?saved:1));
 }
 
-export function mountFounderBuilderStep407F(host,{store,step=Number(store.document.builder?.step)||1,providers={},mergeBridgeState=()=>{},onCommitted=()=>{},onNavigate=()=>{},toast=()=>{}}={}){
+export function mountFounderBuilderStep407F(host,{store,step=Number(store.document.builder?.step)||1,providers={},mergeBridgeState=()=>{},onCommitted=()=>{},onNavigate=()=>{},toast=()=>{},runEdit=(perform)=>perform()}={}){
   if(!host||!store)return false;
   const markup=renderFounderBuilderStep(store.document,step);
   if(markup===null)return false;
@@ -1348,8 +1359,9 @@ export function mountFounderBuilderStep407F(host,{store,step=Number(store.docume
     host.dataset.founderBuilderBoundary="true";
   }
   const editorStore={get document(){return store.document;},
-    mutate(label,mutate,options){const result=store.mutate(label,document=>{mergeBridgeState(document);mutate(document);},options);queueMicrotask(onCommitted);return result;},
-    undo(){const result=store.undo();queueMicrotask(onCommitted);return result;},navigate:view=>onNavigate(view)};
+    // runEdit lets the production shell keep an edit refused during session renewal.
+    mutate(label,mutate,options){return runEdit(()=>{const result=store.mutate(label,document=>{mergeBridgeState(document);mutate(document);},options);queueMicrotask(onCommitted);return result;},{label});},
+    undo(){return runEdit(()=>{const result=store.undo();queueMicrotask(onCommitted);return result;},{label:"undo"});},navigate:view=>onNavigate(view)};
   installBuilder(host,editorStore,{providers,toast});return true;
 }
 
@@ -1578,7 +1590,7 @@ export function renderCanvasDetails(route,event,document){
     <div class="canvas407FDetailGrid">
       ${displayControls}
       <label class="canvas407FDetailField canvas407FDetailWide"><span>Title</span><input type="text" data-canvas-detail-key="title" value="${escapeMarkup(event.title)}"></label>
-      <label class="canvas407FDetailField"><span>Category</span><select data-canvas-detail-key="categoryId">${Object.keys(CATEGORY_TO_407F).map((category)=>`<option value="${category}" ${event.categoryId===category?"selected":""}>${escapeMarkup(category[0].toUpperCase()+category.slice(1))}</option>`).join("")}</select></label>
+      <label class="canvas407FDetailField"><span>Category</span><select data-canvas-detail-key="categoryId">${categoriesWithVolunteer(Object.keys(CATEGORY_TO_407F).map((id)=>({id,label:id[0].toUpperCase()+id.slice(1)}))).map((category)=>`<option value="${escapeMarkup(category.id)}" ${chooserCategoryId(event)===category.id?"selected":""}>${escapeMarkup(category.label)}</option>`).join("")}</select></label>
       ${startDateControl}
       ${endDateControl}
       ${imported?'<p class="field-error canvas407FDetailWide" data-canvas-imported-error role="status" aria-live="polite"></p>':""}
@@ -1913,6 +1925,7 @@ export async function boot407FEngineeringAdapter({
         expectedBinding:productionRuntime.expectedBinding
       });
       store.setEntitlement(renewedEntitlement);
+      replayDeferredSessionEdits();
     });
     window.addEventListener("mission-timeline-sync",onRemoteSyncStatus);
   }
@@ -2163,6 +2176,12 @@ export async function boot407FEngineeringAdapter({
   });
   let applying=false;
   let canvasController=null;
+  /* TL-AAA-STABILIZE-20261013: wizard saves no longer compose the hidden Edit Timeline canvas.
+     Remember what the canvas last composed so entering it after those saves recomposes
+     exactly once, and only when the document presentation actually changed. */
+  let canvasComposedSignature=null;
+  const renderCanvasForDocument=()=>{canvasComposedSignature=timelineRenderSignature(store.document);canvasController?.render();};
+  const renderCanvasIfStale=()=>{if(canvasController&&timelineRenderSignature(store.document)!==canvasComposedSignature)renderCanvasForDocument();};
   let removeAdvanced=()=>{};
   let exportController=null;
   let exportRenderQueued=false;
@@ -2272,6 +2291,88 @@ export async function boot407FEngineeringAdapter({
     bridge.toast(translated.message,{tone:"danger",diagnostic:translated.diagnostic});
     return translated.message;
   };
+  /* TL-AAA-STABILIZE-20261013 (Silma): the 120-second session token routinely lapses while
+     a tab is in the background or a laptop sleeps, and the store then refuses edits with
+     TimelineEntitlementError until the renewed claims arrive. Before this change the first
+     save or field edit after coming back threw out of its click handler: nothing visible,
+     the edit silently dropped. Now a refused edit during renewal is kept, renewal is
+     requested at once, the student is told plainly, and the kept edit replays automatically
+     when the claims return (or fails honestly if access was really revoked). */
+  const deferredSessionEdits=[];
+  let sessionRenewalToastAt=0;
+  const sessionRenewalRefusal=(error)=>error?.name==="TimelineEntitlementError"&&error?.sessionRenewalPending===true;
+  let sessionRenewalRequestedAt=0;
+  const requestSessionRenewal=()=>{
+    const client=productionRuntime?.authClient;
+    if(!client||client.locked||client.closed)return;
+    if(Date.now()-sessionRenewalRequestedAt<5000)return;
+    sessionRenewalRequestedAt=Date.now();
+    client.refreshToken().catch(()=>{});
+  };
+  const runOrDeferSessionEdit=(perform,{label="edit",onDeferred=null}={})=>{
+    try{return perform();}
+    catch(error){
+      if(!sessionRenewalRefusal(error))throw error;
+      deferredSessionEdits.push({perform,label});
+      requestSessionRenewal();
+      if(Date.now()-sessionRenewalToastAt>4000){
+        sessionRenewalToastAt=Date.now();
+        toastStudentError(error,"save");
+      }
+      return onDeferred?onDeferred(error):undefined;
+    }
+  };
+  /* Asynchronous flows (CV review approval) wait for a pending renewal instead of failing. */
+  const awaitSessionRenewal=async({timeoutMs=12000}={})=>{
+    store.refreshEntitlementExpiry({emit:true});
+    if(store.entitlement.canMutate===true||store.entitlement.denialCode!=="SESSION_VERIFICATION_EXPIRED")return store.entitlement.canMutate===true;
+    requestSessionRenewal();
+    const started=Date.now();
+    while(Date.now()-started<timeoutMs){
+      await new Promise(resolve=>setTimeout(resolve,150));
+      if(store.entitlement.canMutate===true)return true;
+      if(store.entitlement.denialCode!=="SESSION_VERIFICATION_EXPIRED")return false;
+    }
+    return false;
+  };
+  const replayDeferredSessionEdits=()=>{
+    if(!deferredSessionEdits.length||store.entitlement.canMutate!==true)return;
+    const queued=deferredSessionEdits.splice(0,deferredSessionEdits.length);
+    let replayed=0;
+    for(const item of queued){
+      try{item.perform();replayed+=1;}
+      catch(error){
+        if(sessionRenewalRefusal(error)){deferredSessionEdits.push(item);continue;}
+        toastStudentError(error,"save");
+      }
+    }
+    if(replayed){
+      // Replayed edits bypassed the surface refresh their click handler normally performs.
+      try{syncBridgeFromStore();}catch(error){console.warn("Timeline deferred-edit refresh failed",error);}
+    }
+    if(replayed&&!deferredSessionEdits.length)bridge.toast("Session reconnected. Your kept changes were saved.",{tone:"success"});
+  };
+  /* Kept edits that can never replay (access locked or really revoked) are reported honestly
+     instead of staying queued behind a "we will save it" promise. */
+  const abandonDeferredSessionEdits=(reason)=>{
+    if(!deferredSessionEdits.length)return;
+    const count=deferredSessionEdits.splice(0,deferredSessionEdits.length).length;
+    bridge.toast(`${count===1?"One kept change":`${count} kept changes`} could not be saved: ${reason} Please redo ${count===1?"it":"them"} after signing in again.`,{tone:"danger"});
+  };
+  if(productionRuntime){
+    // The moment the store notices the token lapsed, ask for renewal instead of waiting
+    // for the (possibly throttled) refresh timer or the next visibility change. Registered
+    // after the helpers above exist: store.subscribe invokes its listener immediately.
+    store.subscribe(()=>{
+      const denial=store.entitlement?.denialCode||"";
+      if(denial==="SESSION_VERIFICATION_EXPIRED"){requestSessionRenewal();return;}
+      if(deferredSessionEdits.length&&store.entitlement?.canMutate!==true&&denial)abandonDeferredSessionEdits("your Timeline access changed while reconnecting.");
+    });
+    window.addEventListener("beforeunload",(event)=>{
+      if(!deferredSessionEdits.length)return;
+      event.preventDefault();event.returnValue="A change is still waiting to be saved.";
+    });
+  }
   const entitlementStudentReason=()=>entitlementStatusMarkup(store.entitlement).reason;
 
   let pending=false;
@@ -2448,13 +2549,22 @@ export async function boot407FEngineeringAdapter({
       reflectStoreStatus();
       const nextState=stableState(bridge.state);
       if(nextState===lastState)return;
-      lastState=nextState;
       if(store.entitlement.canMutate===true){
-        store.mutate(
-          "Timeline edit",
-          (document)=>apply407FStateToDocument(bridge.state,document)
-        );
+        /* The token can lapse between the capability check and the mutate (seen after a long
+           idle): keep the bridge state pending for the next render instead of throwing. */
+        try{
+          store.mutate(
+            "Timeline edit",
+            (document)=>apply407FStateToDocument(bridge.state,document)
+          );
+          lastState=nextState;
+        }catch(error){
+          if(!sessionRenewalRefusal(error))throw error;
+          requestSessionRenewal();
+          return;
+        }
       }else{
+        lastState=nextState;
         applying=true;
         applyDocumentTo407FState(store.document,bridge.state);
         bridge.renderAll();
@@ -2478,6 +2588,15 @@ export async function boot407FEngineeringAdapter({
   window.addEventListener("pagehide",flushExitPersistence,{capture:true});
   window.addEventListener("pageshow",(event)=>{
     if(event.persisted)exitPersistenceStarted=false;
+  },{capture:true});
+  /* TL-AAA-STABILIZE-20261013: the local autosave is debounced and the remote sync trails it,
+     so a student who saved and left within a few seconds could lose the entry. The moment the
+     tab is hidden (tab switch, navigation, close) the pending local save is committed and the
+     server sync is started while the page is still alive, instead of waiting for pagehide. */
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState!=="hidden"||store.entitlement.canMutate!==true)return;
+    const pending=store.flushPendingSave("PAGE_HIDDEN");
+    Promise.resolve(pending).then(()=>store.adapter?.flush?.()).catch(()=>{});
   },{capture:true});
   window.addEventListener("beforeunload",()=>{
     document.removeEventListener("d1:407f-rendered",reconcile);
@@ -3508,7 +3627,8 @@ export async function boot407FEngineeringAdapter({
     if([2,4,6].includes(founderStep))mountFounderBuilderStep407F(stepHost,{
       store,step:founderStep,providers:runtimeDatasets,
       mergeBridgeState:document=>apply407FStateToDocument(bridge.state,document),
-      onCommitted:()=>syncBridgeFromStore(),onNavigate:view=>bridge.go(view),toast:message=>bridge.toast(message)
+      onCommitted:()=>syncBridgeFromStore(),onNavigate:view=>bridge.go(view),toast:message=>bridge.toast(message),
+      runEdit:(perform,options)=>runOrDeferSessionEdit(perform,{...options,onDeferred:()=>false})
     });
     else if(stepHost)delete stepHost.dataset.founderBuilderStep;
     const explanationHost=document.getElementById("explanationBuilder407F");
@@ -4415,13 +4535,33 @@ export async function boot407FEngineeringAdapter({
       force
     });
   };
+  /* TL-AAA-STABILIZE-20261013 (Ismat): the embedded preview composition is the single
+     heaviest piece of main-thread work in the wizard (Founder collision solver). It used
+     to run in a microtask inside the same task as the click that saved a rotation, so the
+     saved row could not paint until the composition finished. Preview updates are now
+     coalesced (a forced request upgrades a pending one instead of queueing a second
+     composition) and run in their own task after the wizard has painted, with the
+     preview marked busy in the meantime. Synchronous callers (view switches, boot) are
+     unchanged; a stale pending request is superseded by the latest document state because
+     the composition always reads store.document when it runs. */
+  let builderPreviewForcePending=false;
   const queueBuilderEmbeddedPreview=({force=false}={})=>{
-    if(builderPreviewRenderQueued&&!force)return;
+    builderPreviewForcePending=builderPreviewForcePending||force;
+    if(builderPreviewRenderQueued)return;
     builderPreviewRenderQueued=true;
-    queueMicrotask(()=>{
+    const host=document.getElementById("boardWizard");
+    if(host?.querySelector("[data-builder-preview-surface]")){host.dataset.builderPreviewUpdating="true";host.setAttribute("aria-busy","true");}
+    const run=()=>{
       builderPreviewRenderQueued=false;
-      renderBuilderEmbeddedPreview({force});
-    });
+      const forced=builderPreviewForcePending;builderPreviewForcePending=false;
+      try{renderBuilderEmbeddedPreview({force:forced});}
+      finally{
+        const current=document.getElementById("boardWizard");
+        if(current){delete current.dataset.builderPreviewUpdating;current.removeAttribute("aria-busy");updateBuilderPreviewHitTargets(current);}
+      }
+    };
+    if(typeof requestAnimationFrame==="function"&&document.visibilityState!=="hidden")requestAnimationFrame(()=>setTimeout(run,0));
+    else setTimeout(run,0);
   };
   const applyBuilderPreviewZoom=()=>{
     const canvas=document.querySelector("[data-builder-preview-canvas]");
@@ -6230,20 +6370,24 @@ export async function boot407FEngineeringAdapter({
     if(route.startsWith("advisor-session:"))bridge.go("advisor");
   };
   window.addEventListener("hashchange",onAdvisorHashChange);
-  const commitExamMutation=(label,mutation,{render=true}={})=>{
+  const commitExamMutation=(label,mutation,{render=true}={})=>runOrDeferSessionEdit(()=>commitExamMutationNow(label,mutation,{render}),{label,onDeferred:()=>null});
+  const commitExamMutationNow=(label,mutation,{render=true}={})=>{
     let result=null;
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
       result=mutation(document);
     },{emit:render});
+    // An explicit exam save is committed to local storage at once (typing stays debounced).
+    if(render)store.flushPendingSave("ENTRY_SAVED").catch(()=>{});
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     if(render){
       bridge.renderAll();
-      canvasController?.render();
+      if(bridge.state.view==="canvas")renderCanvasForDocument();
     }else{
       reflectStoreStatus();
-      queueBuilderEmbeddedPreview({force:true});
+      // document.exams is part of the render signature; only a material change recomposes.
+      queueBuilderEmbeddedPreview();
     }
     lastState=stableState(bridge.state);
     applying=false;
@@ -6281,20 +6425,31 @@ export async function boot407FEngineeringAdapter({
       );
     }
   });
-  const commitDomainMutation=(label,mutation,{render=true}={})=>{
+  // A refused save returns {ok:false, deferred:true} so the wizard keeps the form as typed.
+  const commitDomainMutation=(label,mutation,{render=true}={})=>runOrDeferSessionEdit(()=>commitDomainMutationNow(label,mutation,{render}),{label,onDeferred:()=>({ok:false,deferred:true,errors:{}})});
+  const commitDomainMutationNow=(label,mutation,{render=true}={})=>{
     let result=null;
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
       ensureBuilderState(document);
       result=mutation(document);
-    });
+    },{persist:render?"now":"scheduled"});
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     if(render){
       bridge.renderAll();
-      canvasController?.render();
+      /* The Advanced Studio canvas is not on screen while the student is in the
+         wizard; its own full composition runs when the canvas view is shown
+         (the d1:407f-rendered reconcile path renders it on entry). Composing it
+         here doubled the main-thread cost of every saved rotation. */
+      if(bridge.state.view==="canvas")renderCanvasForDocument();
     }else{
-      queueBuilderEmbeddedPreview({force:true});
+      /* TL-AAA-STABILIZE-20261013 (Ismat): a draft field blur used to FORCE a full
+         Founder recomposition (beam-search collision solver) even though a draft never
+         changes the composed board. With N saved rotations every keystroke-commit cost
+         seconds of main-thread time and the browser reported "Page Unresponsive".
+         The signature gate re-renders only when a composer input actually changed. */
+      queueBuilderEmbeddedPreview();
     }
     lastState=stableState(bridge.state);
     applying=false;
@@ -6663,7 +6818,7 @@ export async function boot407FEngineeringAdapter({
     if(documentPresentationChanged){
       lastStoreRenderSignature=renderSignature;
       queueBuilderEmbeddedPreview();
-      if(bridge.state.view==="canvas")canvasController?.render();
+      if(bridge.state.view==="canvas")renderCanvasForDocument();
     }
     if(store.entitlement.canMutate!==true)return;
     if(approvalReconciling)return;
@@ -6857,11 +7012,23 @@ export async function boot407FEngineeringAdapter({
             return;
           }
         }
-        store.mutate("Edit timeline event details",(document)=>{
+        const saveEventDetails=()=>store.mutate("Edit timeline event details",(document)=>{
           const selected=document.events.find((item)=>String(item.id)===String(eventId));
           if(!selected)return;
           for(const input of form.querySelectorAll("[data-canvas-detail-key]")){
             const key=input.dataset.canvasDetailKey;
+            if(key==="categoryId"){
+              /* TL-AAA-STABILIZE-20261013: Volunteer is a first-class choice here too. It
+                 persists as Work + volunteer source facts, and the display override that
+                 Guided Mode writes for Volunteer entries follows the student's choice. */
+              const resolved=resolveChosenCategory(input.value,selected);
+              selected.categoryId=resolved.categoryId;
+              selected.fields=resolved.fields;
+              const override=document.presentationOverrides?.events?.[String(selected.id)]?.categoryId;
+              if(resolved.volunteer&&override!=="volunteer")document.presentationOverrides=setFounderEventDisplay(document,selected.id,{categoryId:"volunteer"}).presentationOverrides;
+              else if(!resolved.volunteer&&override==="volunteer")document.presentationOverrides=setFounderEventDisplay(document,selected.id,{categoryId:null}).presentationOverrides;
+              continue;
+            }
             selected[key]=["startDate","endDate"].includes(key)
               ?(input.dataset.dateCanonical||parseMonth(input.value)||"")
               :input.value;
@@ -6911,9 +7078,13 @@ export async function boot407FEngineeringAdapter({
           const visible=form.querySelector("[data-canvas-variant-visible]")?.checked!==false;
           setVariantEventHidden(document,active.id,selected.id,!visible);
         });
-        syncBridgeStateFromStore();
-        canvasController.render({animateLayout:true});
-        bridge.toast("Event details saved");
+        const finishEventDetails=()=>{
+          syncBridgeStateFromStore();
+          canvasController.render({animateLayout:true});
+          bridge.toast("Event details saved");
+        };
+        const outcome=runOrDeferSessionEdit(()=>{saveEventDetails();return "saved";},{label:"Edit timeline event details",onDeferred:()=>"deferred"});
+        if(outcome==="saved")finishEventDetails();
         return;
       }
       if(builderButton){
@@ -10005,10 +10176,11 @@ export async function boot407FEngineeringAdapter({
       onToast:(message)=>bridge.toast(studentMessage(message,{context:"document"})),
       onError:(error)=>toastStudentError(error,"document"),
       openDialog:openIntakeDialog,
-      saveVersion:(name,kind)=>store.saveVersion(name,kind),
+      saveVersion:async(name,kind)=>{await awaitSessionRenewal();return store.saveVersion(name,kind);},
       applyBatch:async(batch,contract)=>{
         let result=null;
         const feedbackState=intakeMachine.snapshot();
+        await awaitSessionRenewal();
         store.mutate(contract?.label||"Add document suggestions",(document)=>{
           result=applyApprovalBatchToDocument(document,batch);
           const feedbackParser=feedbackState?.extraction?.parser||feedbackState?.parser||null;
@@ -10317,6 +10489,7 @@ export async function boot407FEngineeringAdapter({
     }
     if(view==="canvas"){
       renderCanvasResponsiveNotice();
+      renderCanvasIfStale();
       requestAnimationFrame(()=>requestAnimationFrame(
         ()=>canvasController?.refreshEffectiveHitTargets?.()
       ));

@@ -254,6 +254,41 @@ function inspectChronology(document,findings){
   }
 }
 
+/* TL-AAA-STABILIZE-20261013: one Guardian pass composed the same unchanged document up to
+   ten times (layout, readability, overflow count, and each concise-label stage), and the
+   server runs this pass on every save and read. A pass-scoped memo keyed by document
+   identity reuses an identical composition; nothing mutates a document inside a pass
+   (concise-label candidates are fresh structuredClone results), so the output is unchanged.
+   The memo exists only for the duration of one synchronous pass. */
+let guardianRenderMemo=null;
+function withGuardianRenderMemo(run){
+  if(guardianRenderMemo)return run();
+  guardianRenderMemo=new WeakMap();
+  try{return run();}finally{guardianRenderMemo=null;}
+}
+function memoEntry(document){
+  if(!guardianRenderMemo||!document||typeof document!=="object")return null;
+  let entry=guardianRenderMemo.get(document);
+  if(!entry){entry={};guardianRenderMemo.set(document,entry);}
+  return entry;
+}
+function renderFullStory(document){
+  const entry=memoEntry(document);
+  if(!entry)return serializeFounderPresentation(document,{scope:"FULL_STORY"});
+  if(!("rendered" in entry)){
+    try{entry.rendered=serializeFounderPresentation(document,{scope:"FULL_STORY"});}
+    catch(error){entry.error=error;entry.rendered=null;}
+  }
+  if(entry.error)throw entry.error;
+  return entry.rendered;
+}
+function paintFullStory(document,rendered){
+  const entry=memoEntry(document);
+  if(!entry||entry.rendered!==rendered)return resolveFounderPresentationSvg(rendered.svg);
+  if(!entry.paint)entry.paint=resolveFounderPresentationSvg(rendered.svg);
+  return entry.paint;
+}
+
 // Use the same final painted collision gate as export. Its recognized automatic
 // native arrows use filled shaft/head polygons; authored and unknown paths keep
 // conservative envelopes rather than borrowing automatic ownership.
@@ -268,7 +303,7 @@ function inspectLayout(document,findings){
   let collisionWarnings=[];
   try{
     collisionWarnings=qualityGuardianRenderedCollisionWarnings(
-      serializeFounderPresentation(document,{scope:"FULL_STORY"}),
+      renderFullStory(document),
       {advancedGroups:document.advanced?.groups||[]});
   }catch{
     // Resolution failures retain the existing conservative review fallback.
@@ -304,8 +339,8 @@ function inspectLayout(document,findings){
 export function proposeConciseLabels(document,rendered=null,{maxLength=12}={}){
   let scene,paint;
   try{
-    const result=rendered||serializeFounderPresentation(document,{scope:"FULL_STORY"});
-    scene=result.scene;paint=resolveFounderPresentationSvg(result.svg);
+    const result=rendered||renderFullStory(document);
+    scene=result.scene;paint=rendered?resolveFounderPresentationSvg(result.svg):paintFullStory(document,result);
   }catch{return[];}
   const overflowing=new Map();
   for(const node of paint.nodes){
@@ -340,8 +375,8 @@ export function proposeConciseLabels(document,rendered=null,{maxLength=12}={}){
 }
 function overflowCount(document){
   try{
-    const rendered=serializeFounderPresentation(document,{scope:"FULL_STORY"});
-    return resolveFounderPresentationSvg(rendered.svg).nodes.filter(node=>node.kind==="text"&&node.sourceAttributes['data-text-overflow']==='true').length;
+    const rendered=renderFullStory(document);
+    return paintFullStory(document,rendered).nodes.filter(node=>node.kind==="text"&&node.sourceAttributes['data-text-overflow']==='true').length;
   }catch{return Number.POSITIVE_INFINITY;}
 }
 function applyConciseLabels(document,proposals){
@@ -353,7 +388,7 @@ function applyConciseLabels(document,proposals){
    keep each stage only when the re-rendered page has fewer overflowing labels. */
 export function proposeConciseInstitutions(document,{maxLength=58}={}){
   let scene;
-  try{scene=serializeFounderPresentation(document,{scope:"FULL_STORY"}).scene;}catch{return[];}
+  try{scene=renderFullStory(document).scene;}catch{return[];}
   const overrides=document?.presentationOverrides?.events||{};
   const proposals=[];
   for(const arrow of scene?.arrows||[]){
@@ -364,7 +399,10 @@ export function proposeConciseInstitutions(document,{maxLength=58}={}){
   }
   return proposals;
 }
-export function resolveConciseLabels(document,{includeLongInstitutions=false}={}){
+export function resolveConciseLabels(document,options={}){
+  return withGuardianRenderMemo(()=>resolveConciseLabelsPass(document,options));
+}
+function resolveConciseLabelsPass(document,{includeLongInstitutions=false}={}){
   let current=document,best=overflowCount(document);
   const applied=[];
   if(!Number.isFinite(best))return{document,proposals:[],before:best,after:best};
@@ -394,7 +432,7 @@ function inspectReadability(document,findings){
   // duration labels squeezed by SVG textLength into unreadable glyphs.
   let compressed=[],longLabels=[];
   try{
-    const rendered=serializeFounderPresentation(document,{scope:"FULL_STORY"});
+    const rendered=renderFullStory(document);
     // Presentation warnings describe only labels on the included Founder board.
     // Source confidence, provenance and category review remain separate content checks.
     longLabels=[...(rendered.scene.arrows||[]),...(rendered.scene.flags||[])].map(event=>{
@@ -417,7 +455,7 @@ function inspectReadability(document,findings){
           elementIds:error.eventIds||error.fields?.map(field=>field.id)||[],message:error.message,
           recommendation:"Review these source facts and their visible representation before exporting.",evidence:{fields:error.fields||[]}});
     }
-    const paint=resolveFounderPresentationSvg(rendered.svg);
+    const paint=paintFullStory(document,rendered);
     const materialCollisions=materialPresentationCollisions(paint);
     if(materialCollisions.length)add(findings,{section:"LAYOUT",code:"PRESENTATION_TEXT_COLLISION",severity:"BLOCK_EXPORT",
       basis:QUALITY_GUARDIAN_BASES.PRESENTATION,elementIds:[...new Set(materialCollisions.flatMap(c=>c.elementIds))],
@@ -538,7 +576,10 @@ function sectionState(findings){
   return"READY";
 }
 
-export function analyzeTimelineQuality(document,{stage="DURING_BUILDING"}={}){
+export function analyzeTimelineQuality(document,options={}){
+  return withGuardianRenderMemo(()=>analyzeTimelineQualityPass(document,options));
+}
+function analyzeTimelineQualityPass(document,{stage="DURING_BUILDING"}={}){
   const findings=[];
   inspectContent(document,findings);
   inspectChronology(document,findings);

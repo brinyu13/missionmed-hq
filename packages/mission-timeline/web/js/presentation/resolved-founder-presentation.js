@@ -80,7 +80,37 @@ const textWidth=measurePresentationText;
 
 // This projection reads the exact canonical paint tree. It never re-lays out
 // semantic dates or approximates a second Timeline. Hit targets/defs are excluded.
-export function resolveFounderPresentationSvg(svg,{advancedGroups=[],measureText=null}={}){
+/* TL-AAA-STABILIZE-20261013: the Founder composer scores every axis/label candidate by
+   resolving its painted SVG, and one Guardian pass resolves the same markup thousands of
+   times (3,938 resolves for 142 distinct SVG strings on a 16-event CV import). Resolution
+   is a pure function of the markup, the measureText function and the advanced groups, so
+   a small bounded memo returns the identical result for repeated input. Entries are keyed
+   by the exact markup; nothing is approximated. */
+const RESOLVE_MEMO_LIMIT=64,RESOLVE_MEMO_BYTES=16*1024*1024;
+const resolveMemo=new Map();let resolveMemoBytes=0;
+const measureIds=new WeakMap();let measureSerial=0;
+function resolveMemoKey(svg,advancedGroups,measureText){
+  let measureId='native';
+  if(typeof measureText==='function'){measureId=measureIds.get(measureText);if(!measureId){measureId=`m${++measureSerial}`;measureIds.set(measureText,measureId);}}
+  let groups='';
+  if(Array.isArray(advancedGroups)&&advancedGroups.length){try{groups=JSON.stringify(advancedGroups);}catch{return null;}}
+  return `${measureId}\u0000${groups}\u0000${svg}`;
+}
+export function resolveFounderPresentationSvg(svg,options={}){
+  const {advancedGroups=[],measureText=null}=options;
+  const key=typeof svg==='string'&&svg.length<=4*1024*1024?resolveMemoKey(svg,advancedGroups,measureText):null;
+  if(key!==null){
+    const hit=resolveMemo.get(key);
+    if(hit){resolveMemo.delete(key);resolveMemo.set(key,hit);return hit;}
+  }
+  const result=resolveFounderPresentationSvgUncached(svg,{advancedGroups,measureText});
+  if(key!==null){
+    resolveMemo.set(key,result);resolveMemoBytes+=key.length;
+    while(resolveMemo.size>RESOLVE_MEMO_LIMIT||resolveMemoBytes>RESOLVE_MEMO_BYTES){const oldest=resolveMemo.keys().next().value;resolveMemoBytes-=oldest.length;resolveMemo.delete(oldest);}
+  }
+  return result;
+}
+function resolveFounderPresentationSvgUncached(svg,{advancedGroups=[],measureText=null}={}){
   const root=parsePresentationXml(svg);
   if(root.tag!=='svg'||root.attrs.viewBox!=='0 0 1920 1080')throw new Error('PRESENTATION_CANONICAL_SVG_REQUIRED');
   const definitions=new Map(xmlNodes(root,n=>Boolean(n.attrs.id)).map(n=>[n.attrs.id,n]));
@@ -203,17 +233,31 @@ export function materialPresentationCollisions(resolved){
     }
     return true;
   };
+  /* TL-AAA-STABILIZE-20261013 (performance, output-identical): paint order is read from
+     one index map instead of indexOf per part, and a pair whose axis-aligned extents are
+     separated by more than one unit skips the SAT test — two disjoint convex polygons
+     always have a separating edge axis, so the SAT gate (which only widens separation
+     by its +.5 tolerance) would return false for them anyway. */
+  const paintOrders=new Map(resolved.nodes.map((n,index)=>[n,index]));
+  const extent=polygon=>{
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    for(const point of polygon){if(point.x<minX)minX=point.x;if(point.x>maxX)maxX=point.x;if(point.y<minY)minY=point.y;if(point.y>maxY)maxY=point.y;}
+    return {minX,maxX,minY,maxY};
+  };
   const parts=resolved.nodes.filter(n=>n.groupId&&n.bounds&&!n.sourceAttributes['data-board-background']&&
     !n.sourceAttributes['data-advanced-background']&&Number(n.style.opacity??1)!==0&&
     n.sourceAttributes.visibility!=='hidden'&&n.sourceAttributes.display!=='none'&&
     !(n.kind==='path'&&(n.lineOnly||n.style.fill==='none'||n.bounds.width<1||n.bounds.height<1)))
-    .flatMap(n=>founderPaintCollisionParts(n).map(part=>({...n,paintOrder:resolved.nodes.indexOf(n),polygon:part.polygon})));
+    .flatMap(n=>founderPaintCollisionParts(n).map(part=>({...n,paintOrder:paintOrders.get(n),polygon:part.polygon,extent:extent(part.polygon)})));
   const found=new Map();
+  const material=['event','furniture','profile','media','annotation'];
   for(const text of parts.filter(n=>n.kind==='text'||(n.role==='event'&&n.kind==='path'&&!n.lineOnly&&n.style.fill!=='none')))for(const other of parts){
     if(text.role!=='event'&&(other.paintOrder<=text.paintOrder||other.groupId===text.groupId))continue;
     if(other.kind!=='text'&&(other.style.fill==='none'||other.style.fill==='transparent'||Number(other.style['fill-opacity']??1)===0))continue;
     if(text.groupId===other.groupId||
-      !['event','furniture','profile','media','annotation'].includes(other.role))continue;
+      !material.includes(other.role))continue;
+    const a=text.extent,b=other.extent;
+    if(a.maxX+1<b.minX||b.maxX+1<a.minX||a.maxY+1<b.minY||b.maxY+1<a.minY)continue;
     if(!overlap(text.polygon,other.polygon))continue;
     const ids=[text.semanticRef,other.semanticRef||other.groupId].sort();
     found.set(ids.join('|'),{elementIds:ids,text:text.text});

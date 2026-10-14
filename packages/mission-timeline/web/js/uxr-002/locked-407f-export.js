@@ -379,7 +379,12 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   // there is no room to its left: its institution moves under the arrow start, ahead
   // of the location, instead of being crushed into the margin.
   const clampedStart=arrow.clampedStart===true;
-  const leftInstitution=!!arrow.display&&!clampedStart;
+  /* TL-AAA-STABILIZE-20261013: an arrow that begins in the first month of the year domain has
+     no room to its left either (its institution wrapped one letter per line down the margin);
+     it takes the same under-arrow institution placement as a clamped span. Student-authored
+     geometry keeps its honest left placement and readability hold. */
+  const noLeftRoom=!clampedStart&&box.x-38<48&&eventLayoutOwnership(scene,arrow)!=='authored';
+  const leftInstitution=!!arrow.display&&!clampedStart&&!noLeftRoom;
   const measure=scene.measureText||measurePresentationText;
   const availableInstitution=leftInstitution?Math.max(24,Math.min(450,box.x-38)):500;
   const institutionText=measure(String(institution||''),19,TYPE.event)>availableInstitution?founderInstitutionLabel(institution,{compact:true}):institution;
@@ -390,7 +395,7 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const siteX=leftInstitution?box.x-12:(siteLines.length>1?Math.min(WIDTH-24-siteWidth,Math.max(24,box.x)):siteCenter)+(scene.autoSiteOffsets?.get(String(arrow.id))||0);
   const siteAnchor=leftInstitution?'end':siteLines.length>1?'start':'middle';
   const siteY=leftInstitution?shaftY+shaftHeight/2+5-(siteLines.length-1)*10.5:box.y+box.height+headInset+21;
-  const underArrowInstitution=!!arrow.display&&clampedStart&&String(institutionText||'').trim();
+  const underArrowInstitution=!!arrow.display&&(clampedStart||noLeftRoom)&&String(institutionText||'').trim();
   const site=siteLines.length&&!underArrowInstitution
     ?`<text${siteWordOverflow?' data-text-overflow="true"':''} data-board-ink-role="site" data-material-field="siteName" data-display-institution="${xml(institution||'')}" x="${siteX}" y="${siteY}" text-anchor="${siteAnchor}" fill="${outsideInk}" font-family="${TYPE.event}" font-size="19">${siteLines.map((line,i)=>`<tspan x="${siteX}" dy="${i?21:0}">${xml(line)}</tspan>`).join('')}</text>`
     :"";
@@ -415,10 +420,15 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   const titleSize=editableFounderLabelSize(arrow.display,title,box.width-(arrow.display?(joined?0:recoveredHead)+4:arrowHead+16),shaftHeight,TYPE.arrowLabel,scene.measureText||measurePresentationText);
   const titleWidth=(scene.measureText||measurePresentationText)(title,titleSize,TYPE.arrowLabel,400);
   const nativeTitleFits=titleWidth<=box.width-(arrow.display?(joined?0:recoveredHead)+4:arrowHead+16)&&shaftHeight>=titleSize*1.2;
-  const titleFits=!!arrow.display||nativeTitleFits;
+  /* TL-AAA-STABILIZE-20261013: a span clamped to the left edge (it began before the Founder
+     year domain) paints as a short stub with no room inside it. Its role used to be forced
+     inside that stub, overflowing it and blocking export with nothing the Guardian could
+     shorten ("Volunteer"). The role now sits beside the stub in outside ink, fully readable. */
+  const clampedLabelOutside=clampedStart&&!!arrow.display&&!nativeTitleFits;
+  const titleFits=!clampedLabelOutside&&(!!arrow.display||nativeTitleFits);
   const leftRoom=Math.max(1,box.x-44),rightRoom=Math.max(1,WIDTH-box.x2-44);
   const preferredOutsideLeft=leftRoom>=titleWidth&&(rightRoom<titleWidth||box.x+box.width/2>WIDTH/2)||leftRoom>rightRoom&&rightRoom<titleWidth;
-  const outsideLeft=scene.autoArrowLabelSides?.get(String(arrow.id))??preferredOutsideLeft;
+  const outsideLeft=clampedLabelOutside?false:(scene.autoArrowLabelSides?.get(String(arrow.id))??preferredOutsideLeft);
   const titleLines=titleFits?[title]:wrapPresentationText(title,{width:outsideLeft?leftRoom:rightRoom,size:titleSize,family:TYPE.arrowLabel,measureText:scene.measureText||measurePresentationText});
   const titleAnchor=titleFits?'middle':outsideLeft?'end':'start';
   const titleX=titleFits?labelX:outsideLeft?box.x-12:box.x2+12;
@@ -426,7 +436,7 @@ function arrowMarkup(arrow,index,layout,scale,scene){
   // Short chronology bars retain their exact dates/width. Their full readable
   // label sits beside the bar instead of crushing glyphs into a few pixels.
   const titleColor=titleFits?"#FFFFFF":outsideInk;
-  const titleMarkup=`<text${arrow.display&&!nativeTitleFits?' data-text-overflow="true"':''} data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="${titleSize}" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
+  const titleMarkup=`<text${arrow.display&&!nativeTitleFits&&!clampedLabelOutside?' data-text-overflow="true"':''} data-arrow-label-placement="${titleFits?'inside':outsideLeft?'outside-left':'outside-right'}" data-board-ink-role="${titleFits?'inside-arrow':'outside-arrow'}" x="${titleX}" y="${titleY}" text-anchor="${titleAnchor}" fill="${xml(titleColor)}" font-family="${TYPE.arrowLabel}" font-size="${titleSize}" font-weight="400">${titleLines.length===1?xml(title):titleLines.map((line,i)=>`<tspan x="${titleX}" dy="${i?22:0}">${xml(line)}</tspan>`).join('')}</text>`;
   const lor=arrow.lorSubmitted
     ?`<g data-lor-submitted="true" transform="translate(${box.x2-38} ${box.y-10})"><path d="M0 0H20V22L10 16L0 22Z" fill="#F3E7B3" stroke="#8C6B20"/><text x="10" y="14" text-anchor="middle" fill="#6C5018" font-family="Arial" font-size="11" font-weight="800">★</text></g>`
     :"";
@@ -1187,14 +1197,53 @@ function avoidAutomaticArrowCollisions(scene,svg,{nativeEarliest=false}={}){
   const pitch=Math.max(separation,Math.min(96,(last-first)/Math.max(1,entries.length-1)));
   const baseline=entries.map((entry,index)=>entries.length===1?entry.original.y:first+pitch*index);
   const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.width+6+inkSlack(a,b),b.x+b.width+6+inkSlack(a,b))-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.height+6+baselineSlack(a,b),b.y+b.height+6+baselineSlack(a,b))-Math.max(a.y,b.y));
-  let states=[{choices:[],occupied:fixed,cost:0,drift:0,y:-Infinity,option:null}];
+  /* TL-AAA-STABILIZE-20261013 (performance, output-identical): the fixed furniture
+     paint never changes inside this search, so its X-corridor matches and candidate Y
+     anchors are computed once per option instead of once per (state, option). The
+     occupancy of a state is the shared fixed list plus the parts its own choices added;
+     only retained states materialise that list. Iteration order of every obstacle
+     scan is preserved (fixed first, then placed parts in choice order), so candidate
+     order, tie-breaking and floating-point accumulation are unchanged. */
+  // The X-overlap factor and baseline slack of a (part, obstacle) pair do not depend
+  // on the candidate Y, so they are computed once per pair with the same expressions
+  // the per-candidate overlap() used; only the Y factor is evaluated per candidate.
+  // Each unordered (group, group) conflict gets one integer id, so a candidate counts
+  // distinct conflicts with a stamp array instead of allocating keys per pair.
+  const conflictIds=new Map();
+  const conflictId=(group,other)=>{
+    const key=group<other?`${group}|${other}`:`${other}|${group}`;
+    let id=conflictIds.get(key);
+    if(id===undefined){id=conflictIds.size;conflictIds.set(key,id);}
+    return id;
+  };
+  const pairRecord=(part,obstacle)=>({conflict:conflictId(part.groupId,obstacle.groupId),
+    xf:Math.max(0,Math.min(part.x+part.width+6+inkSlack(part,obstacle),obstacle.x+obstacle.width+6+inkSlack(part,obstacle))-Math.max(part.x,obstacle.x)),
+    bs:baselineSlack(part,obstacle),oy:obstacle.y,ob:obstacle.y+obstacle.height+6+baselineSlack(part,obstacle)});
+  let conflictStamp=0,conflictSeen=new Int32Array(64);
+  const fixedCorridor=new Map();
+  const corridorFor=option=>{
+    let cached=fixedCorridor.get(option);
+    if(!cached){
+      const ys=[];
+      for(const obstacle of fixed)for(const part of option.parts){
+        if(!horizontalOverlap(part,obstacle))continue;
+        ys.push(obstacle.y+obstacle.height+6-part.y,obstacle.y-6-(part.y+part.height));
+      }
+      cached={ys,nearby:option.parts.map(part=>fixed.filter(obstacle=>horizontalOverlap(part,obstacle)).map(obstacle=>pairRecord(part,obstacle)))};
+      fixedCorridor.set(option,cached);
+    }
+    return cached;
+  };
+  let states=[{choices:[],placed:[],cost:0,drift:0,y:-Infinity,option:null}];
   for(let index=0;index<entries.length;index++){
     const entry=entries[index],next=[];
     for(const state of states)for(const option of entry.options){
       const lower=Math.max(option.lower,state.y+(state.option?gap(state.option,option):separation)),upper=latest[index].get(option);
       const ys=new Set([baseline[index],lower,upper]);
       for(let y=Math.ceil(lower/24)*24;y<=upper;y+=24)ys.add(y);
-      for(const obstacle of state.occupied)for(const part of option.parts){
+      const corridor=corridorFor(option);
+      for(const y of corridor.ys)ys.add(y);
+      for(const obstacle of state.placed)for(const part of option.parts){
         if(!horizontalOverlap(part,obstacle))continue;
         ys.add(obstacle.y+obstacle.height+6-part.y);
         ys.add(obstacle.y-6-(part.y+part.height));
@@ -1211,20 +1260,37 @@ function avoidAutomaticArrowCollisions(scene,svg,{nativeEarliest=false}={}){
           .filter(y=>Number.isFinite(y)&&y>=structuralLower-.001&&y<=structuralUpper+.001);
         if(!candidates.length)candidates=[Math.max(structuralLower,Math.min(option.upper,baseline[index]))];
       }
-      const nearby=option.parts.map(part=>state.occupied.filter(obstacle=>horizontalOverlap(part,obstacle)));
+      const nearby=option.parts.map((part,partIndex)=>{
+        const placed=state.placed.filter(obstacle=>horizontalOverlap(part,obstacle)).map(obstacle=>pairRecord(part,obstacle));
+        return placed.length?corridor.nearby[partIndex].concat(placed):corridor.nearby[partIndex];
+      });
+      // Candidate scoring reads the option's measured parts through a Y offset instead
+      // of copying every part for every candidate; the arithmetic sequence is the same
+      // as the former per-candidate copy ((part.y + y) + height ...), so costs and the
+      // resulting sort order are unchanged. Parts are materialised for retained states.
+      // Four drift terms kept separate and added in the original left-to-right order so the
+      // floating-point tie-break is bit-identical to the release composer.
+      const driftDx=Math.abs(option.dx)*.04,driftAlignment=(option.locationAlignment&&(locationAlignments.get(String(entry.arrow.id))||'start')!==option.locationAlignment?4:0),driftSide=(option.side!==labelSides.get(String(entry.arrow.id))?4:0),driftHeight=Math.max(0,Math.max(...option.parts.filter(part=>part.title).map(part=>part.height))-22)*.5;
+      const optionParts=option.parts;
       for(const y of candidates){
-        const parts=option.parts.map(b=>({...b,y:b.y+y}));
-        const outside=parts.reduce((sum,b)=>sum+Math.max(0,-b.x)+Math.max(0,b.x+b.width-WIDTH)+Math.max(0,171-b.y)+Math.max(0,b.y+b.height-(HEIGHT-8)),0);
-        let collisions=0;const collidedGroups=new Set();
-        for(let i=0;i<parts.length;i++)for(const obstacle of nearby[i]){
-          const area=overlap(parts[i],obstacle);collisions+=area;
-          if(area>.5)collidedGroups.add([parts[i].groupId,obstacle.groupId].sort().join('|'));
+        let outside=0;
+        for(const b of optionParts){const by=b.y+y;outside=outside+Math.max(0,-b.x)+Math.max(0,b.x+b.width-WIDTH)+Math.max(0,171-by)+Math.max(0,by+b.height-(HEIGHT-8));}
+        let collisions=0,collidedGroups=0;
+        if(conflictIds.size>conflictSeen.length){const grown=new Int32Array(conflictIds.size*2);grown.set(conflictSeen);conflictSeen=grown;}
+        const stamp=++conflictStamp;
+        for(let i=0;i<optionParts.length;i++){
+          const part=optionParts[i],ay=part.y+y,height=part.height;
+          for(const pair of nearby[i]){
+            const area=pair.xf*Math.max(0,Math.min(ay+height+6+pair.bs,pair.ob)-Math.max(ay,pair.oy));
+            collisions+=area;
+            if(area>.5&&conflictSeen[pair.conflict]!==stamp){conflictSeen[pair.conflict]=stamp;collidedGroups++;}
+          }
         }
         // Compare complete event/furniture conflicts before overlap area. A
         // broad single clash cannot justify hiding several later captions.
-        const cost=state.cost+outside*1e9+collidedGroups.size*1e6+collisions;
-        next.push({choices:[...state.choices,{entry,y,dx:option.dx,side:option.side,locationAlignment:option.locationAlignment}],occupied:[...state.occupied,...parts],cost,
-          drift:state.drift+Math.abs(y-baseline[index])+Math.abs(option.dx)*.04+(option.locationAlignment&&(locationAlignments.get(String(entry.arrow.id))||'start')!==option.locationAlignment?4:0)+(option.side!==labelSides.get(String(entry.arrow.id))?4:0)+Math.max(0,Math.max(...option.parts.filter(part=>part.title).map(part=>part.height))-22)*.5,y,option});
+        const cost=state.cost+outside*1e9+collidedGroups*1e6+collisions;
+        next.push({entry,parent:state,parts:null,placed:null,choices:null,cost,
+          drift:state.drift+Math.abs(y-baseline[index])+driftDx+driftAlignment+driftSide+driftHeight,y,option});
       }
     }
     // Keep different last-anchor positions so an early locally safe row cannot
@@ -1249,6 +1315,12 @@ function avoidAutomaticArrowCollisions(scene,svg,{nativeEarliest=false}={}){
       if(compact)retain(compact);
     }
     for(const state of next){retain(state);if(states.length>=8)break;}
+    for(const state of states){
+      state.parts=state.option.parts.map(b=>({...b,y:b.y+state.y}));
+      state.placed=[...state.parent.placed,...state.parts];
+      state.choices=[...state.parent.choices,{entry:state.entry,y:state.y,dx:state.option.dx,side:state.option.side,locationAlignment:state.option.locationAlignment}];
+      state.parent=null;
+    }
   }
   const best=states.sort((a,b)=>a.cost-b.cost||a.drift-b.drift)[0];if(!best)return null;
   return applyChoices(best.choices);

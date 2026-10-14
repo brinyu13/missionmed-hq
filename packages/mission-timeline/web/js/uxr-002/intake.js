@@ -2,6 +2,7 @@ import {MYERAS_PROFILE_FIELDS,myerasDate,myerasReviewErrors,synchronizeMyerasIns
 import {parseExactDate} from './exact-date-field.js';
 import {MAX_DIRECT_SOURCE_BYTES,MAX_FILE_BYTES} from "../ingestion/file-inspector.js";
 import {CATEGORIES,VISIBILITY} from "./constants.js";
+import {VOLUNTEER_CATEGORY_ID,categoriesWithVolunteer,chooserCategoryId,isVolunteerRecord,resolveChosenCategory} from "./volunteer-category.js";
 import {bindImportedBuilderEvent022} from "./imported-builder-entry-022.js";
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
 import {dateLabel,escapeHtml,monthIndex,monthString} from "./utils.js";
@@ -759,6 +760,14 @@ export function transitionIntake(current,action,{existingEvents=[],existingProfi
       const patch=action.patch&&typeof action.patch==="object"?clone(action.patch):{};
       const candidate={...state.candidates[index]};
       const priorCategoryId=candidate.categoryId;
+      if(Object.hasOwn(patch,"categoryId")&&(patch.categoryId===VOLUNTEER_CATEGORY_ID||isVolunteerRecord(candidate))){
+        // Volunteer is chosen like any category but persists as Work + volunteer source facts.
+        // Normalize category markers after retaining the student's reviewed source-field corrections.
+        const reviewedCandidate={...candidate,fields:{...candidate.fields,...(patch.fields&&typeof patch.fields==="object"?patch.fields:{})}};
+        const resolved=resolveChosenCategory(patch.categoryId,reviewedCandidate);
+        patch.categoryId=resolved.categoryId;
+        patch.fields={...(patch.fields&&typeof patch.fields==="object"?patch.fields:{}),...resolved.fields};
+      }
       for(const field of["title","categoryId","startDate","endDate","notes","eventType","openEnded","visibilityState"]){
         if(Object.hasOwn(patch,field))candidate[field]=patch[field];
       }
@@ -1818,11 +1827,15 @@ function extractionMarkup(state){
   </section>`;
 }
 
+/* TL-AAA-STABILIZE-20261013: the review chooser offers Volunteer as a first-class
+   category (Silma: "no Volunteer option"). `selected` is the chooser value — pass
+   chooserCategoryId(candidate) so an imported volunteer experience shows Volunteer. */
+const REVIEW_CATEGORY_CHOICES=categoriesWithVolunteer(CATEGORIES);
 function categoryOptions(selected){
-  const unresolved=!CATEGORIES.some(({id})=>id===selected)
+  const unresolved=!REVIEW_CATEGORY_CHOICES.some(({id})=>id===selected)
     ?'<option value="" selected disabled>Choose a category</option>'
     :"";
-  return unresolved+CATEGORIES.map(({id,label})=>`<option value="${escapeHtml(id)}"${id===selected?" selected":""}>${escapeHtml(label)}</option>`).join("");
+  return unresolved+REVIEW_CATEGORY_CHOICES.map(({id,label})=>`<option value="${escapeHtml(id)}"${id===selected?" selected":""}>${escapeHtml(label)}</option>`).join("");
 }
 
 function fieldLabel(key){
@@ -1883,7 +1896,7 @@ function expandedFields(candidate,{includeIdentity=false}={}){
   /* The compact "needs your help" card hides the always-on title and category inputs, so
      Edit has to bring them back or those entries would become uneditable. */
   const identity=includeIdentity
-    ?`<label>Category <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="categoryId">${categoryOptions(candidate.categoryId)}</select></label>
+    ?`<label>Category <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="categoryId">${categoryOptions(chooserCategoryId(candidate))}</select></label>
     <label>Proposed title <input type="text" value="${escapeHtml(candidate.title)}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="title"></label>`
     :"";
   return`<div class="candidate-expanded" data-candidate-expanded>
@@ -2042,7 +2055,7 @@ function candidateSuggestionsMarkup(suggestions){
 function questionMarkup(candidate,question){
   const attributes=`data-candidate-id="${escapeHtml(candidate.id)}"`;
   if(question.kind==="month")return candidateMonthField(candidate,question.field,question.label,candidate[question.field]);
-  if(question.kind==="category")return`<label>${escapeHtml(question.label)} <select ${attributes} data-candidate-field="categoryId">${categoryOptions(candidate.categoryId)}</select></label>`;
+  if(question.kind==="category")return`<label>${escapeHtml(question.label)} <select ${attributes} data-candidate-field="categoryId">${categoryOptions(chooserCategoryId(candidate))}</select></label>`;
   if(question.kind==="toggle")return`<label class="candidate-toggle"><input type="checkbox" ${attributes} data-candidate-extra="${escapeHtml(question.extra)}"> <span>${escapeHtml(question.label)}</span></label>`;
   if(question.field)return`<label>${escapeHtml(question.label)} <input type="text" value="${escapeHtml(candidate[question.field]||"")}" ${attributes} data-candidate-field="${escapeHtml(question.field)}"></label>`;
   return`<label>${escapeHtml(question.label)} <input type="text" value="${escapeHtml(candidate.fields?.[question.extra]||"")}" ${attributes} data-candidate-extra="${escapeHtml(question.extra)}"></label>`;
@@ -2105,7 +2118,7 @@ function candidateMarkup(candidate,{lane="medium",suggestions=[],parser=null}={}
     </div>
     ${candidateQuestionsMarkup(candidate)}${visibility}`
     :`<div class="candidate-fields">
-      <label>Category <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="categoryId">${categoryOptions(candidate.categoryId)}</select></label>
+      <label>Category <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="categoryId">${categoryOptions(chooserCategoryId(candidate))}</select></label>
       <label>Proposed title <input type="text" value="${escapeHtml(candidate.title)}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="title"></label>
       ${candidateMonthField(candidate,"startDate","Start",candidate.startDate)}
       ${candidateMonthField(candidate,"endDate","End",candidate.endDate)}
@@ -2189,7 +2202,7 @@ function duplicateGroupMarkup(state,suggestion){
 
 function compactCandidateMarkup(candidate,{parser=null}={}){
   const basis=candidateReviewBasis(candidate,parser);
-  const category=CATEGORIES.find(({id})=>id===candidate.categoryId);
+  const category=REVIEW_CATEGORY_CHOICES.find(({id})=>id===chooserCategoryId(candidate));
   const dates=`${candidateDateLabel(candidate,"startDate")||"?"}${candidate.openEnded?" – ongoing":candidate.endDate&&candidate.endDate!==candidate.startDate?` – ${candidateDateLabel(candidate,"endDate")}`:""}`;
   const place=candidate.fields?.sourceLocation||[candidate.fields?.city,candidate.fields?.state].filter(Boolean).join(", ")||candidate.fields?.country||"";
   const source=candidateSource(candidate);

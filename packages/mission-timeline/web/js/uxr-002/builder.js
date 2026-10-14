@@ -583,7 +583,11 @@ export function eventFromBuilderEntry(domain,entry,{entryId=null,eventId=null,id
         city:entry.city||"",
         kind:entry.kind||"",
         current:!!entry.current,
-        description:entry.description||""
+        description:entry.description||"",
+        /* TL-AAA-STABILIZE-20261013: a Guided Volunteer entry carries the same source facts
+           as a CV-imported one, so every surface (board role "Volunteer", Volunteer key
+           colour, Founder year domain, Guardian, PDF, PPTX) treats both identically. */
+        ...(entry.kind==="Volunteer"?{canonicalType:"VOLUNTEER_EXPERIENCE",experienceType:"Volunteer"}:{})
       }
     });
   }
@@ -707,6 +711,9 @@ export function commitBuilderEntry(document,domain,entry,{entryId=null,idFactory
   }
   if(domain==="personal"&&entry.displayLabel)document.presentationOverrides=setFounderEventDisplay(document,event.id,{label:entry.displayLabel}).presentationOverrides;
   if(domain==="work"&&entry.kind==="Volunteer")document.presentationOverrides=setFounderEventDisplay(document,event.id,{categoryId:"volunteer"}).presentationOverrides;
+  // TL-AAA-STABILIZE-20261013: a Volunteer entry edited back to Clinical/Non-clinical
+  // used to keep its stale Volunteer display override and stay painted as Volunteer.
+  else if(domain==="work"&&document.presentationOverrides?.events?.[String(event.id)]?.categoryId==="volunteer")document.presentationOverrides=setFounderEventDisplay(document,event.id,{categoryId:null}).presentationOverrides;
   builder.drafts[domain]=blankDraft(domain);
   delete builder.editing[domain];
   markStepTouched(document,{clinical:3,work:4,research:5,personal:6}[domain]);
@@ -1925,7 +1932,7 @@ export function installBuilder(root,store,{
     store.mutate(domain==="clinical"?"Add rotation":`Add ${domain} entry`,(document)=>{
       ensureBuilderState(document).drafts[domain]=draft;
       commitBuilderEntry(document,domain,draft,{idFactory});
-    });
+    },{persist:"now"});
   }));
   root.querySelectorAll("[data-cancel-entry]").forEach((button)=>button.addEventListener("click",()=>store.mutate("Cancel entry edit",(document)=>{
     const domain=button.dataset.cancelEntry,builder=ensureBuilderState(document);

@@ -148,6 +148,19 @@ function coveredFounderExamEndpoint(document,event,study){
  return true;
 }
 
+/* TL-AAA-STABILIZE-20261013: the Guided Builder titles a rotation or job "Role · Institution"
+   for its saved-entry lists. The 2025 Keynote paints the role inside the arrow and the
+   institution beside it, so the inside-arrow text must not repeat the institution: every
+   two-month Guided rotation overflowed its arrow and the Guardian could not shorten it.
+   Only the Builder's own " · <institution>" suffix is removed; the stored title is unchanged. */
+function guidedBuilderRole(event,institution){
+ const title=text(event?.title);
+ const fields=event?.fields||{};
+ for(const suffix of [text(fields.institutionShortName),institution,text(fields.institution),text(fields.organization)]){
+  if(suffix&&title.length>suffix.length+3&&title.endsWith(' · '+suffix))return title.slice(0,title.length-suffix.length-3).trim()||title;
+ }
+ return title;
+}
 export function deriveFounderEventDisplay(document,event){
  const override=document?.presentationOverrides?.events?.[String(event.id)]||{};
  const institution=text(event.siteName||event.organization||event.fields?.organization);
@@ -156,7 +169,8 @@ export function deriveFounderEventDisplay(document,event){
  const suppliedAlias=text(event.fields?.displayInstitution||event.fields?.shortName||event.fields?.acronym);
  const concise=new Map([['Research Associate','Research Assoc.'],['Internal Medicine Extern','IM'],['Family Medicine Extern','FM'],['Primary Clinical Preceptee','Preceptee']]);
  const study=event.isStudyPeriod||event.fields?.isStudyPeriod||event.fields?.studyPeriod;
- return {role:text(override.role)||(study?founderStudyExamLabel(document,event):explicitVolunteer(event)?text(event.fields?.programName)||'Volunteer':concise.get(text(event.title))||text(event.title).replace(/^Clinical\s+(Observership|Elective|Rotation|Externship|Clerkship)$/i,'$1')),
+ const title=guidedBuilderRole(event,institution);
+ return {role:text(override.role)||(study?founderStudyExamLabel(document,event):explicitVolunteer(event)?text(event.fields?.programName)||'Volunteer':concise.get(title)||title.replace(/^Clinical\s+(Observership|Elective|Rotation|Externship|Clerkship)$/i,'$1')),
   institution:override.institution!==undefined?text(override.institution):suppliedAlias||founderInstitutionLabel(institution),
   location:override.location!==undefined?text(override.location):location,
   categoryId:categoryId(text(override.categoryId)||(explicitVolunteer(event)?'volunteer':text(event.categoryId))),

@@ -121,6 +121,10 @@ export function isStudentSafe(text){
 
 export function studentMessage(input,{context="generic",fallback=""}={}){
   const code=errorCode(input);
+  /* A refused edit during session renewal is a moment, not a membership problem. */
+  const denial=String(input?.denialCode||"").trim().toUpperCase();
+  if(code==="TIMELINE_ENTITLEMENT_REQUIRED"&&denial==="SESSION_VERIFICATION_EXPIRED")return "Your session needs to reconnect. We kept this change and will save it as soon as your access is verified.";
+  if(code==="TIMELINE_ENTITLEMENT_REQUIRED"&&denial&&Object.hasOwn(ACCESS_LANGUAGE,denial))return ACCESS_LANGUAGE[denial];
   if(code&&Object.hasOwn(CODE_LANGUAGE,code))return CODE_LANGUAGE[code];
   if(code&&Object.hasOwn(ACCESS_LANGUAGE,code))return ACCESS_LANGUAGE[code];
   const raw=rawText(input);

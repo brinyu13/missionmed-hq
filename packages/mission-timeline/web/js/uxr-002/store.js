@@ -6,11 +6,15 @@ import {clone,isoNow,uid} from "./utils.js";
 const MIGRATION_FALLBACK_ISO="1970-01-01T00:00:00.000Z";
 
 export class TimelineEntitlementError extends Error{
-  constructor(capability,reason){
+  constructor(capability,reason,denialCode=""){
     super(reason||"Timeline access is read-only.");
     this.name="TimelineEntitlementError";
     this.code="TIMELINE_ENTITLEMENT_REQUIRED";
     this.capability=capability;
+    // TL-AAA-STABILIZE-20261013: the denial behind the refusal travels with the error so
+    // a transient session renewal is never described to the student as lost membership.
+    this.denialCode=String(denialCode||"");
+    this.sessionRenewalPending=this.denialCode==="SESSION_VERIFICATION_EXPIRED";
   }
 }
 
@@ -413,7 +417,7 @@ export class TimelineStore{
   assertCapability(capability){
     this.refreshEntitlementExpiry({emit:true});
     if(this.entitlement?.[capability]!==true){
-      throw new TimelineEntitlementError(capability,this.entitlement.reason);
+      throw new TimelineEntitlementError(capability,this.entitlement.reason,this.entitlement.denialCode);
     }
     return true;
   }
@@ -443,7 +447,7 @@ export class TimelineStore{
     return true;
   }
 
-  mutate(label,operation,{history=true,material=true,emit=true}={}){
+  mutate(label,operation,{history=true,material=true,emit=true,persist="scheduled"}={}){
     const persistenceLease=this.capturePersistenceLease();
     const before=this.snapshot();
     const advisorEventDataBefore=stable({events:before.events,exams:before.exams});
@@ -466,9 +470,14 @@ export class TimelineStore{
     }
     this.saveStatus="saving";
     this.saveError=null;
-    this.scheduleSave(
-      this.capturePersistenceAuthorization(persistenceLease)
-    );
+    const authorization=this.capturePersistenceAuthorization(persistenceLease);
+    /* TL-AAA-STABILIZE-20261013: an explicit student save ("Add rotation", "Save changes") is
+       committed to local storage at once instead of after the typing debounce, so leaving the
+       page right after pressing Save can no longer lose the entry. Typing keeps the debounce. */
+    if(persist==="now"){
+      clearTimeout(this.timer);this.timer=null;this.scheduledAuthorization=null;
+      this.queueAuthorizedSave("ENTRY_SAVED",authorization).catch(()=>{});
+    }else this.scheduleSave(authorization);
     if(emit)this.emit();
     return true;
   }

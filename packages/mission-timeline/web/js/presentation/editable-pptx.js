@@ -88,6 +88,8 @@ export async function createEditableFounderPptx({svg,document:timeline={},resolv
   pptx.title=visibleFounderPresentationTitle(resolved);pptx.author='MissionMed Timeline Builder';pptx.subject='Editable Timeline for PowerPoint and Keynote';pptx.company='MissionMed';
   pptx.theme={headFontFace:'American Typewriter',bodyFontFace:'Baskerville'};
   const slide=pptx.addSlide(),paintByName=new Map(),imageCache=new Map(),media=[];
+  // Derived cover crops live here, never on the resolved paint nodes (which may be shared/memoized).
+  const derivedCrop=new Map();const cropOf=paint=>paint.crop||derivedCrop.get(paint.id)||null;
   const warnings=[...resolved.warnings];
   for(const paint of resolved.nodes){
     const b=paint.bounds;
@@ -125,13 +127,13 @@ export async function createEditableFounderPptx({svg,document:timeline={},resolv
       if(paint.fit==='cover'&&!paint.crop){
         const imageAspect=image.width/image.height,frameAspect=b.width/b.height;
         const cw=imageAspect>frameAspect?frameAspect/imageAspect:1,ch=imageAspect<frameAspect?imageAspect/frameAspect:1;
-        paint.crop={left:(1-cw)/2,right:(1-cw)/2,top:(1-ch)/2,bottom:(1-ch)/2};
+        derivedCrop.set(paint.id,{left:(1-cw)/2,right:(1-cw)/2,top:(1-ch)/2,bottom:(1-ch)/2});
       }else if(paint.fit==='contain'){
         const ratio=Math.min(b.width/image.width,b.height/image.height),w=image.width*ratio,h=image.height*ratio;
         opts.x+=inch((b.width-w)/2);opts.y+=inch((b.height-h)/2);opts.w=inch(w);opts.h=inch(h);
       }
       slide.addImage({...opts,data:image.data,altText:paint.sourceAttributes['aria-label']||paint.sourceAttributes['data-media-id']||'Timeline image'});
-      media.push({objectId:paint.id,sha256:image.sha256,crop:paint.crop||null});
+      media.push({objectId:paint.id,sha256:image.sha256,crop:cropOf(paint)});
     }
   }
   // Notes contain a practical editing hint, never source CV text or private data.
@@ -149,10 +151,10 @@ export async function createEditableFounderPptx({svg,document:timeline={},resolv
     const spPr=direct(shape,'p:spPr');
     const gradient=resolved.gradients[String(paint.style.fill||'').match(/^url\(#([^)]*)\)/)?.[1]];
     if(gradient&&spPr){spPr.children=spPr.children.filter(n=>typeof n==='string'||!['a:solidFill','a:noFill','a:gradFill'].includes(n.tag));const geomIndex=spPr.children.findIndex(n=>typeof n!=='string'&&['a:prstGeom','a:custGeom'].includes(n.tag));spPr.children.splice(geomIndex+1,0,gradientNode(gradient));}
-    if(paint.kind==='image'&&paint.crop){
+    if(paint.kind==='image'&&cropOf(paint)){const crop=cropOf(paint);
       const fill=direct(shape,'p:blipFill');fill.children=fill.children.filter(n=>typeof n==='string'||n.tag!=='a:srcRect');
       const index=fill.children.findIndex(n=>typeof n!=='string'&&n.tag==='a:stretch');
-      fill.children.splice(index<0?1:index,0,node('a:srcRect',Object.fromEntries([['l','left'],['t','top'],['r','right'],['b','bottom']].map(([key,field])=>[key,String(Math.round(clamp(paint.crop[field])*100000))]))));
+      fill.children.splice(index<0?1:index,0,node('a:srcRect',Object.fromEntries([['l','left'],['t','top'],['r','right'],['b','bottom']].map(([key,field])=>[key,String(Math.round(clamp(crop[field])*100000))]))));
     }
     metadata.push({id:paint.id,nativeId:Number(nv.attrs.id),role:paint.role,semanticRef:paint.semanticRef,groupId:paint.groupId,kind:paint.kind,bounds:paint.bounds,...(paint.kind==='text'?{text:paint.text,fontFamily:paint.fontFamily,nativeFontFamily:nativeFontFamily(paint)}:{})});
   }

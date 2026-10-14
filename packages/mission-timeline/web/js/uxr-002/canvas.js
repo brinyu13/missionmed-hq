@@ -1,4 +1,7 @@
 import {CATEGORIES,HISTORY_LIMIT,VISIBILITY} from "./constants.js";
+import {VOLUNTEER_CATEGORY_ID,categoriesWithVolunteer,chooserCategoryId,resolveChosenCategory} from "./volunteer-category.js";
+// TL-AAA-STABILIZE-20261013: every category chooser on the canvas offers Volunteer.
+const CANVAS_CATEGORY_CHOICES=categoriesWithVolunteer(CATEGORIES);
 import {renderKeynoteClassicBoard} from "./board-renderer.js";
 import {assignStableLanes} from "./adaptive-layout.js";
 import {normalizeAdvancedStudioDocument} from "./advanced-studio.js";
@@ -610,18 +613,22 @@ export function addCanvasEvent(
     eventFactory = null
   } = {}
 ) {
+  const chosen = CANVAS_CATEGORY_CHOICES.find(({id}) => id === categoryId);
+  if (!chosen) throw new TypeError(`Unknown timeline category: ${String(categoryId)}`);
+  // Volunteer persists as a Work-domain event carrying volunteer source facts.
+  const resolved = resolveChosenCategory(categoryId,{});
+  categoryId = resolved.categoryId;
   const category = CATEGORIES.find(({id}) => id === categoryId);
-  if (!category) throw new TypeError(`Unknown timeline category: ${String(categoryId)}`);
   const centerMonth = temporalCenterMonth(store?.document?.events,{fallbackMonth});
   const id = String(idFactory(categoryId));
   const owner = CATEGORY_STEP[categoryId];
   const base = {
     id,
-    title:`Untitled ${category.label.toLowerCase()} event`,
+    title:`Untitled ${chosen.label.toLowerCase()} event`,
     categoryId,
-    eventType:"milestone",
+    eventType:resolved.volunteer?"duration":"milestone",
     startDate:centerMonth,
-    endDate:null,
+    endDate:resolved.volunteer?centerMonth:null,
     openEnded:false,
     visibilityState:VISIBILITY.INTERVIEWER_SAFE,
     siteName:"",
@@ -630,6 +637,7 @@ export function addCanvasEvent(
     sourceType:"canvas-guided",
     provenance:[],
     fields:{
+      ...resolved.fields,
       builderDomain:owner.builderDomain,
       builderEntryId:id,
       canvasDraft:true
@@ -639,14 +647,14 @@ export function addCanvasEvent(
   if (!event || String(event.id || "") !== id || event.categoryId !== categoryId) {
     throw new TypeError("Canvas event factories must preserve the canonical id and category.");
   }
-  const changed = runStoreMutation(store,`Add ${category.label} event`,(document) => {
+  const changed = runStoreMutation(store,`Add ${chosen.label} event`,(document) => {
     document.events.push(clone(event));
   });
   return {
     changed,
     event:clone(event),
     detailsRoute:detailsRouteForEvent(event),
-    announcement:`${category.label} event added at ${formatMonth(centerMonth)}`
+    announcement:`${chosen.label} event added at ${formatMonth(centerMonth)}`
   };
 }
 
@@ -979,16 +987,27 @@ export function toggleCanvasEventVisibility(store,eventId) {
 }
 
 export function swapCanvasEventCategory(store,eventId,categoryId) {
-  if (!CATEGORIES.some(({id}) => id === categoryId)) {
+  const chosen = CANVAS_CATEGORY_CHOICES.find(({id}) => id === categoryId);
+  if (!chosen) {
     throw new TypeError(`Unknown timeline category: ${String(categoryId)}`);
   }
+  let persistedCategoryId = categoryId;
   const changed = runStoreMutation(store,"Change event category",(document) => {
-    assertEvent(document,eventId).categoryId = categoryId;
+    const target = assertEvent(document,eventId);
+    const resolved = resolveChosenCategory(categoryId,target);
+    persistedCategoryId = resolved.categoryId;
+    target.categoryId = resolved.categoryId;
+    target.fields = resolved.fields;
+    const override = document.presentationOverrides?.events?.[String(target.id)]?.categoryId;
+    if (override === VOLUNTEER_CATEGORY_ID && !resolved.volunteer) {
+      delete document.presentationOverrides.events[String(target.id)].categoryId;
+    }
   });
   return {
     changed,
-    categoryId,
-    announcement:`Category changed to ${CATEGORIES.find(({id}) => id === categoryId).label}`
+    categoryId:persistedCategoryId,
+    chosenCategoryId:categoryId,
+    announcement:`Category changed to ${chosen.label}`
   };
 }
 
@@ -1269,7 +1288,7 @@ export function renderCanvasToolbar({
 export function renderAddEventPopover(state) {
   if (!state.addEventOpen || !isEditable(state)) return "";
   return `<div class="canvas-popover add-event-popover" role="menu" aria-label="Add event">
-    ${CATEGORIES.map((category) => `<button type="button" role="menuitem" data-add-category="${category.id}">
+    ${CANVAS_CATEGORY_CHOICES.map((category) => `<button type="button" role="menuitem" data-add-category="${category.id}">
       <span class="category-dot" style="--category-color:${category.color}" aria-hidden="true"></span>
       <span data-category-icon="${escapeHtml(category.icon)}" aria-hidden="true"></span>
       <span>${escapeHtml(category.label)}</span>
@@ -1319,7 +1338,7 @@ export function renderContextualToolbar(event,sceneEvent,state) {
   return `<div class="canvas-context-toolbar" data-context-toolbar data-placement="${placement}" data-offset="12" role="toolbar" aria-label="${escapeHtml(event.title || "Event")} controls" style="--canvas-x:${Number(sceneEvent.x ?? sceneEvent.anchorX ?? 0)};--canvas-y:${Number(top || 0)};max-width:520px" data-focus-trapped="${state.toolbarFocus}">
     ${controls.map((item) => renderControl(item,event,state)).join("")}
     ${state.categoryMenuOpen ? `<div class="category-swap-menu" role="menu" aria-label="Change category">
-      ${CATEGORIES.map((category) => `<button type="button" role="menuitemradio" aria-checked="${category.id === event.categoryId}" data-swap-category="${category.id}">
+      ${CANVAS_CATEGORY_CHOICES.map((category) => `<button type="button" role="menuitemradio" aria-checked="${category.id === chooserCategoryId(event)}" data-swap-category="${category.id}">
         <span class="category-dot" style="--category-color:${category.color}" aria-hidden="true"></span>
         ${escapeHtml(category.label)}
       </button>`).join("")}
