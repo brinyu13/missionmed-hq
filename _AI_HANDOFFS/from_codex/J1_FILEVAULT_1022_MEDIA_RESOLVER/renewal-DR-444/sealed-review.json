@@ -1,0 +1,12 @@
+{
+  "verdict": "PASS",
+  "reviewer": "independent filevault_renewal_review session",
+  "source_head": "9dca63d68773bf447d185121cd617c70a9d5f06f",
+  "manifest_sha256": "c242894ba579284119a2bdd5bc23b9f6a8f5d02a25ba210b8c11d110a30edd2c",
+  "package_json_sha256": "2479ed78e34836a5a111d0b04a8af52bbe31b459d2da25f9fc67bd604c75e98a",
+  "tar_sha256": "c9b95c3a6a1ca1a1d9be7b52e2d0e09d393d8300b89fa3c8ccb8579ec16587e8",
+  "runtime_targets": 3,
+  "preserved_sentinels": 22,
+  "roles": "Current authenticated Staff and Student acceptance OPEN",
+  "condition": "Immediate preimage and full Matrix guard plus healthy exact fences before prepare"
+}
