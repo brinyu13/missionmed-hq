@@ -47,7 +47,7 @@ test('Return to Matrix preserves dirty work and blocks every active Calendar wri
 
 test('Return to Matrix remains legible, focusable, and motion-safe at mobile width', () => {
 	assert.match(v2Styles, /\.mmed-calendar-v2 button:focus-visible, \.mmed-calendar-v2 a:focus-visible, \.mmed-calendar-v2 input:focus-visible \{ outline: 3px solid var\(--mcv2-cyan\);/);
-	assert.match(v2Styles, /@media \(max-width: 560px\) \{\s*\.mmed-calendar-v2 \.mcv2-matrix-link \{[^}]*max-width: 112px;[^}]*text-overflow: ellipsis;/s);
+	assert.match(v2Styles, /@media \(max-width: 560px\) \{\s*\.mmed-calendar-v2 \.mcv2-matrix-link \{[^}]*max-width: 120px;[^}]*min-height: 36px;[^}]*font-size: 10px;[^}]*text-overflow: ellipsis;/s);
 	assert.match(v2Styles, /prefers-reduced-motion: reduce[\s\S]*\.mcv2-matrix-link \{ transition: none; \}/);
 });
 

@@ -287,9 +287,14 @@ body.matrix-calendar-native-return #mmed-matrix-app-return { display: none !impo
 	backdrop-filter: blur(16px);
 }
 .mmed-calendar-v2 .mcv2-matrix-link {
+	display: inline-flex;
+	box-sizing: border-box;
+	min-height: 36px;
 	width: max-content;
 	margin-left: 12px;
 	padding: 8px 12px;
+	align-items: center;
+	justify-content: center;
 	border: 1px solid #3d5477;
 	border-radius: 8px;
 	color: #c8d3e4;
@@ -1607,5 +1612,5 @@ body.matrix-calendar-native-return #mmed-matrix-app-return { display: none !impo
 }
 
 @media (max-width: 560px) {
-	.mmed-calendar-v2 .mcv2-matrix-link { max-width: 112px; padding: 7px 6px; overflow: hidden; font-size: 8px; letter-spacing: .05em; text-overflow: ellipsis; }
+	.mmed-calendar-v2 .mcv2-matrix-link { max-width: 120px; min-height: 36px; padding: 8px; overflow: hidden; font-size: 10px; letter-spacing: .05em; text-overflow: ellipsis; }
 }
