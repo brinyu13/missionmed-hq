@@ -70,7 +70,12 @@ No runtime-lock override, manifest/shell/shared-core/backend/database/auth/event
   navigation before the CSS-only release. Fresh deterministic coverage still
   proves dirty Add/Edit/task/quick-add and all active-write blocking without
   mutating event or todo data.
+- Fresh independent final verifier: PASS. It independently recomputed the
+  cache-busted production hashes, reran 29/29 focused tests plus JavaScript
+  syntax, verified the exact four-path source delta and 44px responsive CSS
+  contract, and found no blocking FAIL or UNVERIFIED item. It accepted the four
+  authenticated rendered screenshots/measurements without re-driving the
+  shared Chrome session while that debugger was contended.
 
-Remaining closeout: final browser interaction recheck when the shared Chrome
-debugger is uncontended, final independent live read-only verdict, evidence
-commit/push, normal PATH lease release and provider-zero readback.
+Terminal closeout: COMPLETE after this evidence commit, normal PATH release and
+provider-zero readback.
