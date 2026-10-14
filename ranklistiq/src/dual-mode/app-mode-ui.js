@@ -13,6 +13,7 @@
     "Planning only. RankListIQ does not send signals. Assign them in MyERAS under Programs, then Review Program Signals.",
     "Some programs in a participating specialty may not accept signals. Check the AAMC participating programs list."
   ];
+  var MATRIX_DASHBOARD_URL = "https://missionmedinstitute.com/member-dashboard/#dashboard";
   var initialized = false;
   var modal = null;
   var compareModal = null;
@@ -66,6 +67,21 @@
       if (button) root.RLQ_DUAL.chooseMode(button.getAttribute("data-rlq-mode"));
     });
     root.document.body.appendChild(overlay);
+  }
+
+  function addReturnToMatrixLink() {
+    var host = byId("mm-header-appchrome-left");
+    if (!host) return null;
+    var existing = byId("rlqReturnToMatrix");
+    if (existing) return existing;
+    var link = root.document.createElement("a");
+    link.id = "rlqReturnToMatrix";
+    link.className = "rlq-return-to-matrix";
+    link.href = MATRIX_DASHBOARD_URL;
+    link.setAttribute("aria-label", "Return to Matrix");
+    link.innerHTML = '<span class="rlq-return-to-matrix__arrow" aria-hidden="true">&#8592;</span><span class="rlq-return-to-matrix__label">Return to Matrix</span>';
+    host.insertBefore(link, host.firstChild);
+    return link;
   }
 
   function addHeaderChip() {
@@ -373,6 +389,7 @@
   }
 
   function afterRender() {
+    addReturnToMatrixLink();
     addHeaderChip();
     relabelApplication();
     importButton();
@@ -389,6 +406,7 @@
     initialized = true;
     function ready() {
       if (root.RLQ_DUAL.selectorRequired) showModeSelector();
+      addReturnToMatrixLink();
       addHeaderChip();
       relabelApplication();
       importButton();
@@ -400,6 +418,8 @@
 
   return {
     APPLICATION_STRINGS: APPLICATION_STRINGS,
+    MATRIX_DASHBOARD_URL: MATRIX_DASHBOARD_URL,
+    addReturnToMatrixLink: addReturnToMatrixLink,
     ensureApplication: ensureApplication,
     afterRender: afterRender,
     init: init
