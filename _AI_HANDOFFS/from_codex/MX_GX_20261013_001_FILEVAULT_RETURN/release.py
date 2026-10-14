@@ -33,6 +33,7 @@ def save(name,value):
  lease();OUT.mkdir(parents=True,exist_ok=True);(OUT/name).write_text(json.dumps(value,indent=2)+'\n')
 def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT).decode().strip()
 def manifest():
+ subprocess.run(['git','merge-base','--is-ancestor',APPROVED,'HEAD'],cwd=ROOT,check=True)
  baseline=json.loads((ROOT/'_AI_HANDOFFS/from_codex/J1_FILEVAULT_1022_PRODUCTION/release-manifest.json').read_text())
  sentinels=dict(SENTINELS)
  for t in baseline['targets']:
@@ -45,6 +46,7 @@ def manifest():
  expected=old.replace(b'44c578a67d945dfe',b'960a6069c8ea8967').replace(b'5009c86f47c85fa1',b'6a510a57bfbbf85e')
  assert (ROOT/CONTROLLER).read_bytes()==expected,'Non-mechanical controller change'
  paths=[NEW_JS,NEW_CSS,JS,CSS,CONTROLLER]
+ for p in paths:assert (ROOT/p).read_bytes()==subprocess.check_output(['git','show','HEAD:'+p],cwd=ROOT),'Uncommitted target bytes: '+p
  return {'authority':'DR-426','approved':APPROVED,'source_head':git('rev-parse','HEAD'),'root':REMOTE,'backup':BACKUP,'fences':FENCES,'targets':[{'path':p,'sha256':sha((ROOT/p).read_bytes()),'bytes':(ROOT/p).stat().st_size,'preimage':OLD.get(p)} for p in paths],'sentinels':sentinels,'excluded':['media','ASSETS.json','fixtures','tests','handoffs','student data']}
 REMOTE_CODE=r"""
 import sys,json,hashlib,os,shutil,stat,tarfile,subprocess
@@ -104,6 +106,8 @@ def install(t,expected,source):
  assert current(temp)==t['sha256'];os.replace(temp,p);final=p.stat()
  assert current(p)==t['sha256'] and final.st_uid==identity.st_uid and final.st_gid==identity.st_gid and stat.S_IMODE(final.st_mode)==mode,'Installed identity mismatch'
 controller='wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php'
+if mode=='activate':
+ for t,row in zip(m['targets'],rows):assert row['sha256']==(t['preimage'] if t['path']==controller else t['sha256']),'Activation dependency drift: '+t['path']
 if mode in ('stage','activate'):
  targets=[t for t in m['targets'] if (t['path']==controller)==(mode=='activate')]
  for t in targets:
@@ -146,7 +150,9 @@ def main():
   save('package.json',{'tar_sha256':sha((OUT/'candidate.tar').read_bytes()),'source_head':m['source_head'],'files':len(m['targets'])});print('SEALED',m['source_head'],len(m['targets']));return
  m=json.loads((OUT/'release-manifest.json').read_text());package=json.loads((OUT/'package.json').read_text())
  subprocess.run(['git','merge-base','--is-ancestor',m['source_head'],'HEAD'],cwd=ROOT,check=True)
- for t in m['targets']:assert sha((ROOT/t['path']).read_bytes())==t['sha256'],'Source drift'
+ for t in m['targets']:
+  assert sha((ROOT/t['path']).read_bytes())==t['sha256'],'Source drift'
+  assert sha(subprocess.check_output(['git','show',m['source_head']+':'+t['path']],cwd=ROOT))==t['sha256'],'Sealed commit drift'
  if args.mode=='inspect':result=remote('inspect',m)
  elif args.mode=='prepare':
   result=remote('prepare',m);save('prepare-receipt.json',result);lease()
