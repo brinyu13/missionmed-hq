@@ -1,6 +1,6 @@
 {
-  "sha256": "f5725d418686c00609ff819380066a7041dfb6807ec836568469661e79caff5e",
-  "bytes": 2383806,
+  "sha256": "e50c55e292eaa9f16fb17cdf1116b98c3a380533ffea7400a6b6ea1b72411bfc",
+  "bytes": 2384028,
   "assetProfile": "production",
   "releaseApproved": false,
   "accountContextMarker": "/* MMED_IR_ACCOUNT_CONTEXT */ null",
@@ -63,7 +63,7 @@
     "img/travel-detail.webp": "e1bc7ed021ef601ce62fc300476734333e206e3acc389995505696b798c01dd0"
   },
   "inputs": {
-    "src.html": "c2c37736e865660d1124182163148a77e7278bea720c185ec185907eb16e5d22",
+    "src.html": "30e451ef8d602307c66866596ba31acacda167d05b77c78981b1fd0503d2994d",
     "editorial.css": "d22e49621f9e5e73b6945499a32e04af051141f534b97b3cdef7f4551587e7ae",
     "editorial.js": "c6a0f922c62de4dca65c9f65c2cbadbe557e9977adea47747d81a97d62519a2e",
     "catalog.json": "5b889f3af02575594622292cec634b750f404d3468acba3d75cae26b3d1395c5",

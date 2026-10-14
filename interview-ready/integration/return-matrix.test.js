@@ -1,0 +1,33 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const crypto = require("node:crypto");
+const root = path.resolve(__dirname, "..");
+const source = fs.readFileSync(path.join(root, "src.html"), "utf8");
+const built = fs.readFileSync(path.join(root, "dist/interview-ready.html"), "utf8");
+const row = "    <nav aria-label=\"Return to Matrix\" style=\"padding:8px 16px\"><a class=\"btn plain sm\" href=\"https://missionmedinstitute.com/member-dashboard/#dashboard\"><span aria-hidden=\"true\">&#8592;</span> Return to Matrix</a></nav>\n";
+const href = "https://missionmedinstitute.com/member-dashboard/#dashboard";
+const digest = value => crypto.createHash("sha256").update(value).digest("hex");
+for (const html of [source, built]) {
+  const links = [...html.matchAll(/<a\b[^>]*\bhref="https:\/\/missionmedinstitute\.com\/member-dashboard\/#dashboard"[^>]*>/g)];
+  assert.equal(links.length, 1, "exactly one fixed Matrix anchor");
+  assert.match(html, /<main id="main">\s*<nav aria-label="Return to Matrix"[^>]*>/, "Return is first main child");
+  assert.ok(html.includes(row + '    <header class="topbar">'), "Return sits outside the header hidden on home");
+  assert.equal(html.split(row).length, 2, "one unchanged native row");
+}
+assert.ok(row.includes('class="btn plain sm"') && row.includes('aria-hidden="true"'));
+assert.ok(!/onclick|onkeydown|target=|data-nav|\shidden(?:\s|=|>)|display\s*:\s*none|position\s*:\s*(fixed|absolute)/i.test(row), "ordinary visible navigation without interception");
+assert.equal(digest(source.replace(row, "")), "c2c37736e865660d1124182163148a77e7278bea720c185ec185907eb16e5d22", "all existing source/CSS/scripts and epoch cleanup semantics unchanged");
+assert.ok(source.includes('function stopCam(){ camEpoch++'));
+assert.ok(source.includes('function stopMic(){ micEpoch++'));
+assert.ok(source.includes('epoch!==camEpoch') && source.includes('epoch!==micEpoch'));
+assert.ok(built.includes("pagehide") && built.includes("URL.revokeObjectURL"), "existing departure cleanup remains bundled");
+assert.ok(built.includes("device-only"), "device-only boundary retained");
+const manifest = JSON.parse(fs.readFileSync(path.join(root, "dist/build-manifest.json"), "utf8"));
+assert.equal(manifest.sha256, digest(built));
+assert.equal(manifest.assetProfile, "production");
+assert.equal(manifest.releaseApproved, false);
+assert.equal(manifest.persistenceMode, "device-only");
+assert.equal(manifest.accountReady, false);
+console.log("RETURN_MATRIX_STATIC_CONTRACT_PASS; browser/student lifecycle acceptance still required");
