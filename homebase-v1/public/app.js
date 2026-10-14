@@ -310,8 +310,56 @@ function roleSwitchMarkup() {
 }
 
 function matrixHref() {
-  return state.config?.matrixBaseUrl || '/member-dashboard/';
+  return 'https://missionmedinstitute.com/member-dashboard/#dashboard';
 }
+
+// Return-only draft protection; never changes the live forms or their save lifecycle.
+const RETURN_FORMS = [
+  'data-submit-task', 'data-add-student-form', 'data-save-student', 'data-add-file',
+  'data-create-task-form', 'data-create-alert-form', 'data-add-category-form', 'data-add-item-form',
+].map((name) => `form[${name}]`).join(',');
+
+function returnFormValues(form) {
+  return JSON.stringify([...form.elements]
+    .filter((field) => ['INPUT', 'TEXTAREA', 'SELECT'].includes(field.tagName))
+    .map((field) => [field.name, field.type,
+      field.tagName === 'SELECT' ? [...field.options].map((option) => option.selected)
+        : ['checkbox', 'radio'].includes(field.type) ? field.checked : field.value]));
+}
+
+function hasUnsavedReturnForms() {
+  return $$(RETURN_FORMS).some((form) => {
+    // Markup supplies initial values. Reset only a detached clone to correctly
+    // handle implicit select defaults, dates, checkboxes and multi-selects.
+    const baseline = form.cloneNode(true);
+    HTMLFormElement.prototype.reset.call(baseline);
+    return returnFormValues(form) !== returnFormValues(baseline);
+  });
+}
+
+function currentTabReturn(event) {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey
+    || event.shiftKey || event.altKey) return null;
+  const link = event.target.closest?.('a[data-return-matrix]');
+  return link && !link.hasAttribute('download') && (!link.target || link.target === '_self') ? link : null;
+}
+
+document.addEventListener('pointerdown', (event) => {
+  // Keep the current field focus/selection when a pointer-triggered leave is
+  // refused. Keyboard activation retains native link focus and behavior.
+  if (currentTabReturn(event) && (state.busy || hasUnsavedReturnForms())) event.preventDefault();
+});
+
+document.addEventListener('click', (event) => {
+  if (!currentTabReturn(event)) return;
+  if (state.busy) {
+    event.preventDefault();
+    notify('Please wait for the current update to finish before returning to Matrix.');
+  } else if (hasUnsavedReturnForms()
+    && !window.confirm('You have unsaved changes. Leave HomeBase and discard them?')) {
+    event.preventDefault();
+  }
+});
 
 function firstName() {
   return state.user?.first_name || String(state.user?.display_name || '').split(/\s+/)[0] || 'there';
@@ -342,15 +390,14 @@ function renderShell() {
     <div class="logo" aria-label="HomeBase">Home<b>Base</b></div><div class="logoSub">MissionMed</div>
     ${navFor().map(railNavButton).join('')}
     <div class="railFoot">
-      <a class="rtab matrixAnchor" href="${attr(matrixHref())}">↩ Back to Matrix</a>
       ${subjectContext() ? '<button class="rowBtn" type="button" data-exit-subject>Exit student preview</button>' : roleSwitchMarkup()}
       <div class="signedIdentity"><span>${esc(state.user.display_name)}</span></div>
       ${state.config?.devAuth ? '<button class="rowBtn fixtureChange" type="button" data-change-fixture>Change fixture identity</button>' : ''}
     </div>`;
 
   hdr.innerHTML = `
-    <a class="storyforgeMatrixBack" href="${attr(matrixHref())}" aria-label="Back to Matrix">
-      <span aria-hidden="true">←</span><span>Matrix</span>
+    <a class="storyforgeMatrixBack" data-return-matrix href="${attr(matrixHref())}">
+      <span aria-hidden="true">←</span><span>Return to Matrix</span>
     </a>
     <div class="storyforgeBrand" aria-label="MissionMed HomeBase">
       <div class="storyforgeBrandTitle"><span>MissionMed</span><b>//HomeBase</b></div>
@@ -1244,18 +1291,19 @@ function renderLockout(lockoutState = 'access_unavailable', message = '') {
     <p class="hbPageSub">${esc(message || (roster
     ? 'Your MissionMed account is signed in, but it is not on the Session A HomeBase roster.'
     : 'Your MissionMed session could not be verified. Return to Matrix and try again.'))}</p>
-    <a class="rowBtn pri" href="${attr(matrixHref())}">↩ Back to Matrix</a>
+    <a class="rowBtn pri" data-return-matrix href="${attr(matrixHref())}">← Return to Matrix</a>
   </section>`;
 }
 
 function renderStartupFailure() {
   document.body.classList.remove('is-booting');
   dismissOpening();
+  hdr.querySelector('[data-return-matrix]')?.remove();
   main.innerHTML = `<section class="hbGate">
     <h1 class="h1">HomeBase could not <em>open</em></h1>
     <p class="hbPageSub">Something interrupted the connection. Give it another try.</p>
     <button class="rowBtn pri" type="button" data-retry-startup>Try again</button>
-    <a class="rowBtn" href="${attr(matrixHref())}">↩ Back to Matrix</a>
+    <a class="rowBtn" data-return-matrix href="${attr(matrixHref())}">← Return to Matrix</a>
   </section>`;
 }
 
