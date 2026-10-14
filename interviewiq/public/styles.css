@@ -1056,3 +1056,104 @@ figure.heroMedia figcaption a{color:var(--sky)}
 /* Calendar visibility: own records remain readable independently of cohort loading. */
 .calendar-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:16px 0}.calendar-controls label{display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:180px;max-width:100%}.calendar-controls input,.calendar-controls select,.calendar-controls button{min-height:44px;font-size:16px;max-width:100%}.calendar-roster h2{font-size:22px}.calendar-selected{border-left:3px solid var(--g,#d6b85d);padding:10px}.mcv2-event.is-own{border-color:#d6b85d!important;background:rgba(214,184,93,.14)!important;color:#f4d581!important}.mcv2-event.is-peer{border-color:#72bccc}.calendar-connection{display:block;font-size:12px;color:#bfe8ef;margin-top:5px}.calendar-grid-scroll{overflow:auto;max-width:100%;border-radius:12px}.calendar-grid-scroll:focus-visible,.calendar-controls :focus-visible{outline:3px solid #d6b85d;outline-offset:3px}.mcv2-list-panel .mcv2-event{min-height:64px}.undatedStrip{display:flex;flex-wrap:wrap;gap:10px}.undatedStrip .is-row{width:100%}.mcv2-view-switcher button,.mcv2-header-actions button{min-height:44px;min-width:44px}
 @media(max-width:560px){.calendar-controls{display:grid;grid-template-columns:minmax(0,1fr);width:100%}.calendar-controls label{min-width:0}.calendar-grid-scroll .mcv2-month{min-width:820px}.calendar-roster{padding:16px}.mcv2-event.is-row{flex-wrap:wrap}.mcv2-event.is-row .mcv2-event-copy{min-width:0;flex:1;overflow-wrap:anywhere}.mcv2-header-actions{flex-wrap:wrap}}
+
+/* Founder October14 Calendar-first presentation; identity/hydration/save contracts unchanged. */
+body:has(.calendar-first) #main{padding-top:16px;padding-bottom:16px}
+body:has(.calendar-first) .route-hint{display:none}
+.calendar-first .mcv2-header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:12px;margin:0 0 8px;width:100%}
+.calendar-heading{display:flex;align-items:center;gap:12px;min-width:0}
+.calendar-first .mcv2-header .h1{font-size:30px;line-height:1.1;margin:0;white-space:nowrap}
+.calendar-first .mcv2-kicker{font-size:11px;line-height:1.2;margin:0 0 4px;letter-spacing:.1em}
+.calendar-first .mcv2-new-event-btn{min-height:44px;white-space:nowrap;padding:10px 12px;font-size:13px}
+.calendar-navigation{text-align:center;justify-self:center}
+.calendar-first .mcv2-header-actions{justify-content:center;flex-wrap:nowrap;gap:6px}
+.calendar-first .mcv2-header-actions button{min-height:44px;min-width:44px;font-size:13px;padding:8px 10px}
+.calendar-month-title{display:block;font-size:17px;line-height:1.25;margin-top:3px;color:var(--tx)}
+.calendar-first .mcv2-view-switcher{justify-self:end;align-self:start}
+.calendar-first .mcv2-view-switcher button{font-size:12px;min-height:44px;padding:8px 11px;letter-spacing:.08em}
+.calendar-toolbar{position:relative;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.calendar-toolbar .calendar-controls{margin:0;gap:6px}
+.calendar-toolbar .calendar-scope button{font-size:13px;padding:8px 10px;min-height:44px}
+.calendar-toolbar details>summary,.calendar-attention>summary{min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1px solid var(--edge);border-radius:10px;background:var(--card);font-size:14px;font-weight:700;list-style:none;box-sizing:border-box}
+.calendar-toolbar details>summary::after,.calendar-attention>summary::after{content:'▾';margin-left:auto}
+.calendar-toolbar details[open]>summary::after,.calendar-attention[open]>summary::after{content:'▴'}
+.calendar-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;min-height:24px;padding:0 5px;border-radius:99px;color:var(--em);background:rgba(255,179,64,.1)}
+.calendar-toolbar details[open]>.calendar-controls,.calendar-toolbar details[open]>.calendar-roster,.calendar-toolbar details[open]>p{position:absolute;top:calc(100% + 4px);left:0;z-index:30;background:var(--bg2);border:1px solid var(--edge);border-radius:12px;padding:16px;box-shadow:0 12px 30px #0009;width:min(760px,100%);box-sizing:border-box;max-height:60dvh;overflow:auto;margin:0}
+.calendar-toolbar .calendar-clear{font-size:13px;min-height:44px;padding:8px 10px}
+.calendar-toolbar .mcv2-timezone{margin-left:auto}
+.calendar-first .calendar-message{font-size:14px;line-height:1.3;margin:4px 0 8px}
+.calendar-first .calendar-grid-scroll{overflow:visible;height:var(--calendar-height,480px);width:100%;max-width:100%;min-width:0;border-radius:12px}
+.calendar-first .calendar-grid-scroll .mcv2-month{height:100%;width:100%;min-width:0;display:grid;grid-template-rows:26px minmax(0,1fr);box-sizing:border-box}
+.calendar-first .mcv2-month-grid{grid-template-rows:repeat(var(--calendar-weeks,6),minmax(0,1fr));min-height:0}
+.calendar-first .mcv2-weekday{padding:5px 2px;font-size:12px;letter-spacing:.05em}
+.calendar-first .mcv2-month-day{min-height:0;padding:3px 4px;gap:2px;box-sizing:border-box}
+.calendar-first .mcv2-day-number{height:20px;width:24px;font-size:14px}
+.calendar-first .mcv2-day-events{min-height:0;gap:0}
+.calendar-first .mcv2-day-events>.mcv2-event{min-height:44px;padding:4px;font-size:13px;box-sizing:border-box}
+.calendar-first .mcv2-event-copy small{font-size:11px;line-height:1.3;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.calendar-first .mcv2-event-time{font-size:11px;letter-spacing:0}
+.calendar-first .calendar-connection{font-size:11px;line-height:1.2;margin:0}
+.calendar-first .mcv2-compact-day{display:none}
+.calendar-attention{margin-top:8px}
+.calendar-attention>summary{border-color:rgba(255,179,64,.3)}
+.calendar-attention .undatedStrip{margin:8px 0 0}
+.calendar-first :is(button,summary,select):focus-visible{outline:3px solid var(--em);outline-offset:2px}
+/* One scrollable wizard body on small screens; primary actions remain visible. */
+.mcv2-drawer.intakeModal{padding:24px 28px;max-height:calc(100dvh - 24px);overflow:hidden}
+.intakeModal .intakeWizard:not(.intakeSuccess){display:flex;flex-direction:column;max-height:calc(100dvh - 76px);min-height:0}
+.intakeWizard .wizHead{flex:none;margin-bottom:8px;gap:8px;padding-right:24px}
+.intakeWizard .intakeProgress{flex:none;margin-bottom:12px}
+.intakeWizard .wizBody{min-height:0;flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:0 2px 2px 0}
+.intakeWizard h2{font-size:32px;line-height:1.15;margin:2px 0 8px}
+.intakeWizard .lead{font-size:17px;line-height:1.4;margin:0 0 12px}
+.intakeWizard p{line-height:1.4}
+.intakeWizard .fieldHint{font-size:14.5px;line-height:1.4;margin:4px 0 8px}
+.intakeIdentityGrid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:22px;align-items:start}
+.intakeIdentityGrid>section{min-width:0}
+.intakeWizard .intakeInvitation .drawerChoice{margin-top:0}
+.intakeWizard .f{margin:10px 0 4px}
+.intakeWizard input,.intakeWizard select,.intakeWizard textarea{font-size:16px;padding:11px 13px}
+.intakeWizard .wizActions{flex:none;margin:12px 0 0;padding-top:12px;border-top:1px solid var(--edge);gap:8px;background:var(--bg2)}
+.intakeWizard .wizActions .btn{min-height:44px;padding:10px 14px;font-size:13px}
+.intakeModal .intakeSuccess{max-height:calc(100dvh - 76px);overflow-y:auto}
+@media(max-width:1000px) and (min-width:761px){.calendar-first .mcv2-header .h1{font-size:26px}.calendar-heading{gap:8px}.calendar-first .mcv2-new-event-btn{padding:8px;font-size:12px}}
+@media(max-width:760px){
+ body:has(.calendar-first) #main{padding-top:8px;padding-bottom:8px}
+ .calendar-first .mcv2-header{grid-template-columns:1fr auto;gap:8px;align-items:start}
+ .calendar-heading{grid-column:1/-1;justify-content:space-between}
+ .calendar-first .mcv2-header .h1{font-size:26px}
+ .calendar-first .mcv2-kicker{font-size:11px}
+ .calendar-navigation{justify-self:start}
+ .calendar-first .mcv2-view-switcher{justify-self:end}
+ .calendar-first .mcv2-view-switcher button{font-size:11px;padding:8px;letter-spacing:0}
+ .calendar-month-title{font-size:16px}
+ .calendar-toolbar{gap:6px}
+ .calendar-toolbar .calendar-scope{display:flex;flex-wrap:wrap;grid-template-columns:none;width:auto;gap:4px}
+ .calendar-toolbar .calendar-scope button{font-size:12px;padding:8px}
+ .calendar-toolbar details>summary{font-size:13px;padding:8px}
+ .calendar-toolbar .mcv2-timezone{display:none}
+ .calendar-first .mcv2-month-day{padding:2px;gap:0}
+ .calendar-first .mcv2-day-number,.calendar-first .mcv2-day-events{display:none}
+ .calendar-first .mcv2-compact-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:44px;width:100%;height:100%;padding:2px;border:0;border-radius:6px;background:transparent;font-size:14px;color:var(--tx);box-sizing:border-box}
+ .calendar-first .mcv2-compact-day b{font-size:13px;color:var(--em)}
+ .mcv2-drawer.intakeModal{padding:18px 14px;width:calc(100vw - 16px)}
+ .intakeModal .intakeWizard:not(.intakeSuccess){max-height:calc(100dvh - 64px)}
+ .intakeIdentityGrid{grid-template-columns:minmax(0,1fr);gap:12px}
+ .intakeWizard h2{font-size:27px}
+ .intakeWizard .lead{font-size:16px}
+ .intakeWizard .wizActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .intakeWizard .wizActions .btn{width:100%;min-height:44px;font-size:12px}
+}
+
+.calendar-toolbar details,.calendar-attention{padding:0;border:0;background:none;margin-top:0}
+.calendar-toolbar details[open]>summary,.calendar-attention[open]>summary{margin-bottom:0}
+.calendar-attention{margin-top:8px}
+.calendar-first .calendar-connection{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.calendar-first.live{padding:0 24px;min-height:0}
+@media(max-width:760px){.calendar-first.live{padding:0 12px}}
+
+.intakeWizard .wizBody fieldset{min-width:0;margin:0;padding:0;border:0}
+@media(max-width:760px){.intakeProgress li .stepLabel,.intakeProgress li[aria-current=step] .stepLabel{font-size:11px;letter-spacing:0;white-space:nowrap;max-width:none}.intakeWizard .wizHead{gap:6px}.intakeWizard .wizHead .eyebrow{font-size:11px;letter-spacing:.12em}}
+
+.intakeWizard .wizHead{padding-right:44px}

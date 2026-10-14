@@ -80,7 +80,8 @@ test('progress tracker communicates completed / current / upcoming', () => {
   assert.ok(wizard.includes(`k+1<s?'class="done"':k+1>s?'class="upcoming"':''`), 'done + upcoming classes');
   assert.ok(wizard.includes(`aria-current="step"`), 'current step exposed');
   assert.ok(wizard.includes(`<span class="srOnly">${'${'}k+1<s?'Completed':k+1===s?'Current step':'Upcoming'}</span>`), 'state text for screen readers');
-  assert.ok(wizard.includes('class="wizStage"'), 'readable current stage line');
+  assert.ok(wizard.includes('class="wizStage srOnly"'), 'duplicate stage detail remains available to screen readers');
+  assert.ok(wizard.includes('STEP ${s} OF 7'), 'current step stays visible in compact header');
   assert.ok(v2css.includes('.intakeProgress li::before{width:40px;height:40px;font-size:15px'), 'nodes 40px');
   assert.ok(v2css.includes('.intakeProgress li{font-size:11.5px'), 'labels ≥11.5px');
   assert.ok(v2css.includes('.intakeProgress li.upcoming{opacity:.78}'), 'upcoming visibly distinct');
