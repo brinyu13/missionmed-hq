@@ -183,6 +183,15 @@
       "source_rev": "legacy",
       "bytes": 167135,
       "note": "Live reschedule passed with server-readback reconciliation and the QA appointment was restored to its original time. Live cancel then returned the same downstream null-metadata exception and fresh Upcoming plus Matrix Calendar readback showed the appointment still active, proving cancellation did not commit. The alias was immediately restored and publicly reverified at the exact V1 hash. V2 remains blocked on the read-only backend cancellation contract."
+    },
+    {
+      "utc": "2026-10-14T12:45:44Z",
+      "ticket": "MX-GX-20261013-001 / DR-427",
+      "action": "candidate",
+      "sha256": "e070132cd376f38da996493adb9866233dd3bc61230eee6d5e36535d53847323",
+      "source_rev": "MX-APPT-5003G",
+      "bytes": 294940,
+      "note": "Scheduler-owned non-search tranche: normalizes the existing StoryForge V2 top-nav, rail, and Settings return controls to the exact Matrix Dashboard URL; keeps the compact keyboard-accessible top-nav label visible at 390px; warns on unfinished booking or reschedule selections; preserves state when the warning is canceled; and blocks navigation while booking, reschedule, or cancellation mutation work is in flight. No auth, entitlement, appointment API, schema, runtime, theme, search, or sibling-product contract changed."
     }
   ]
 }

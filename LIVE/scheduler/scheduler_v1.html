@@ -2378,6 +2378,7 @@
       display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 11px;border:1px solid var(--sf-edge2);
       border-radius:8px;color:var(--sf-mid);font:700 11px "Rajdhani",sans-serif;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;
     }
+    #schedule-root[data-appt-experience="storyforge"] .sf-back:hover{color:var(--sf-ink);border-color:var(--sf-cyan)}
     #schedule-root[data-appt-experience="storyforge"] .sf-brand{display:flex;flex-direction:column;min-width:225px;line-height:1}
     #schedule-root[data-appt-experience="storyforge"] .sf-brand-title{white-space:nowrap;font-size:19px;font-style:italic;font-weight:900;letter-spacing:-.025em}
     #schedule-root[data-appt-experience="storyforge"] .sf-brand-title b{color:var(--sf-ember)}
@@ -2489,7 +2490,7 @@
     @media(max-width:640px){
       #schedule-root[data-appt-experience="storyforge"] .sf-app{--sf-hdr:108px}
       #schedule-root[data-appt-experience="storyforge"] .sf-hdr{flex-wrap:wrap;align-content:center;gap:8px 10px;padding:8px 12px}
-      #schedule-root[data-appt-experience="storyforge"] .sf-back{width:44px;justify-content:center;padding:0}#schedule-root[data-appt-experience="storyforge"] .sf-back span{display:none}
+      #schedule-root[data-appt-experience="storyforge"] .sf-back{width:auto;min-width:0;justify-content:center;padding:0 9px;letter-spacing:.08em;white-space:nowrap}#schedule-root[data-appt-experience="storyforge"] .sf-back span{display:inline}
       #schedule-root[data-appt-experience="storyforge"] .sf-brand{order:0;flex:1 1 auto;flex-basis:auto;min-width:0}#schedule-root[data-appt-experience="storyforge"] .sf-brand-title{font-size:16px}#schedule-root[data-appt-experience="storyforge"] .sf-brand-sub{font-size:7px;letter-spacing:.13em;margin-top:3px}
       #schedule-root[data-appt-experience="storyforge"] .sf-hdr-actions{width:100%;height:44px;gap:7px}#schedule-root[data-appt-experience="storyforge"] .sf-cta{padding:0 12px}
       #schedule-root[data-appt-experience="storyforge"] .sf-main{padding:18px 14px 150px}
@@ -2518,6 +2519,7 @@
       var scheduler = window.MMEDScheduler || {};
       var refs = {};
       var EASTERN_TIMEZONE = "America/New_York";
+      var MATRIX_DASHBOARD_URL = "https://missionmedinstitute.com/member-dashboard/#dashboard";
       var INITIAL_FORCE_CLASSIC = !!(window.mmedStudentOsFeatureFlags &&
         window.mmedStudentOsFeatureFlags.feature_flags &&
         window.mmedStudentOsFeatureFlags.feature_flags.appointments_force_classic);
@@ -2612,6 +2614,7 @@
         rescheduleAppointmentId: "",
         bookingState: "Draft",
         bookingSubmitting: false,
+        appointmentMutationPending: false,
         bookingConfirmed: false,
         confirmedAppointment: null,
         confirmedMeeting: null,
@@ -4783,6 +4786,7 @@
           scheduler.render.page(scheduler.state.route);
           return;
         }
+        scheduler.state.appointmentMutationPending = true;
         setNotice("Canceling appointment...", false);
         scheduler.render.page(scheduler.state.route);
         scheduler.api.post("/cancel", {
@@ -4797,6 +4801,12 @@
           setNotice("Appointment canceled.", false);
           return Promise.all([loadUpcoming(), loadHistory()]);
         }).then(function () {
+          scheduler.state.appointmentMutationPending = false;
+          scheduler.render.sidebar();
+          scheduler.render.page(scheduler.state.route);
+        }, function (error) {
+          scheduler.state.appointmentMutationPending = false;
+          setNotice(error && error.message ? error.message : "We could not cancel this appointment yet.", true);
           scheduler.render.sidebar();
           scheduler.render.page(scheduler.state.route);
         });
@@ -5693,14 +5703,14 @@
                 (route === item[0] ? "page" : "false") + '"><span class="sf-rico" aria-hidden="true">' + item[1] + '</span><span>' +
                 escapeHTML(item[2]) + '</span>' + (item[0] === "upcoming" && scheduler.state.upcoming.length ? '<span class="sf-count">' + scheduler.state.upcoming.length + '</span>' : '') + "</button>";
             }).join(""),
-            '</nav><div class="sf-railfoot"><a class="sf-return" href="#dashboard">↩ Back to Matrix</a><div class="sf-identity"><span class="sf-avatar">' + escapeHTML(storyFirstName().slice(0,2).toUpperCase()) + '</span><span>' + escapeHTML(storyFirstName()) + ' · Student</span></div></div></aside>'
+            '</nav><div class="sf-railfoot"><a class="sf-return" data-matrix-return href="' + escapeAttr(MATRIX_DASHBOARD_URL) + '">↩ Back to Matrix</a><div class="sf-identity"><span class="sf-avatar">' + escapeHTML(storyFirstName().slice(0,2).toUpperCase()) + '</span><span>' + escapeHTML(storyFirstName()) + ' · Student</span></div></div></aside>'
           ].join("");
         }
 
         function storyChrome(route, body) {
           return [
             '<section class="sf-app sf">',
-            '<header class="sf-hdr"><a class="sf-back" href="#dashboard"><b aria-hidden="true">←</b><span>Matrix</span></a>',
+            '<header class="sf-hdr"><a class="sf-back" data-matrix-return href="' + escapeAttr(MATRIX_DASHBOARD_URL) + '"><b aria-hidden="true">←</b><span>Return to Matrix</span></a>',
             '<div class="sf-brand"><div class="sf-brand-title">MissionMed // <b>Appointments</b></div><div class="sf-brand-sub">Planning · Eastern time</div></div>',
             '<div class="sf-hdr-actions"><span class="sf-viewchip">Student view</span><button type="button" class="sf-cta" data-sf-action="route" data-route="book">＋ Book</button></div></header>',
             storyNav(route),
@@ -6146,7 +6156,7 @@
             '<div class="sf-setting-row"><div><h2>Appointments experience</h2><p>StoryForge is the new look for booking and managing appointments. ' + escapeHTML(status.title) + '.</p></div><div class="sf-exp" role="group" aria-label="Saved appointment experience">' + storyExperienceControls() + '</div></div>',
             '<div class="sf-setting-row"><div><h2>Time zone</h2><p>All appointment times are scheduled in Eastern time (America/New_York).</p></div><span class="sf-zone">Eastern</span></div>',
             '<div class="sf-setting-row"><div><h2>Signed identity</h2><p>' + escapeHTML(storyFirstName()) + ' · Student. Role and eligibility come from the signed MissionMed session.</p></div></div>',
-            '<div class="sf-setting-row"><div><h2>Return to the platform</h2><p>Leave Appointments without creating a second sign-out path.</p></div><a class="sf-button" href="#dashboard">← Back to Matrix</a></div>',
+            '<div class="sf-setting-row"><div><h2>Return to the platform</h2><p>Leave Appointments without creating a second sign-out path.</p></div><a class="sf-button" data-matrix-return href="' + escapeAttr(MATRIX_DASHBOARD_URL) + '">← Back to Matrix</a></div>',
             "</section>"
           ].join("");
         }
@@ -6279,8 +6289,46 @@
           dialog.showModal();
         }
 
+        function hasPendingAppointmentDraft() {
+          return !scheduler.state.bookingConfirmed && !!(
+            scheduler.state.rescheduleAppointmentId ||
+            scheduler.state.bookingStep > 1 ||
+            scheduler.state.division ||
+            scheduler.state.appointmentTypeId ||
+            scheduler.state.providerId ||
+            scheduler.state.selectedSlotKey ||
+            String(scheduler.state.intake || "").trim() ||
+            scheduler.state.smsOptIn ||
+            String(scheduler.state.smsPhone || "").trim()
+          );
+        }
+
+        function confirmMatrixReturn(event) {
+          if (scheduler.state.bookingSubmitting || scheduler.state.appointmentMutationPending) {
+            event.preventDefault();
+            setNotice("Please wait for the current appointment update to finish before returning to Matrix.", false);
+            renderStoryForge(scheduler.state.route);
+            return;
+          }
+          if (!hasPendingAppointmentDraft()) return;
+          var leaveAppointments = false;
+          try {
+            leaveAppointments = window.confirm("Return to Matrix?\n\nYour unfinished appointment selections will not be saved.");
+          } catch (error) {
+            leaveAppointments = false;
+          }
+          if (!leaveAppointments) event.preventDefault();
+        }
+
+        function bindMatrixReturnControls() {
+          refs.content.querySelectorAll("[data-matrix-return]").forEach(function (control) {
+            control.addEventListener("click", confirmMatrixReturn);
+          });
+        }
+
         function bindStoryForge() {
           if (!refs.content) return;
+          bindMatrixReturnControls();
           refs.content.querySelectorAll("[data-sf-action]").forEach(function (control) {
             control.addEventListener("click", function () {
               var action = control.getAttribute("data-sf-action");
