@@ -140,6 +140,7 @@ const A={
   'mentor-priority'(el){requireMentor();return command('mentor.priority',null,{studentId:el.dataset.student,text:val('mprio-'+el.dataset.student)});},
   nudge(el){requireMentor();return command('mentor.nudge',null,{studentId:el.dataset.student,text:val('nudge-'+el.dataset.student)});}
 };
+Object.assign(A,{'workspace-retry'(){return completeWorkspace();}});
 async function dispatchAction(button){
   if(studentPreview()&&!INTAKE_PREVIEW_ACTIONS.has(button.dataset.act)&&!new Set(['switch-view','nav','matrix','cal-nav','cal-today','cal-view','cal-day','drawer-close','add-interview','new-offer','close-interview','close-card']).has(button.dataset.act)){notice(previewError().message);return;}
   if(!S)return;if(coreOnly()&&!coreAction(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
@@ -362,6 +363,7 @@ function itineraryContext(id){
 }
 function currentItinerary(a,id,ref){return currentCalendar(a)&&itineraryContext(id).targetRef===ref;}
 async function calendarMutation(path,intent,body,headers={}){
+ workspaceLoadSequence++;
  if(calendarMutationBusy||itineraryPending)throw Error('Resolve the current Calendar mutation before another action.');
  const a=calendarAuthority(),key=JSON.stringify([a.id,a.role,a.epoch,path,headers,intent]);
  if(calendarMutationPending&&calendarMutationPending.key!==key)throw Error('The earlier Calendar action has an uncertain outcome. Retry that same action first.');

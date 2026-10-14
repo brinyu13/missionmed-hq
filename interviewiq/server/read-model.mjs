@@ -16,8 +16,8 @@ const object=()=>Object.create(null);
 const byInterview=rows=>Object.fromEntries(rows.map(x=>[x.interview_id,x]));
 const status=value=>({'awaiting_confirmation':'awaiting occurrence confirmation','waiting_identity':'waiting for identity',outage:'provider outage'}[value]||value);
 
-export async function readModel(db,actor,{owners,config,clock=()=>new Date(),speechAvailable=false}) {
-  if(config.coreOnly)return readCoreModel(db,actor,{config,owners,clock});
+export async function readModel(db,actor,{owners,config,clock=()=>new Date(),speechAvailable=false,calendarOnly=false}) {
+  if(config.coreOnly)return readCoreModel(db,actor,{config,owners,clock,calendarOnly});
   // RLS applies even to these explicit owner predicates. Never ship one shared
   // browser state containing private records and filter it in the UI.
   const {rows:interviews}=await db.query('SELECT * FROM iiq.interviews ORDER BY start_at NULLS LAST,created_at DESC');

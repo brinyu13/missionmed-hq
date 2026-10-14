@@ -161,3 +161,13 @@ test('Node verifier accepts PHP token and proof, then denies that token after lo
   revoked = true;
   await assert.rejects(authorize(request, 'GET /api/bootstrap'), error => error.code === 'session_unavailable');
 });
+
+test('actual gateway GET Calendar bootstrap preserves private forwarding and rejects every unsupported query',async()=>{
+ const call=path=>fetch(base+path,{headers:{Origin:origin,Authorization:headers.Authorization}});
+ for(const q of ['', '?view=calendar']){
+  const response=await call('/interviewiq/api/bootstrap'+q),body=await response.json();assert.equal(response.status,200);
+  assert.equal(response.headers.get('cache-control'),'private, no-store, no-cache, max-age=0, must-revalidate');assert.equal(body.forwarded.url,'https://interviewiq-production.up.railway.app/api/bootstrap'+q);
+  assert.equal(body.forwarded.gatewayMatched,true);assert.equal(body.forwarded.authorizationPresent,true);assert.equal(body.forwarded.cookiesEmpty,true);assert.equal(body.forwarded.redirects,0);
+ }
+ for(const q of ['?view=calendar&view=calendar','?view[]=calendar','?view=full','?%76iew=calendar','?view=calendar&owner=other','?view=calendar&'])assert.equal((await call('/interviewiq/api/bootstrap'+q)).status,400);
+});

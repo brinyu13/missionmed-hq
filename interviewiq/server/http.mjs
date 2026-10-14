@@ -71,7 +71,7 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       if(route==='itinerary-list')return send(200,await listItineraries(calendarContext));
       if(route==='itinerary-withdraw')return send(200,await withdrawItinerary(calendarContext,await jsonBody(req,16384)));
       if(route==='itinerary-download'){const f=await downloadItinerary(calendarContext);res.writeHead(200,f.headers);return res.end(f.bytes);}
-      if(route==='bootstrap')return send(200,await (ownerReadReceipts?ownerReadReceipts.run(actor,req,()=>commands.bootstrap(actor)):commands.bootstrap(actor)));
+      if(route==='bootstrap'){const options={calendarOnly:url.searchParams.get('view')==='calendar'};return send(200,await (ownerReadReceipts?ownerReadReceipts.run(actor,req,()=>commands.bootstrap(actor,options)):commands.bootstrap(actor,options)));}
       if(route==='programs'){
         const loiLookup=loiCanonicalLookup(config,actor);
         if(config.researchMissionsEnabled===true&&!loiLookup&&!intakeEnabled(config,actor))requireResearch(config,actor);
@@ -115,6 +115,7 @@ function resolveRoute(method,path,url) {
   if(method==='GET'&&['/api/calendar/roster','/api/calendar/overview'].includes(path)){const keys=[...url.searchParams.keys()],allowed=path.endsWith('/overview')?['start','end','after']:['after','q','tier'];requireValue(new Set(keys).size===keys.length&&keys.every(k=>allowed.includes(k)),'invalid_query','Choose a bounded student scope.',400);return path.endsWith('/overview')?'calendar-overview':'calendar-roster';}
   if(method==='GET'&&/^\/api\/calendar\/student\/[1-9][0-9]{0,15}$/.test(path)){requireValue(!url.search,'invalid_query','This endpoint does not accept a query.',400);return 'calendar-student';}
   if(method==='GET'&&path==='/api/calendar/cohort'){const keys=[...url.searchParams.keys()];requireValue(keys.length>=2&&keys.length<=3&&new Set(keys).size===keys.length&&keys.every(k=>['start','end','cursor'].includes(k)),'invalid_query','Choose a bounded Calendar range.',400);return 'calendar-cohort';}
+  if(method==='GET'&&path==='/api/bootstrap'){requireValue(!url.search||url.search==='?view=calendar','invalid_query','Choose the supported workspace view.',400);return 'bootstrap';}
   requireValue(!url.search,'invalid_query','This endpoint does not accept a query.',400);
   if(method==='GET'&&path==='/api/calendar/student-preview')return 'student-preview';
   const calendarAdmin=/^\/api\/calendar\/admin\/([a-f0-9-]{36})$/.exec(path);if(calendarAdmin&&UUID.test(calendarAdmin[1])&&['GET','POST'].includes(method))return method==='GET'?'calendar-admin-read':'calendar-admin-write';

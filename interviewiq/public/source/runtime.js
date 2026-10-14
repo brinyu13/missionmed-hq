@@ -6,6 +6,7 @@ function clearCalendarMemory(){cohortFlight=null;calendarRoster=null;calendarSel
 'use strict';
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
+let workspacePhase='full',workspaceLoadSequence=0,workspaceReadFlight=null,workspaceLoadError=null,bootSequence=0;
 let session=null,sessionRefresh=null,sessionEpoch=0,commandQueue=Promise.resolve(),serverClockOffset=0;
 let administratorPreview=false, administratorWorkspace=null;
 const studentPreview=()=>administratorPreview===true&&actor?.role==='admin';
@@ -14,7 +15,7 @@ const draftValues=new Map(),pendingCommands=new Map(),researchBriefs=new Map(),l
 const clone=o=>JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ownKeys=['why','questions','practice','debriefs','learning','rank','demands','results','shared','consents','mentorPriority','loi'];
-const defaultUI=()=>({route:'home',open:null,section:null,essentials:false,printSel:{story:false,note:false,points:false,support:false},sub:{},cal:{ym:new Date().toISOString().slice(0,7),view:'month',sel:null},drawer:null});
+const defaultUI=()=>({route:'calendar',open:null,section:null,essentials:false,printSel:{story:false,note:false,points:false,support:false},sub:{},cal:{ym:new Date().toISOString().slice(0,7),view:'month',sel:null},drawer:null});
 const CORE_COMMANDS=new Set(['interview.create','interview.identity','interview.schedule','interview.lifecycle','event.create','event.update']);
 const CORE_ACTIONS=new Set(['switch-view','nav','matrix','open-interview','open-card','close-interview','close-card','open-section','section','cal-nav','cal-today','cal-view','cal-day','cal-item','drawer-close','add-interview','new-offer','add-interview-save','date-undated','add-related-pick','add-related-save','offer-save','manual-identity-save','disposition','schedule-save','cancel','restore','postpone','waitlist','related-save','related-lifecycle','join-verify']);
 const threeboxEnabled=()=>capabilities.threebox===true&&!studentPreview()&&actor?.role==='student'&&['360','ivprep_complete'].includes(actor.tier);
@@ -70,7 +71,7 @@ async function refreshSession(){
 async function apiFetch(path,options={},retried=false){
   const callEpoch=sessionEpoch;
   if(studentPreview())throw previewError();
-  if(coreOnly()&&!(calendarV2()&&(path.startsWith('/calendar/')||/^\/interviews\/[a-f0-9-]{36}\/itinerary/.test(path)))&&path!=='/bootstrap'&&!((deepResearch()||loiCanonicalLookup()||intakeEnabled()||mrxUI())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
+  if(coreOnly()&&!(calendarV2()&&(path.startsWith('/calendar/')||/^\/interviews\/[a-f0-9-]{36}\/itinerary/.test(path)))&&!['/bootstrap','/bootstrap?view=calendar'].includes(path)&&!((deepResearch()||loiCanonicalLookup()||intakeEnabled()||mrxUI())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const sentSession=session,requestEpoch=sessionEpoch;
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
@@ -92,6 +93,7 @@ function applyBootstrap(input){
   const b=input?.bootstrap||input;
   researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
+  workspaceLoadSequence++;workspacePhase=b.workspacePhase==='calendar'?'calendar':'full';workspaceLoadError=null;
   const hadCalendar=calendarV2();
   const hadLookup=loiCanonicalLookup(),hadTargets=loiTargetsEnabled(),hadComposition=loiCompositionEnabled(),hadMyeras=myerasEnabled(),hadIntake=intakeEnabled();
   const sameActor=actor?.id===b.actor.id&&normalizeRole(actor.role)===normalizeRole(b.actor.role);
@@ -128,6 +130,7 @@ async function refreshWorkspace(){const identity=actor?.id,b=await apiFetch('/bo
 async function command(name,interviewId=null,data={},options={}){
   if(studentPreview())throw previewError();
   if(coreOnly()&&!coreCommand(name)){openComingSoon(name.split('.')[0]);return {comingSoon:true};}
+  workspaceLoadSequence++;
   const targetCommand=options.targetKind==='program';if(targetCommand&&!loiTargetsEnabled())throw Error('Program letter access is unavailable.');
   const mrxCommand=MRX_COMMANDS.has(name),capturedMRXEpoch=mrxEpoch;
   const threeboxCommand=THREEBOX_COMMANDS.has(name),capturedThreeboxEpoch=threeboxEpoch;
@@ -199,6 +202,7 @@ function clearPrivateMemory(){clearProgramMediaMemory();clearMRXMemory();clearCa
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}
 }
 function lockWorkspace(message){
+  bootSequence++;workspaceLoadSequence++;workspacePhase='full';workspaceReadFlight=null;workspaceLoadError=null;
   administratorPreview=false;administratorWorkspace=null;sessionEpoch++;sessionRefresh=null;
   clearPrivateMemory();S=null;F={};actor=null;capabilities={};integrations={};version=null;session=null;
   for(const id of ['rail','hdr','drawer']){const e=document.getElementById(id);if(e){e.innerHTML='';e.inert=false;e.classList.remove('open');}}
@@ -259,11 +263,41 @@ function applyInterviewIQEntry(entry,identity,epoch){
   if(intakeFlow?.busy||intakeFlow?.awaitingConfirmation){notice('Your current interview draft is retained. Finish confirming its save before adding another.');return false;}
   openIntake({dataset:{}},{preserveCurrent:true});return true;
 }
+function renderPublicCalendarShell(){
+  const date=new Date(),year=date.getFullYear(),month=date.getMonth(),first=new Date(year,month,1),count=new Date(year,month+1,0).getDate(),weeks=Math.ceil((first.getDay()+count)/7);
+  const title=new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric'}).format(first);
+  const days=Array.from({length:weeks*7},(_,k)=>{const d=new Date(year,month,k-first.getDay()+1);return '<div class="mcv2-month-day'+(d.getMonth()!==month?' is-outside':'')+'" role="gridcell" aria-label="'+esc(d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+', schedules loading"><span class="mcv2-day-number">'+d.getDate()+'</span><span class="mcv2-compact-day">'+d.getDate()+'</span></div>';}).join('');
+  return '<section data-view="calendar" data-calendar-mode="month" class="live calendar-first" aria-busy="true"><header class="mcv2-header"><div class="calendar-heading"><div><p class="mcv2-kicker">INTERVIEW CALENDAR</p><div class="h1">Month <em>view</em></div></div></div><div class="calendar-navigation"><strong class="calendar-month-title">'+esc(title)+'</strong></div></header><p class="calendar-message" role="status">Verifying your account and loading saved interviews…</p><div class="calendar-grid-scroll"><div class="mcv2-month" role="grid" aria-label="'+esc(title)+': dates only, schedules loading" style="--calendar-weeks:'+weeks+'"><div class="mcv2-weekdays" role="row">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>'<div class="mcv2-weekday" role="columnheader">'+d+'</div>').join('')+'</div><div class="mcv2-month-grid">'+days+'</div></div></div></section>';
+}
+function completeWorkspace(afterComplete){
+  if(workspaceReadFlight)return workspaceReadFlight;
+  if(!S||!actor||workspacePhase!=='calendar'){afterComplete?.();return Promise.resolve();}
+  const identity={id:actor.id,role:actor.role,tier:actor.tier,epoch:sessionEpoch,sequence:workspaceLoadSequence,version};
+  const sameScope=()=>S&&actor?.id===identity.id&&actor.role===identity.role&&actor.tier===identity.tier&&sessionEpoch===identity.epoch;
+  const current=()=>sameScope()&&workspaceLoadSequence===identity.sequence&&version===identity.version&&workspacePhase==='calendar';
+  const superseded=()=>{if(sameScope()&&workspacePhase==='calendar'){workspaceLoadError='Workspace details changed while loading. Retry details when ready.';if(S.ui.route==='calendar'&&!S.ui.drawer)render();}};
+  const work=(async()=>{
+    try{
+      const b=await apiFetch('/bootstrap');if(!current()){superseded();return;}
+      if(b.actor?.id!==identity.id||normalizeRole(b.actor?.role)!==identity.role||b.actor?.tier!==identity.tier)throw Object.assign(Error('Your current account scope changed.'),{status:403});
+      if(!Number.isSafeInteger(b.version)||b.version!==identity.version)throw Error('The workspace response changed. Retry to read the current records.');
+      applyBootstrap(b);if(S.ui.route==='calendar'&&!S.ui.drawer)render();afterComplete?.();
+    }catch(error){
+      if(sameScope()&&(error.status===401||error.status===403)){lockWorkspace('Your current access could not be verified. Sign in through MissionMed again.');return;}
+      if(!current()){superseded();return;}
+      workspaceLoadError='Some workspace details did not finish loading. Your Calendar and Add Interview remain available.';
+      if(S.ui.route==='calendar'&&!S.ui.drawer)render();
+    }
+  })();workspaceReadFlight=work;void work.finally(()=>{if(workspaceReadFlight===work)workspaceReadFlight=null;});return work;
+}
 async function boot(){
-  const main=document.getElementById('main');main.innerHTML='<section class="pageIntro" style="padding:48px"><div class="h1">Opening your <em>workspace</em>.</div><p role="status">Connecting to your MissionMed account…</p></section>';
+  const sequence=++bootSequence;const main=document.getElementById('main');main.innerHTML=renderPublicCalendarShell();fitCalendarViewport();
   const entry=parseInterviewIQEntry(location.search);
-  try{await refreshWorkspace();render();const identity=actor.id,epoch=sessionEpoch;showOpening(()=>applyInterviewIQEntry(entry,identity,epoch));warmCalendar();}
-  catch(error){lockWorkspace(error.message);}
+  try{
+    let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
+    if(sequence!==bootSequence)return;applyBootstrap(b);render();const identity=actor.id,epoch=sessionEpoch;
+    warmCalendar();void completeWorkspace();applyInterviewIQEntry(entry,identity,epoch);
+  }catch(error){if(sequence===bootSequence)lockWorkspace(error.message);}
 }
 
 

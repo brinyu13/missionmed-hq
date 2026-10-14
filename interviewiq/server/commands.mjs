@@ -1,6 +1,7 @@
 import {mrxCommands,mrxEnabled,writeMRX,reconcileMRX,createMRXTransport} from './mrx-publication.mjs';
 import {threeboxCommands,threeboxEnabled,requireThreebox,threeboxEvidence,readThreebox,writeThreebox} from './threebox.mjs';
 import {syncCalendarProjection} from './calendar-cohort.mjs';
+import {calendarEnabled} from './calendar-admission.mjs';
 import {intakeCommands,requireIntake,intakeEnabled,writeIntake,readIntake} from './interview-intake.mjs';
 import {myerasCommands,requireMyeras,previewImport,importPrograms} from './myeras-import.mjs';
 import {compositionCommands,executeComposition} from './loi-generation.mjs';
@@ -25,7 +26,7 @@ const loiCommands=new Set(['loi.save','loi.approve','loi.evidence','loi.export',
 const learningCommands=new Set(['learning.propose','learning.confirm','learning.correct','learning.revoke','learning.mentor']);
 export function createCommands({database,owners,config,clock,speechAvailable=false,additionalCommands={},loiComposer=null,loiProseComposer=null,ownerReadReceipts,researchTransport=createRiseResearchJobTransport(config.deepResearch,{ownerReadReceipts}),mrxTransport=createMRXTransport(config.mrxPublication)}) {
   const settings={owners,config,clock,speechAvailable};
-  async function bootstrap(actor) {coreActor(actor,config);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,settings);});}
+  async function bootstrap(actor,{calendarOnly=false}={}) {coreActor(actor,config);requireValue(!calendarOnly||config.coreOnly&&calendarEnabled(config,actor),'calendar_unavailable','Calendar startup is unavailable.',503);return database.withActor(actor,async db=>{await syncActor(db,actor);return readModel(db,actor,{...settings,calendarOnly});});}
   async function execute(actor,body,{revalidateActor,ownerReadReceiptsActive=false}={}) {
     coreActor(actor,config);
     const envelope=targetEnvelope(body);

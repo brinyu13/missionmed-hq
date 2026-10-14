@@ -52,7 +52,7 @@ function mmiiqg_api_route($method, $path) {
             $tail=$m[2]??'';if(($method==='POST'&&$tail==='')||($method==='GET'&&($tail===''||mmiiq_uuid($tail)))||($method==='POST'&&$tail==='withdraw')) { return array('target'=>substr($path,12),'max_bytes'=>$tail==='withdraw'?16384:5242880,'itinerary'=>true,'binary_upload'=>$method==='POST'&&$tail==='','binary_download'=>$method==='GET'&&$tail!==''); }
         }
     }
-    if ($method === 'GET' && $path === '/interviewiq/api/bootstrap') { return array('target' => '/api/bootstrap', 'max_bytes' => 0); }
+    if ($method === 'GET' && $path === '/interviewiq/api/bootstrap') { return array('target' => '/api/bootstrap', 'max_bytes' => 0, 'query' => 'bootstrap'); }
     if ($method === 'GET' && $path === '/interviewiq/api/programs') { return array('target' => '/api/programs', 'max_bytes' => 0, 'query' => 'q'); }
     if ($method === 'POST' && $path === '/interviewiq/api/commands') { return array('target' => '/api/commands', 'max_bytes' => 1048576); }
     if ($method === 'POST' && $path === '/interviewiq/api/recordings') { return array('target' => '/api/recordings', 'max_bytes' => 16384); }
@@ -67,6 +67,7 @@ function mmiiqg_api_route($method, $path) {
 }
 
 function mmiiqg_query($route, $raw) {
+    if (($route['query']??'')==='bootstrap') { return $raw===''?'':($raw==='view=calendar'?'?view=calendar':false); }
     if(in_array($route['query']??'',array('roster','overview'),true)){
         if(!is_string($raw)||strlen($raw)>2048||preg_match('/%(?![a-fA-F0-9]{2})/',$raw)){return false;}$input=array();parse_str($raw,$input);$keys=array_keys($input);if(count(explode('&',$raw))!==count($keys)){return false;}
         $allowed=$route['query']==='roster'?array('after','q','tier'):array('start','end','after');foreach($keys as $key){if(!in_array($key,$allowed,true)||!is_string($input[$key])){return false;}}

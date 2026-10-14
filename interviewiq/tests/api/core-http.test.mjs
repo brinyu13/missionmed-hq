@@ -168,3 +168,24 @@ test('export is caller scoped even for admin and stale session is denied before 
   A.allowed=false;assert.equal((await call(A)).status,401);A.allowed=true;
   assert.equal(safeLogs.some(x=>JSON.stringify(x).includes('PRIVATE ')),false);assert.equal(safeLogs.some(x=>JSON.stringify(x).includes(A.token)),false);
 });
+test('Calendar-first bootstrap through actual signed HTTP and forced RLS preserves both owners without optional read',async()=>{
+ const oldConfig={coreOnly:config.coreOnly,calendar:config.calendar,loi:config.loi},oldRise=owners.rise;
+ let optionalReads=0;
+ try{
+  config.coreOnly=true;config.calendar={enabled:true};config.loi={enabled:true,mode:'ELIGIBLE',targetsEnabled:true};
+  owners.rise={savedPrograms:async()=>{optionalReads++;return{records:[],page:1,pageSize:100,total:0,hasMore:false};}};
+  const normalA=await ok(A),normalB=await ok(B);assert.equal(optionalReads,2);optionalReads=0;
+  const fastA=await ok(A,'/api/bootstrap?view=calendar'),fastB=await ok(B,'/api/bootstrap?view=calendar');
+  assert.equal(optionalReads,0);assert.equal(fastA.workspacePhase,'calendar');assert.equal(fastB.workspacePhase,'calendar');
+  for(const [current,normal,owner] of [[fastA,normalA,A],[fastB,normalB,B]]){
+   assert.equal(current.version,normal.version);
+   assert.deepEqual(current.state.interviews,normal.state.interviews);
+   assert.ok(current.state.interviews.every(i=>i.owner===owner.id));
+   assert.deepEqual(current.state.loiTargets.targets,normal.state.loiTargets.targets);
+   assert.equal(current.state.loiTargets.savedStatus,'loading');
+  }
+  assert.equal(fastB.state.interviews.some(i=>i.id===interviewId),false);
+  A.allowed=false;assert.equal((await call(A,'/api/bootstrap?view=calendar')).status,401);A.allowed=true;
+  assert.equal(optionalReads,0);
+ }finally{Object.assign(config,oldConfig);owners.rise=oldRise;A.allowed=true;}
+});
