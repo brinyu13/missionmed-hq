@@ -57,7 +57,13 @@ final class MMED_Matrix_Appearance_V1 {
         if (!$uid) { return self::error('auth_required', 401); }
         // Native metadata cache only for this authenticated subject; no raw SQL.
         $wpdb->last_error = '';
-        wp_cache_delete($uid, 'user_meta');
+        $found = false;
+        wp_cache_get($uid, 'user_meta', false, $found);
+        $deleted = wp_cache_delete($uid, 'user_meta');
+        if ($found && !$deleted) { return self::error('unavailable', 503); }
+        $retained = false;
+        wp_cache_get($uid, 'user_meta', false, $retained);
+        if ($retained) { return self::error('unavailable', 503); }
         $values = get_user_meta($uid, self::KEY, false);
         if ($wpdb->last_error !== '' || !is_array($values)) { return self::error('unavailable', 503); }
         if (!$values) { return self::value('dark', 'absent'); }
@@ -138,7 +144,7 @@ final class MMED_Matrix_Appearance_V1 {
             wp_json_encode($cfg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';' .
             '(function(){var c=window.mmedAppearanceV1,s=c.snapshot,m=s&&s.mode||"dark",q=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)");' .
             'function p(){if(location.hash&&location.hash!=="#dashboard")return;document.documentElement.setAttribute("data-mmed-dashboard-appearance",m==="auto"?(q&&q.matches?"dark":"light"):m);}' .
-            'p();if(m==="auto"&&q){var f=function(){if(window.mmedAppearanceV1.snapshot)p();};if(q.addEventListener)q.addEventListener("change",f);else if(q.addListener)q.addListener(f);}})();</script>';
+            'p();if(m==="auto"&&q){var f=function(){var n=window.mmedAppearanceV1.snapshot;if(n&&n.mode==="auto")p();};if(q.addEventListener)q.addEventListener("change",f);else if(q.addListener)q.addListener(f);}})();</script>';
     }
 }
 MMED_Matrix_Appearance_V1::init();

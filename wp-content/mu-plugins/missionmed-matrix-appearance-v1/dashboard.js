@@ -7,7 +7,7 @@
   const modes = ['dark', 'light', 'auto'];
   const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   let snapshot = safe(cfg.snapshot), available = !!cfg.available, saving = false, restoring = false;
-  let generation = 0, status = initialStatus(), observer;
+  let generation = 0, status = initialStatus(), observer, draftMode = null, restoreRequested = false;
   function safe(s) {
     const states = ['valid', 'absent', 'invalid', 'ambiguous'];
     if (!s || s.contract !== 'matrix.appearance.preference.v1' || s.version !== 1 ||
@@ -31,9 +31,10 @@
     else root.removeAttribute('data-mmed-appearance-restoring');
     sync();
   }
-  function sync() {
+  function sync(updateChoice) {
     document.querySelectorAll('.mmed-appearance-v1').forEach(control => {
       const select = control.querySelector('select'), button = control.querySelector('button'), live = control.querySelector('[role="status"]');
+      if (updateChoice) select.value = snapshot ? snapshot.mode : 'dark';
       select.disabled = button.disabled = saving || restoring || !available || !snapshot || snapshot.state === 'invalid';
       if (live.textContent !== status) live.textContent = status;
       control.setAttribute('aria-busy', saving || restoring ? 'true' : 'false');
@@ -47,7 +48,8 @@
     const label = document.createElement('label'); label.textContent = 'Appearance';
     const select = document.createElement('select'); select.setAttribute('aria-label', 'Appearance');
     modes.forEach(mode => { const option = document.createElement('option'); option.value = mode; option.textContent = mode[0].toUpperCase() + mode.slice(1); select.appendChild(option); });
-    select.value = snapshot ? snapshot.mode : 'dark'; label.appendChild(select);
+    select.value = draftMode || (snapshot ? snapshot.mode : 'dark');
+    select.addEventListener('change', () => { draftMode = select.value; }); label.appendChild(select);
     const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Apply';
     button.addEventListener('click', () => save(select.value));
     const live = document.createElement('span'); live.setAttribute('role', 'status'); live.setAttribute('aria-live', 'polite');
@@ -73,28 +75,36 @@
       if (mine !== generation) return;
       const observed = safe(result.ok ? result.data : result.data && result.data.data && result.data.data.snapshot);
       if (result.ok && observed && observed.state === 'valid' && observed.mode === mode) {
-        snapshot = observed; cfg.snapshot = observed; status = 'Preference confirmed.';
+        snapshot = observed; cfg.snapshot = observed; draftMode = null; status = 'Preference confirmed.'; sync(true);
       } else if (result.status === 409 && observed) {
-        snapshot = observed; cfg.snapshot = observed; status = 'Preference changed or is unconfirmed. Choose and apply again.';
+        snapshot = observed; cfg.snapshot = observed; draftMode = null; status = 'Preference changed or is unconfirmed. Choose and apply again.'; sync(true);
       } else if ([401, 403].includes(result.status)) {
-        snapshot = null; cfg.snapshot = null; available = false; status = 'Your session changed. Reload before changing appearance.';
+        snapshot = null; cfg.snapshot = null; draftMode = null; available = false; status = 'Your session changed. Reload before changing appearance.'; sync(true);
       } else { status = 'Preference is unconfirmed. No retry was made.'; }
     } catch (_) { if (mine === generation) status = 'Preference is unconfirmed. No retry was made.'; }
     finally {
-      saving = false; apply();
-      if (mine === generation && status.includes('unconfirmed') && available) refresh(false);
+      saving = false;
+      if (restoreRequested) { restoreRequested = false; refresh(true); }
+      else {
+        apply();
+        if (mine === generation && status.includes('unconfirmed') && available) refresh(false);
+      }
     }
   }
   async function refresh(conceal) {
-    if (saving) return;
+    if (saving) {
+      if (conceal) { restoreRequested = true; snapshot = null; cfg.snapshot = null; draftMode = null;
+        restoring = true; available = false; status = 'Confirming appearance...'; apply(); }
+      return;
+    }
     const mine = ++generation;
-    if (conceal) { snapshot = null; cfg.snapshot = null; restoring = true; available = false; status = 'Confirming appearance...'; apply(); }
+    if (conceal) { snapshot = null; cfg.snapshot = null; draftMode = null; restoring = true; available = false; status = 'Confirming appearance...'; apply(); }
     try {
       const result = await request('GET');
       if (mine !== generation) return;
       const observed = result.ok ? safe(result.data) : null;
-      if (observed) { snapshot = observed; cfg.snapshot = observed; available = true; status = initialStatus(); }
-      else { snapshot = null; cfg.snapshot = null; available = false; status = 'Appearance is unconfirmed. Reload to try again.'; }
+      if (observed) { snapshot = observed; cfg.snapshot = observed; draftMode = null; available = true; status = initialStatus(); sync(true); }
+      else { snapshot = null; cfg.snapshot = null; draftMode = null; available = false; status = 'Appearance is unconfirmed. Reload to try again.'; sync(true); }
     } catch (_) { if (mine === generation) { available = false; status = 'Appearance is unconfirmed. Reload to try again.'; } }
     finally { if (mine === generation) { restoring = false; apply(); mount(); } }
   }
@@ -106,7 +116,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
   if (media) { if (media.addEventListener) media.addEventListener('change', apply); else if (media.addListener) media.addListener(apply); }
   window.addEventListener('hashchange', () => { apply(); mount(); });
-  window.addEventListener('pagehide', () => { ++generation; snapshot = null; cfg.snapshot = null; available = false;
+  window.addEventListener('pagehide', () => { ++generation; snapshot = null; cfg.snapshot = null; draftMode = null; available = false; restoring = true; restoreRequested = false;
     root.removeAttribute(attribute); root.setAttribute('data-mmed-appearance-restoring', '1'); });
   window.addEventListener('pageshow', event => { if (event.persisted) refresh(true); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(true); });
