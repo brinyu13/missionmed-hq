@@ -70,6 +70,39 @@ test('early cancellation terminates the exact reserved session even before a tic
   assert.equal(calls.length,2);assert.equal(calls[1].body.id,'late-attempt');
   assert.ok(calls.every(c=>c.url.endsWith('/command')));
 });
+test('first captured failure reaches both pre-ticket and ticket cleanup as enum-only client evidence',async()=>{
+  const calls=[],renderer=new EmbodimentRenderer({AudioContextCtor:class {},sessionId:'canonical',onDiagnostic:()=>{},
+    fetchImpl:async(url,options)=>{calls.push(JSON.parse(options.body));return {ok:true,json:async()=>({stopped:true})};}});
+  renderer.startRequested=true;renderer.interruptionTrigger='local-microphone-vad';
+  renderer.captureFailure({diagnostics:{category:'AUDIO_BIND_FAILURE',boundary:'AUDIO_BINDING',reason:'SOCKET_HOST_REJECTED',message:'PRIVATE_MESSAGE',url:'PRIVATE_URL',httpStatus:502}});
+  const expected={category:'AUDIO_BIND_FAILURE',boundary:'AUDIO_BINDING',reason:'SOCKET_HOST_REJECTED',interruptionTrigger:'local-microphone-vad'};
+  await renderer.stop({keepalive:true});
+  renderer.failureReceipt={category:'QUEUE_OVERFLOW',boundary:'AUDIO_TRANSPORT'};
+  renderer.ticket={id:'late-attempt'};await renderer.stop({late:true});await renderer.stop();
+  assert.equal(calls.length,2);assert.deepEqual(calls.map(c=>c.clientShutdownAnnotation),[expected,expected]);
+  assert.equal(calls[0].id,undefined);assert.equal(calls[1].id,'late-attempt');
+  assert.doesNotMatch(JSON.stringify(calls),/PRIVATE_|httpStatus|observedAtMs|signalEvidence/);
+});
+test('ticket manual stop omits annotation and cannot acquire a later failure',async()=>{
+  const calls=[],renderer=new EmbodimentRenderer({AudioContextCtor:class {},sessionId:'canonical',onDiagnostic:()=>{},
+    fetchImpl:async(url,options)=>{calls.push(JSON.parse(options.body));return {ok:true,json:async()=>({stopped:true})};}});
+  renderer.ticket={id:'attempt'};await renderer.stop();
+  renderer.captureFailure({diagnostics:{category:'CLIENT_ABORT',boundary:'IVOC_CLIENT'}});await renderer.stop();
+  assert.deepEqual(calls,[{sessionId:'canonical',id:'attempt',command:'terminate'}]);
+});
+test('malformed shutdown evidence is dropped after immediate mute and media cleanup',async()=>{
+  for(const value of [null,[],{category:'PRIVATE_CATEGORY',boundary:'IVOC_CLIENT'},
+    {category:'CLIENT_ABORT',boundary:'PRIVATE_URL'},
+    {get category(){throw new Error('PRIVATE_GETTER');}},
+    {category:'CLIENT_ABORT',boundary:'IVOC_CLIENT',reason:'PRIVATE_REASON',interruptionTrigger:'PRIVATE_TRIGGER',url:'PRIVATE_URL'}]){
+    const calls=[],renderer=new EmbodimentRenderer({AudioContextCtor:class {},sessionId:'canonical',
+      fetchImpl:async(url,options)=>{assert.equal(renderer.gain.gain.value,0);assert.equal(renderer.closed,true);assert.equal(renderer.mediaReleased,true);calls.push(JSON.parse(options.body));return {ok:true,json:async()=>({stopped:true})};}});
+    renderer.gain={gain:{value:1},disconnect(){}};renderer.remotePlayout=[{pause(){renderer.mediaReleased=true;}}];
+    renderer.ticket={id:'attempt'};renderer.failureReceipt=value;await renderer.stop();
+    assert.equal(calls.length,1);assert.doesNotMatch(JSON.stringify(calls),/PRIVATE_/);
+    assert.deepEqual(calls[0].clientShutdownAnnotation,value?.reason==='PRIVATE_REASON'?{category:'CLIENT_ABORT',boundary:'IVOC_CLIENT'}:undefined);
+  }
+});
 test('native PCM is bound and transmitted during a slow LiveKit join; stable output still owns the sole opening',async()=>{
   const commands=[],nodes=[];
   const node=()=>({connect(){},disconnect(){}});

@@ -9,6 +9,16 @@ const FAILURE_BOUNDARIES=new Set(['IVOC_CLIENT','IVOC_SERVER','SDK_LOAD','LIVEKI
 for(const category of ['PROVIDER_NETWORK','PROVIDER_DNS','PROVIDER_HTTP_4XX','PROVIDER_HTTP_5XX','PROVIDER_TIMEOUT','PROVIDER_CANCELLED','PROVIDER_RESPONSE_INVALID','LIVEKIT_TIMEOUT','AUDIO_TRANSPORT_FAILURE','STARTUP_CANCELLED','STARTUP_FAILED'])FAILURE_CATEGORIES.add(category);
 for(const boundary of ['RESERVATION','LIVEKIT','LEMONSLICE_API','TRANSPORT_READY'])FAILURE_BOUNDARIES.add(boundary);
 const FAILURE_REASONS=new Set(['SESSION_ID_INVALID','SOCKET_ADDRESS_MISSING','SOCKET_ADDRESS_MALFORMED','SOCKET_PROTOCOL_REJECTED','SOCKET_CREDENTIALS_REJECTED','SOCKET_HOST_REJECTED','SOCKET_PORT_REJECTED','SOCKET_FRAGMENT_REJECTED','SOCKET_DNS_FAILURE','SOCKET_DNS_TIMEOUT','SOCKET_DNS_NONPUBLIC']);
+function clientShutdownAnnotation(value){
+  try{
+    if(!value||typeof value!=='object'||Array.isArray(value))return null;
+    const {category,boundary,reason,interruptionTrigger}=value;
+    if(!(category==='UNCLASSIFIED_FAILURE'||FAILURE_CATEGORIES.has(category))||!FAILURE_BOUNDARIES.has(boundary))return null;
+    return Object.freeze({category,boundary,
+      ...(FAILURE_REASONS.has(reason)?{reason}:{}),
+      ...(['candidate-transcript','local-microphone-vad','unspecified'].includes(interruptionTrigger)?{interruptionTrigger}:{})});
+  }catch{return null;} // Untrusted diagnostics cannot prevent shutdown.
+}
 // Recover the historical decoded-frame gate, with explicit cancellation. Track
 // subscription/DOM/transport alone is never visual readiness. No provider call.
 export function decodedAvatarFrame(video,{timeoutMs=10000,signal}={}){
@@ -316,6 +326,10 @@ export class EmbodimentRenderer {
     for(const track of this.destination?.stream?.getTracks?.()||[])track.stop();
     this.video?.pause();if(this.video)this.video.srcObject=null;
     if(this.host){this.host.dataset.avatarState='stopped';this.host.replaceChildren();}
+    // Snapshot the first stop only, including a manual stop with no failure.
+    // Send enum-only client evidence; the server owns provenance and receipt time.
+    if(!this.shutdownAnnotationCaptured){this.shutdownAnnotationCaptured=true;this.shutdownAnnotation=clientShutdownAnnotation(this.failureReceipt);}
+    const annotation=this.shutdownAnnotation?{clientShutdownAnnotation:this.shutdownAnnotation}:{};
     // A stop during provider creation has no ticket yet. render's late receipt
     // calls stop again after the exact ID arrives, without recreating anything.
     if(!this.ticket){
@@ -323,14 +337,14 @@ export class EmbodimentRenderer {
       // Cancellation can precede the ticket while the exact reserved server
       // attempt is already creating. Terminate by canonical identity; never
       // retry creation. A late ticket still gets its own exact cleanup below.
-      if(this.startRequested)return this.api('/command',{sessionId:this.sessionId,command:'terminate'},{keepalive}).catch(()=>({stopped:true,providerConfirmed:false}));
+      if(this.startRequested)return this.api('/command',{sessionId:this.sessionId,command:'terminate',...annotation},{keepalive}).catch(()=>({stopped:true,providerConfirmed:false}));
       return;
     }
     if(this.cleanup)return this.cleanup;
     this.cleanup=(async()=>{
       try{await this.room?.disconnect();}catch{}
       try{await this.context?.close();}catch{}
-      return this.api('/command',{sessionId:this.sessionId,id:this.ticket.id,command:'terminate'},{keepalive}).catch(()=>({stopped:true,providerConfirmed:false}));
+      return this.api('/command',{sessionId:this.sessionId,id:this.ticket.id,command:'terminate',...annotation},{keepalive}).catch(()=>({stopped:true,providerConfirmed:false}));
     })();return this.cleanup;
   }
 }

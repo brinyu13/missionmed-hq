@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {EventEmitter} from 'node:events';
 import {createEmbodimentCanary,embodimentCanaryConfig,EMBODIMENT_CREATE_TIMEOUT_MS,publicEmbodimentFailure} from '../../server/providers/lemonslice-embodiment.mjs';
+import {createFounderQa} from '../../server/providers/founder-qa-policy.mjs';
 const ID='00000000-0000-4000-8000-000000000001';
 const env={IVOC_LEMONSLICE_CANARY_ENABLED:'true',IVOC_LEMONSLICE_CANARY_SESSION_ID:ID,IVOC_LEMONSLICE_CANARY_BUDGET_USD:'1',
   LEMONSLICE_API_KEY:'test-only',LIVEKIT_API_KEY:'test-only',LIVEKIT_API_SECRET:'test-only',LIVEKIT_URL:'wss://test.livekit.cloud'};
@@ -19,6 +20,101 @@ function harness(overrides={}){
 const MODAL_HOST=`ta-${'a'.repeat(26)}-8888-${'b'.repeat(25)}.w.modal.host`;
 // Synthetic grammar fixture; no original signed CREATE response is retained.
 const providerResponse=(address,calls=[])=>async(url,options)=>{calls.push({url,method:options.method});return {ok:true,status:201,json:async()=>url.endsWith('/control')?{success:true}:options.method==='GET'?{session_status:'COMPLETED'}:{session_id:'provider-known',websocket_address:address}};};
+const annotation={category:'AUDIO_BIND_FAILURE',boundary:'AUDIO_BINDING',interruptionTrigger:'candidate-transcript'};
+test('terminate receipt retains only client enums with server provenance/time; first stop wins',async()=>{
+  const h=harness(),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  const command=body=>h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate',...body});
+  h.advance(123);
+  const stopped=await command({clientShutdownAnnotation:{...annotation,reason:'SOCKET_HOST_REJECTED',provenance:'SERVER_VERIFIED',receivedAtMs:99,message:'PRIVATE_MESSAGE',url:'PRIVATE_URL',rawBody:'PRIVATE_BODY'}});
+  assert.deepEqual(stopped.clientShutdownAnnotation,{provenance:'CLIENT_REPORTED',receivedAtMs:1123,...annotation,reason:'SOCKET_HOST_REJECTED'});
+  assert.equal(stopped.reason,'user_finished');assert.equal(stopped.failure,null);assert.equal(stopped.cleanupConfirmed,true);
+  h.advance(999);assert.equal(await command({clientShutdownAnnotation:{category:'QUEUE_OVERFLOW',boundary:'AUDIO_TRANSPORT'}}),stopped);
+  assert.equal(h.receipts.length,1);assert.deepEqual(h.receipts[0].clientShutdownAnnotation,stopped.clientShutdownAnnotation);
+  assert.doesNotMatch(JSON.stringify(h.receipts),/PRIVATE_|SERVER_VERIFIED/);
+});
+test('hostile annotations never prevent cleanup or become server failure; first omitted annotation stays omitted',async()=>{
+  for(const value of [undefined,null,true,'PRIVATE_TEXT',[],{category:'PRIVATE_CATEGORY',boundary:'IVOC_CLIENT'},
+    {category:'CLIENT_ABORT',boundary:'PRIVATE_URL'},{get category(){throw new Error('PRIVATE_GETTER');}},
+    {...annotation,reason:'PRIVATE_REASON',interruptionTrigger:'PRIVATE_TRIGGER',token:'PRIVATE_TOKEN'}]){
+    const h=harness(),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+    const stopped=await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate',clientShutdownAnnotation:value});
+    assert.equal(stopped.cleanupConfirmed,true);assert.equal(stopped.failure,null);assert.equal(stopped.reason,'user_finished');
+    assert.deepEqual(stopped.clientShutdownAnnotation,value?.token?{provenance:'CLIENT_REPORTED',receivedAtMs:1000,category:annotation.category,boundary:annotation.boundary}:undefined);
+    await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate',clientShutdownAnnotation:annotation});
+    assert.equal(h.receipts.length,1);assert.doesNotMatch(JSON.stringify(h.receipts),/PRIVATE_/);
+  }
+});
+test('owner and exact identity checks precede annotation handling and leave the rightful attempt open',async()=>{
+  const h=harness(),ticket=await h.manager.start({actor:'wp:1',sessionId:ID});
+  for(const patch of [{actor:'wp:2'},{sessionId:'00000000-0000-4000-8000-000000000002'},{id:'wrong-attempt'}]){
+    await assert.rejects(h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate',clientShutdownAnnotation:annotation,...patch}),/not_found/);
+    assert.equal(h.manager.status({actor:'wp:1',sessionId:ID}).closed,false);assert.equal(h.receipts.length,0);
+  }
+  const stopped=await h.manager.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate'});
+  assert.equal(stopped.clientShutdownAnnotation,undefined);assert.equal(stopped.cleanupConfirmed,true);
+});
+test('actual Founder QA receipt policy keeps annotation separate from failure, admission and accounting',async()=>{
+  const source='a'.repeat(40),manifestSha256='b'.repeat(64),prior={sessionId:'prior',receipt:{cleanupConfirmed:true}},history=[{prior:true}];
+  const results=[];
+  for(const mode of ['manual','client','server','unclean']){
+    let row={revision:0,state:{enabled:true,reason:'ready',source,manifestSha256,overageOffVerified:true,expiresAt:10000000,
+      creditLimit:100,creditsPerMinuteCeiling:30,rateBoundVerified:true,budgetSeconds:200,maxSessions:2,reservedSeconds:0,sessionCount:0,attempts:[prior],allowanceHistory:history,active:null}};
+    let socket;const providerCalls=[];
+    class Socket extends EventEmitter{readyState=1;bufferedAmount=0;constructor(){super();socket=this;queueMicrotask(()=>this.emit('open'));}send(){}close(){this.readyState=3;}}
+    class AccessToken{addGrant(){}async toJwt(){return 'test-only';}}
+    const db={single:async path=>path.startsWith('ivoc_founder_qa')?structuredClone(row):{id:ID,owner_subject:'wp:1',session_type:'mock',state:'active',recording_enabled:true,interviewer_provider:'openai-gpt-live',context:{embodimentCanary:true,embodimentDurationSeconds:60}},
+      update:async(path,value)=>{assert.equal(Number(/revision=eq\.(\d+)/.exec(path)[1]),row.revision);row=structuredClone(value);return structuredClone(row);}};
+    const qa=createFounderQa({env:{...env,IVOC_LEMONSLICE_FOUNDER_QA_ENABLED:'true'},db,now:()=>1000,release:{ok:true,source,manifestSha256},claimSession:async()=>{},
+      setTimer:()=>({}),clearTimer:()=>{},controllerFactory:options=>{
+        const h=harness({...options,fetchImpl:providerResponse('wss://live.lemonslice.com/test',providerCalls),socketFactory:()=>new Socket(),
+          livekitFactory:async()=>({AccessToken,roomService:{createRoom:async()=>{},deleteRoom:async()=>{},listRooms:async()=>mode==='unclean'?[{name:'still-present'}]:[]}})});
+        return h.manager;
+      }});
+    const ticket=await qa.start({actor:'wp:1',sessionId:ID});
+    const before=structuredClone(row.state);
+    if(mode==='server')socket.emit('error',new Error('PRIVATE_SOCKET_FAILURE'));
+    const receipt=await qa.command({actor:'wp:1',sessionId:ID,id:ticket.id,command:'terminate',...(mode==='manual'?{}:{clientShutdownAnnotation:annotation})});
+    const state=row.state;
+    for(const key of ['sessionCount','reservedSeconds','budgetSeconds','creditLimit','maxSessions','expiresAt','allowanceHistory'])assert.deepEqual(state[key],before[key],key);
+    assert.deepEqual(state.attempts[0],prior);assert.equal(state.attempts.length,2);
+    const {transportIdentity,...storedReceipt}=state.attempts[1].receipt;
+    assert.deepEqual(storedReceipt,receipt);assert.equal(transportIdentity.hostname,'live.lemonslice.com');
+    assert.equal(state.sessionCount,1);assert.equal(state.reservedSeconds,90);
+    if(mode==='server'){
+      assert.equal(receipt.reason,'transport_error');assert.equal(receipt.failure.category,'AUDIO_TRANSPORT_FAILURE');
+      assert.equal(receipt.clientShutdownAnnotation,undefined,'server first stop cannot acquire later client evidence');
+      assert.equal(state.enabled,false);assert.equal(state.reason,'provider_failure');assert.equal(state.active,null);
+    }else{
+      assert.equal(receipt.reason,'user_finished');assert.equal(receipt.failure,null);
+      assert.equal(state.enabled,mode!=='unclean');assert.equal(state.reason,mode==='unclean'?'cleanup_unconfirmed':'ready');
+      assert.equal(state.active===null,mode!=='unclean');
+    }
+    const config=await qa.config();assert.equal(config.available,mode==='manual'||mode==='client');
+    await assert.rejects(qa.start({actor:'wp:1',sessionId:ID}),error=>error.status===403&&error.diagnostics.category==='HQ_AUTH_FAILURE');
+    assert.equal(row.state.sessionCount,1);
+    assert.equal(providerCalls.filter(c=>c.method==='POST'&&!c.url.endsWith('/control')).length,1,'denied retry cannot create again');
+    assert.doesNotMatch(JSON.stringify(state),/PRIVATE_SOCKET_FAILURE/);
+    results.push({receipt,config});
+  }
+  assert.deepEqual(results[1].config,results[0].config,'client evidence must not change admission');
+  const {clientShutdownAnnotation:client,...annotatedReceipt}=results[1].receipt;
+  assert.deepEqual(annotatedReceipt,results[0].receipt);assert.equal(client.provenance,'CLIENT_REPORTED');
+});
+test('pre-ticket stop retains first annotation through late exact provider cleanup',async()=>{
+  let resolveCreate;const calls=[];
+  const h=harness({fetchImpl:async(url,options)=>{calls.push(url);return {ok:true,json:async()=>options.method==='POST'&&!url.endsWith('/control')?await new Promise(resolve=>{resolveCreate=resolve;}):url.endsWith('/control')?{success:true}:{session_status:'COMPLETED'}};}});
+  const starting=h.manager.start({actor:'wp:1',sessionId:ID});starting.catch(()=>{});
+  while(!resolveCreate)await new Promise(resolve=>setImmediate(resolve));
+  const early=await h.manager.command({actor:'wp:1',sessionId:ID,command:'terminate',clientShutdownAnnotation:annotation});
+  h.advance(500);
+  resolveCreate({session_id:'late-known',websocket_address:'wss://attacker.test/never-connect'});
+  await assert.rejects(starting,/stopped/);
+  const late=h.manager.status({actor:'wp:1',sessionId:ID}).stopReceipt;
+  assert.deepEqual(late.clientShutdownAnnotation,early.clientShutdownAnnotation);
+  assert.equal(late.clientShutdownAnnotation.receivedAtMs,1000);assert.equal(late.cleanupConfirmed,true);
+  assert.equal(late.failure.category,'STARTUP_CANCELLED','existing server cancellation remains authoritative');
+  assert.equal(calls.filter(url=>url.endsWith('/late-known/control')).length,1);assert.equal(h.sockets.length,0);
+});
 test('authenticated Modal worker contract reaches pinned TLS socket without DNS rebinding or redirects',async()=>{
   let lookups=0;
   const address=`wss://${MODAL_HOST}:443/opaque?token=PRIVATE_TOKEN`;

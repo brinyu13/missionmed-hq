@@ -52,6 +52,18 @@ const fail = (code, status = 409) => Object.assign(new Error(code), {status});
 const BOUNDARIES = new Set(['RESERVATION','LIVEKIT','LEMONSLICE_API','AUDIO_TRANSPORT','TRANSPORT_READY']);
 const CATEGORIES = new Set(['HQ_AUTH_FAILURE','HQ_VALIDATION_FAILURE','PROVIDER_NETWORK','PROVIDER_DNS','PROVIDER_HTTP_4XX','PROVIDER_HTTP_5XX','PROVIDER_TIMEOUT','PROVIDER_CANCELLED','PROVIDER_RESPONSE_INVALID','LIVEKIT_FAILURE','LIVEKIT_TIMEOUT','AUDIO_TRANSPORT_FAILURE','STARTUP_CANCELLED','STARTUP_FAILED']);
 const RESPONSE_REASONS = new Set(['SESSION_ID_INVALID','SOCKET_ADDRESS_MISSING','SOCKET_ADDRESS_MALFORMED','SOCKET_PROTOCOL_REJECTED','SOCKET_CREDENTIALS_REJECTED','SOCKET_HOST_REJECTED','SOCKET_PORT_REJECTED','SOCKET_FRAGMENT_REJECTED','SOCKET_DNS_FAILURE','SOCKET_DNS_TIMEOUT','SOCKET_DNS_NONPUBLIC']);
+const CLIENT_SHUTDOWN_CATEGORIES=new Set([...CATEGORIES,'UNCLASSIFIED_FAILURE','CLIENT_TIMEOUT','CLIENT_ABORT','CLIENT_NETWORK','HQ_RESPONSE_INVALID','HQ_FAILURE','TRACK_SUBSCRIPTION_FAILURE','DECODED_FRAME_FAILURE','AUDIO_BIND_FAILURE','FLUSH_UNCONFIRMED','NATIVE_TURN_BOUNDARY_UNCONFIRMED','NATIVE_PLAYBACK_BOUNDARY_UNAVAILABLE','NATIVE_PLAYBACK_CONTRACT_INVALID','CANARY_DEADLINE','PROVIDER_CLOSED','QUEUE_OVERFLOW','SURPLUS_AUDIO','SURPLUS_VIDEO']);
+const CLIENT_SHUTDOWN_BOUNDARIES=new Set([...BOUNDARIES,'IVOC_CLIENT','IVOC_SERVER','SDK_LOAD','LIVEKIT_CONNECTING','LIVEKIT_CONNECTED','AVATAR_DECODING','AUDIO_BINDING']);
+function clientShutdownAnnotation(value,receivedAtMs){
+  try{
+    if(!value||typeof value!=='object'||Array.isArray(value))return null;
+    const {category,boundary,reason,interruptionTrigger}=value;
+    if(!CLIENT_SHUTDOWN_CATEGORIES.has(category)||!CLIENT_SHUTDOWN_BOUNDARIES.has(boundary))return null;
+    return Object.freeze({provenance:'CLIENT_REPORTED',receivedAtMs,category,boundary,
+      ...(RESPONSE_REASONS.has(reason)?{reason}:{}),
+      ...(['candidate-transcript','local-microphone-vad','unspecified'].includes(interruptionTrigger)?{interruptionTrigger}:{})});
+  }catch{return null;} // Annotation validation must never block exact cleanup.
+}
 // DR-394: authenticated provider response observed this Modal sandbox grammar.
 // Not a wildcard for Modal hosting. Every connection additionally pins public
 // IPv4, retains original Host/SNI + standard TLS, and refuses redirects.
@@ -177,13 +189,17 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
     try { a.socket.send(JSON.stringify(value)); }
     catch { throw fail('ivoc_embodiment_transport_unavailable',502); }
   }
-  async function stop(a, reason) {
+  async function stop(a, reason, annotation) {
     if (!a) return {stopped:true, providerConfirmed:false};
     if (a.stopping && a.stopProviderId===(a.providerId||null)) return a.stopping;
     a.stopProviderId=a.providerId||null;
     // Invalidate synchronously. A late create response is still terminated below.
+    const firstStop=!a.closed;
     a.closed = true; clearTimer(a.timer); a.interruptReject?.(fail('ivoc_embodiment_stopped'));
     a.interruptReject = null; a.interruptResolve = null;
+    // Client evidence is separate from authoritative failure/admission and can
+    // never overwrite an earlier client or server shutdown, even after late create.
+    if(firstStop)a.clientShutdownAnnotation=clientShutdownAnnotation(annotation,now());
     a.stopping = (async () => {
       let providerConfirmed = false;
       if (a.socket?.readyState === 1) {
@@ -208,7 +224,8 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
       const receipt = {stopped:true, providerConfirmed, reason, providerSessionId:a.providerId || null,
         roomConfirmed,cleanupConfirmed:providerConfirmed&&roomConfirmed,
         requestedAtMs:a.startedAt, stoppedAtMs:now(), inputSeconds:a.samples / 16000,
-        providerCreateAttempted:a.providerCreateAttempted===true,failure:a.failure||null,transitions:a.transitions};
+        providerCreateAttempted:a.providerCreateAttempted===true,failure:a.failure||null,transitions:a.transitions,
+        ...(a.clientShutdownAnnotation?{clientShutdownAnnotation:a.clientShutdownAnnotation}:{})};
       await recordReceipt(a.sessionId, {...receipt,transportIdentity:a.transportIdentity||null}).catch(() => {});
       a.stopReceipt=receipt;
       return receipt;
@@ -311,9 +328,9 @@ export function createEmbodimentCanary({env = process.env, fetchImpl = fetch, no
         throw safeError;
       }
     },
-    async command({actor,sessionId,id,generation,sequence,command,audio}) {
+    async command({actor,sessionId,id,generation,sequence,command,audio,clientShutdownAnnotation}) {
       const a=owned(actor,sessionId,id);
-      if(command==='terminate')return stop(a,'user_finished');
+      if(command==='terminate')return stop(a,'user_finished',clientShutdownAnnotation);
       if(a.closed || now()>=a.startedAt+durationSeconds*1000)throw fail('ivoc_embodiment_stopped');
       if(a.flushing)throw fail('ivoc_embodiment_flush_pending');
       if(!Number.isSafeInteger(generation)||generation<1||!Number.isSafeInteger(sequence)||sequence<1)throw fail('ivoc_embodiment_frame_invalid',400);
