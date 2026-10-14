@@ -1,0 +1,40 @@
+{
+  "targets": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.960a6069c8ea8967.js",
+      "sha256": null,
+      "mode": null,
+      "uid": null,
+      "gid": null
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.6a510a57bfbbf85e.css",
+      "sha256": null,
+      "mode": null,
+      "uid": null,
+      "gid": null
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js",
+      "sha256": "44c578a67d945dfed74f4998fa72ec820c3fe6c0ca75b5043b3da69cbfa02bbe",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css",
+      "sha256": "5009c86f47c85fa1a9d15b70c3fec17547bf00c7ced21f4ac58702b55f26d482",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php",
+      "sha256": "60f4be738335859072a5c48c2e41b0dadfcec49fe369da5a42317fb941084089",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    }
+  ],
+  "sentinels": "PASS"
+}

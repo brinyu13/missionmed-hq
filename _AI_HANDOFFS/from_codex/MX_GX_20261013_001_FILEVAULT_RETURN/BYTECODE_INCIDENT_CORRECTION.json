@@ -1,0 +1,11 @@
+{
+  "artifact": "__pycache__/release.cpython-314.pyc",
+  "sha256": "7795bb269f5c7d1df14d2a7219f35a0c1b373c2b306e2db75412e5b625c36393",
+  "mtime_utc": "2026-10-14T13:28:15.075742+00:00",
+  "actor": "independent verifier local py_compile/module inspection",
+  "post_loss_local_write": true,
+  "production_runtime_source_or_deployment_changed": false,
+  "handling": "preserved ignored; excluded from commit; no cleanup or retroactive approval",
+  "correction_authority": "DR-433 additive evidence",
+  "evidence_epoch": 5886
+}

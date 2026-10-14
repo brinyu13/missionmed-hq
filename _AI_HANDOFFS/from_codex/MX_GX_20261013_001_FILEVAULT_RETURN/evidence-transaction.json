@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-14T13:44:29.598874+00:00",
+  "authority": "DR-433",
+  "os_commit": "40339369829b50fa1a4a4dad7ff9e42a2314cf22",
+  "evidence_epoch": 5886,
+  "old_epochs_expired_not_normally_released": [
+    5846,
+    5847,
+    5848,
+    5849,
+    5855,
+    5856
+  ],
+  "pending": "normal evidence release and provider readback in canonical OS closeout"
+}

@@ -1,0 +1,30 @@
+{
+  "status": "STAGE_PASS",
+  "files": 4,
+  "public": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.960a6069c8ea8967.js",
+      "sha256": "960a6069c8ea8967acaf4e6d78ddae1c0ef57beb7e10b85e6900bcdbfd53af27",
+      "status": 200,
+      "content_type": "application/javascript"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.6a510a57bfbbf85e.css",
+      "sha256": "6a510a57bfbbf85ed8e0961d2a102559599bb98ded9835ded3d61a8ee4e845b9",
+      "status": 200,
+      "content_type": "text/css"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js",
+      "sha256": "960a6069c8ea8967acaf4e6d78ddae1c0ef57beb7e10b85e6900bcdbfd53af27",
+      "status": 200,
+      "content_type": "application/javascript"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css",
+      "sha256": "6a510a57bfbbf85ed8e0961d2a102559599bb98ded9835ded3d61a8ee4e845b9",
+      "status": 200,
+      "content_type": "text/css"
+    }
+  ]
+}
