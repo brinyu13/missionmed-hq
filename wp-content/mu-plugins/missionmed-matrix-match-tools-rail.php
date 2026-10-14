@@ -38,8 +38,27 @@ function mmed_match_tools_rail_6050a() {
        Keep that source text stable; add the rail-only display suffix without
        childList mutations that would make the two owners trigger each other. */
     #sos-sidebar [data-mmed-timeline-label="short"]::after { content: " Builder"; }
-    .mmed-arena-entry { display: block; margin: 18px 0; padding: 14px 18px; border: 1px solid #46556a; border-radius: 8px; color: inherit; text-decoration: none; }
-    .mmed-arena-entry span { display: block; font-size: 12px; opacity: .8; margin-top: 4px; }
+    #student-os-root .mmed-arena-entry {
+        display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+        margin: 24px 0; overflow: hidden; border: 1px solid #52677e; border-radius: 12px;
+        background: #112438; color: #f5f8fc; text-decoration: none; text-align: left;
+    }
+    #student-os-root .mmed-arena-entry:focus-visible { outline: 3px solid #e8c478; outline-offset: 4px; }
+    #student-os-root .mmed-arena-visual { display: flex; align-items: center; background: #102033; }
+    #student-os-root .mmed-arena-visual img { display: block; width: 100%; height: auto; aspect-ratio: 600 / 335; object-fit: contain; }
+    #student-os-root .mmed-arena-copy { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 12px; padding: clamp(20px, 3vw, 36px); min-width: 0; }
+    #student-os-root .mmed-arena-kicker { color: #e8c478; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+    #student-os-root .mmed-arena-copy strong { font-size: clamp(24px, 3vw, 36px); line-height: 1.1; letter-spacing: -.02em; }
+    #student-os-root .mmed-arena-promise { color: #d1dce8; font-size: 14px; line-height: 1.5; }
+    #student-os-root .mmed-arena-cta { padding: 10px 15px; border-radius: 6px; background: #e8c478; color: #132234; font-size: 13px; font-weight: 800; line-height: 1.4; }
+    #student-os-root .mmed-arena-lock { display: none; color: #d1dce8; font-size: 12px; }
+    #student-os-root .mmed-arena-entry:is([data-locked="true"], [aria-disabled="true"]) .mmed-arena-lock { display: block; }
+    #student-os-root .mmed-arena-entry[data-image-failed] { grid-template-columns: 1fr; }
+    #student-os-root .mmed-arena-entry[data-image-failed] .mmed-arena-visual { display: none; }
+    @media (max-width: 600px) {
+        #student-os-root .mmed-arena-entry { grid-template-columns: 1fr; }
+        #student-os-root .mmed-arena-copy { padding: 22px; }
+    }
     </style>
     <script id="mmed-match-tools-rail-6050a">
     (function () {
@@ -140,7 +159,10 @@ function mmed_match_tools_rail_6050a() {
                     if (!arenaEntry) {
                         arenaEntry = document.createElement('a');
                         arenaEntry.className = 'mmed-arena-entry';
-                        arenaEntry.innerHTML = '<strong>MissionMed Arena</strong><span>Test your medical knowledge — open Arena →</span>';
+                        arenaEntry.innerHTML = '<picture class="mmed-arena-visual"><source media="(max-width: 600px)" srcset="https://missionmedinstitute.com/wp-content/uploads/2026/04/bg_missionmed_arena_v2_blue._assets-300x167.png"><img src="https://missionmedinstitute.com/wp-content/uploads/2026/04/bg_missionmed_arena_v2_blue._assets-600x335.png" width="600" height="335" loading="lazy" decoding="async" alt=""></picture><span class="mmed-arena-copy"><span class="mmed-arena-kicker">KNOWLEDGE INTO PRACTICE</span><strong>MissionMed Arena</strong><span class="mmed-arena-promise">Put your medical knowledge to the test.</span><span class="mmed-arena-lock">🔒 Your current access applies</span><span class="mmed-arena-cta">Enter Arena →</span></span>';
+                        arenaEntry.querySelector('img').addEventListener('error', function () {
+                            this.closest('.mmed-arena-entry').setAttribute('data-image-failed', 'true');
+                        }, { once: true });
                         arenaEntry.addEventListener('click', function (event) {
                             event.preventDefault();
                             var owner = Array.prototype.find.call(document.querySelectorAll('#sos-sidebar a.sos-nav-link'), function (link) {
