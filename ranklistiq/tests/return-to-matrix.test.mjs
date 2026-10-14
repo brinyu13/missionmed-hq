@@ -84,7 +84,7 @@ test("native Return to Matrix link is semantic, exact, and idempotent", () => {
   const link = links[0];
   assert.equal(link.tagName, "A");
   assert.equal(link.href, exactDestination);
-  assert.equal(link.getAttribute("target"), null);
+  assert.equal(link.getAttribute("target"), "_top");
   assert.equal(link.getAttribute("aria-label"), "Return to Matrix");
   assert.equal(link.textContent.replace(/\s+/g, " ").trim(), "←Return to Matrix");
   assert.equal(link.onclick, null);

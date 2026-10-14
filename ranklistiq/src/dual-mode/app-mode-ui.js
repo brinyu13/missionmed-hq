@@ -78,6 +78,7 @@
     link.id = "rlqReturnToMatrix";
     link.className = "rlq-return-to-matrix";
     link.href = MATRIX_DASHBOARD_URL;
+    link.setAttribute("target", "_top");
     link.setAttribute("aria-label", "Return to Matrix");
     link.innerHTML = '<span class="rlq-return-to-matrix__arrow" aria-hidden="true">&#8592;</span><span class="rlq-return-to-matrix__label">Return to Matrix</span>';
     host.insertBefore(link, host.firstChild);
