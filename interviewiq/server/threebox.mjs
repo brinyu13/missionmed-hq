@@ -82,7 +82,20 @@ function leadershipDetail(value){
   }
   return parts.join('; ');
 }
-export function spokenDetail(evidence){return evidence.field==='research.leadership'?leadershipDetail(evidence.value):detailText(evidence.value);}
+export function spokenDetail(evidence){
+  if(evidence.field==='research.leadership')return leadershipDetail(evidence.value);
+  // Preserve the complete owner assertion and limitations without narrating
+  // its analytical strength label or structural key as student wording.
+  if(['research.img_accessibility','research.do_accessibility','research.usmd_accessibility','research.caribbean_accessibility'].includes(evidence.field)){
+    const value=evidence.value;
+    const reviewMessage='Review the program accessibility evidence before assembling this answer.';
+    requireValue(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===1&&Object.hasOwn(value,'signal')&&typeof value.signal==='string'&&value.signal.trim(),'threebox_rendering_review_required',reviewMessage);
+    const assertion=value.signal.trim().replace(/^(?:STRONG|MODERATE|WEAK):\s*/,'');
+    requireValue(assertion.trim(),'threebox_rendering_review_required',reviewMessage);
+    return assertion;
+  }
+  return detailText(evidence.value);
+}
 export function assembleThreebox(program,reasons,evidence,delivery='STANDARD'){
   const selected=reasons.filter(r=>r.selected).sort((a,b)=>a.rank-b.rank);
   const ordered=delivery==='RELATIONSHIP'?[...selected].sort((a,b)=>Number(b.personal.enabled)-Number(a.personal.enabled)):delivery==='RESEARCH'?[...selected].sort((a,b)=>Number(/Research|Faculty/.test(b.general.category))-Number(/Research|Faculty/.test(a.general.category))):selected;
