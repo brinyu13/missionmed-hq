@@ -1,0 +1,31 @@
+{
+  "status": "PRIVATE_PREIMAGES_AND_ROLLBACK_REHEARSAL_PASS",
+  "backup": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/J1-FILEVAULT-1022-MEDIA/20261014T205138Z",
+  "targets": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.2248e4c648e596bc.js",
+      "sha256": null,
+      "mode": null,
+      "uid": null,
+      "gid": null
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js",
+      "sha256": "960a6069c8ea8967acaf4e6d78ddae1c0ef57beb7e10b85e6900bcdbfd53af27",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php",
+      "sha256": "9f3721fb0e5a6677426de715ec1e79e448fdf55c16d5a0bfe1cf26cac997713d",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    }
+  ],
+  "unpack": {
+    "status": "STAGED_PRIVATE_PACKAGE_VERIFIED",
+    "files": 3
+  }
+}

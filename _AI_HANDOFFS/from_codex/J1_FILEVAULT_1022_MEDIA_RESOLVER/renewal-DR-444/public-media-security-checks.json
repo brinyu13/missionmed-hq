@@ -1,0 +1,108 @@
+{
+  "media": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+      "status": 200,
+      "sha256": "4e5c5419221d88f6900fcdad6391a6495fe77cb279b2f8ab1c20fb0683c5d672",
+      "mime": "image/webp",
+      "bytes": 85204
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+      "status": 200,
+      "sha256": "81920423978754c42104ff3fff726d97d420177faf3ec6c2d7687f2b0721d7ad",
+      "mime": "image/webp",
+      "bytes": 33842
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+      "status": 200,
+      "sha256": "3ef1c6b59b6268dc48335329eeb7ebc794c153cacc04e6ca3e760696de8a5aeb",
+      "mime": "image/webp",
+      "bytes": 33486
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+      "status": 200,
+      "sha256": "3308b900cad0fbfcefd80a94a39d249094d74931a53d0fc8137651b1a6b316c7",
+      "mime": "image/webp",
+      "bytes": 29900
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+      "status": 200,
+      "sha256": "05c9e6f3cd92c3ce5fec1eab9c0b991351aa80d6eab3fac9f4e991d6132eb2f8",
+      "mime": "image/webp",
+      "bytes": 31020
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+      "status": 200,
+      "sha256": "2d3127d01cdbb22d0d35d0bb24570ff679e796e9bd45106343c6086250e80ecf",
+      "mime": "image/webp",
+      "bytes": 44180
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+      "status": 200,
+      "sha256": "e8568bf9095186492c1433f04e0d1bce5c95a403544218ce4c594fb4f362df2c",
+      "mime": "image/webp",
+      "bytes": 36792
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+      "status": 200,
+      "sha256": "95976005624f0c1f5ab38b543fde32914310cdc41e052a1be8659d83c475ecf8",
+      "mime": "image/webp",
+      "bytes": 40584
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+      "status": 200,
+      "sha256": "bb91f730565a7277bbe3b06471928f6109bab1aa65dd7561b18b6a59750325e3",
+      "mime": "image/webp",
+      "bytes": 36712
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+      "status": 200,
+      "sha256": "f2c42f7d0ee6dfac9d7e44042e09351b365092ff447a37b63564e16724e8c615",
+      "mime": "image/webp",
+      "bytes": 70548
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+      "status": 200,
+      "sha256": "9f960ed9c312f3671cb1720c30d96321bc3cebfe5547dc81ba215e7510864b37",
+      "mime": "image/png",
+      "bytes": 31611
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mission-residency-logo.png",
+      "status": 200,
+      "sha256": "7134e0bf375a0917a064bca5382f8c44bc3d33c9e80441f8c1dd11b0d9147f21",
+      "mime": "image/png",
+      "bytes": 10659
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+      "status": 200,
+      "sha256": "f64258e413a3bbfe8ab08e10904b9840200fc655eb24ecc110dc71cdd0cc7969",
+      "mime": "image/svg+xml",
+      "bytes": 15189
+    }
+  ],
+  "anonymous_checks": [
+    {
+      "path": "wp-json/mmed/v2/file-vault/bootstrap",
+      "status": 401,
+      "body_saved": false
+    },
+    {
+      "path": "student-files/",
+      "status": 404,
+      "body_saved": false
+    }
+  ],
+  "scope": "Public static assets and unauthenticated negative tests only; no authenticated document-operation evidence"
+}

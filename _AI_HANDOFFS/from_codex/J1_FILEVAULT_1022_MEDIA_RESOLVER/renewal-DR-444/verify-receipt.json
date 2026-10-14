@@ -1,0 +1,40 @@
+{
+  "targets": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.2248e4c648e596bc.js",
+      "sha256": "2248e4c648e596bce984da5efafe89d5360aee1009a359e00faf11d7d4adc0e7",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js",
+      "sha256": "2248e4c648e596bce984da5efafe89d5360aee1009a359e00faf11d7d4adc0e7",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php",
+      "sha256": "e7fc83aacc6dcb2a4654eaf2765c099f38b72cd540ddd7c7dfcba2e242d422f1",
+      "mode": 420,
+      "uid": 1000,
+      "gid": 33
+    }
+  ],
+  "sentinels": "PASS",
+  "public": [
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.2248e4c648e596bc.js",
+      "sha256": "2248e4c648e596bce984da5efafe89d5360aee1009a359e00faf11d7d4adc0e7",
+      "status": 200,
+      "content_type": "application/javascript"
+    },
+    {
+      "path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js",
+      "sha256": "2248e4c648e596bce984da5efafe89d5360aee1009a359e00faf11d7d4adc0e7",
+      "status": 200,
+      "content_type": "application/javascript"
+    }
+  ]
+}

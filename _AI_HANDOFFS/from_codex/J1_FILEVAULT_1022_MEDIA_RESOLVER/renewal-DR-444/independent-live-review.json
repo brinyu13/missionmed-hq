@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-14T21:04:22.892806+00:00",
+  "verifier": "independent filevault_renewal_review session",
+  "verdict": "PASS - bounded implementation release; full authenticated acceptance OPEN",
+  "runtime_targets": 3,
+  "sentinels_unchanged": 22,
+  "public_js": 2,
+  "public_media": 13,
+  "raster_decoded": 12,
+  "svg_valid_xml": 1,
+  "public_assets": "HTTP 200, expected MIME and exact approved hashes",
+  "private_backup": "0700 directory; 0600 manifest, preimages, fences, tar and both rollback rehearsal files; exact hashes and absence state verified",
+  "anonymous_bootstrap_status": 401,
+  "anonymous_private_root_status": 404,
+  "mutations_by_verifier": 0,
+  "authenticated_staff": "OPEN",
+  "authenticated_genuine_student": "OPEN",
+  "limitations": "No current authenticated optimized UI, document workflow, or full 1022 acceptance claim"
+}
