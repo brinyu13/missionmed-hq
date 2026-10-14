@@ -2885,6 +2885,20 @@ async function handleApiRoute(request, response, url, context) {
     return;
   }
 
+  if (pathname === '/api/auth/arena-avatar') {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return;
+    }
+    const unavailable = { available: false, imageUrl: null };
+    if (searchParams.size || !session || request.headers.authorization) {
+      sendJson(response, 200, unavailable, authHeaders);
+      return;
+    }
+    sendJson(response, 200, await readCurrentArenaAvatarProjection(request, session), authHeaders);
+    return;
+  }
+
   if (pathname === '/api/auth/start') {
     if (request.method !== 'GET') {
       sendMethodNotAllowed(response, ['GET']);
@@ -8410,6 +8424,89 @@ function isAuthSupabaseProjectAllowed() {
 function getRequestCookieHeader(request = null) {
   const raw = request?.headers?.cookie || request?.headers?.Cookie || '';
   return String(raw || '').trim();
+}
+
+async function readCurrentArenaAvatarProjection(request, session) {
+  const unavailable = { available: false, imageUrl: null };
+  const wpId = Number(session?.user?.id);
+  const userId = String(session?.supabaseUserId || '').trim().toLowerCase();
+  const wpCookie = getRequestCookieHeader(request);
+  const nonce = String(request?.headers?.['x-wp-nonce'] || '').trim();
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+  if (!Number.isSafeInteger(wpId) || wpId < 1 || !uuid.test(userId)
+      || !hasWordPressSessionCookie(wpCookie) || !/^[a-z0-9]{8,64}$/iu.test(nonce)
+      || !getSupabaseToken()) return unavailable;
+
+  let wpUrl;
+  let supabaseUrl;
+  try {
+    wpUrl = new URL('/wp-json/wp/v2/users/me', CONFIG.wpBase);
+    supabaseUrl = new URL(CONFIG.supabaseUrl);
+  } catch {
+    return unavailable;
+  }
+  if (wpUrl.origin !== 'https://missionmedinstitute.com'
+      || supabaseUrl.origin !== `https://${AUTH_ALLOWED_SUPABASE_PROJECT}.supabase.co`
+      || !isAuthSupabaseProjectAllowed().ok) return unavailable;
+
+  // Never forward either credential through a redirect. A stale HQ cookie from
+  // another WordPress principal must fail before the avatar table is queried.
+  const wpAbort = new AbortController();
+  const wpTimer = setTimeout(() => wpAbort.abort(), 5_000);
+  let wpUser;
+  try {
+    const wpResponse = await fetch(wpUrl, {
+      method: 'GET',
+      redirect: 'error',
+      headers: { Accept: 'application/json', Cookie: wpCookie, 'X-WP-Nonce': nonce },
+      signal: wpAbort.signal,
+    });
+    if (!wpResponse.ok) return unavailable;
+    wpUser = await wpResponse.json();
+  } catch {
+    return unavailable;
+  } finally {
+    clearTimeout(wpTimer);
+  }
+  if (!wpUser || Number(wpUser.id) !== wpId) return unavailable;
+
+  const avatarUrl = new URL('/rest/v1/user_avatars', supabaseUrl);
+  avatarUrl.searchParams.set('user_id', `eq.${userId}`);
+  avatarUrl.searchParams.set('is_active', 'eq.true');
+  avatarUrl.searchParams.set('select', 'id,user_id,avatar_url,is_active');
+  avatarUrl.searchParams.set('limit', '2');
+  const avatarAbort = new AbortController();
+  const avatarTimer = setTimeout(() => avatarAbort.abort(), 5_000);
+  let rows;
+  try {
+    const avatarResponse = await fetch(avatarUrl, {
+      method: 'GET',
+      redirect: 'error',
+      headers: getSupabaseRpcHeaders(),
+      signal: avatarAbort.signal,
+    });
+    if (!avatarResponse.ok) return unavailable;
+    rows = await avatarResponse.json();
+  } catch {
+    return unavailable;
+  } finally {
+    clearTimeout(avatarTimer);
+  }
+  if (!Array.isArray(rows) || rows.length !== 1) return unavailable;
+  const row = rows[0];
+  if (!row || !String(row.id || '').trim() || row.is_active !== true
+      || String(row.user_id || '').toLowerCase() !== userId) return unavailable;
+
+  try {
+    const imageUrl = new URL(String(row.avatar_url || ''));
+    if (imageUrl.protocol !== 'https:' || imageUrl.hostname !== 'cdn.missionmedinstitute.com'
+        || imageUrl.port || imageUrl.username || imageUrl.password || imageUrl.search || imageUrl.hash) {
+      return unavailable;
+    }
+    return { available: true, imageUrl: imageUrl.toString() };
+  } catch {
+    return unavailable;
+  }
 }
 
 function hasWordPressSessionCookie(cookieHeader = '') {
