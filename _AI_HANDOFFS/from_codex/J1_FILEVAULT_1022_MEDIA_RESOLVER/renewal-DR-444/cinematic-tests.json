@@ -1,0 +1,1642 @@
+{
+  "result": "PASS",
+  "count": 93,
+  "checks": [
+    "approved direct baseline 1280: mounted",
+    "approved direct baseline 1280: two responsive logos and all eight category images",
+    "approved direct baseline 1280: canonical URLs and successful image decode",
+    "approved direct baseline 1280: image HTTP200 and MIME",
+    "approved direct baseline 1280: no media errors or uncaught exceptions",
+    "approved direct baseline 1280: no horizontal overflow",
+    "approved direct baseline 1280: exact Return destination preserved",
+    "optimized delivery 1280: mounted",
+    "optimized delivery 1280: two responsive logos and all eight category images",
+    "optimized delivery 1280: canonical URLs and successful image decode",
+    "optimized delivery 1280: image HTTP200 and MIME",
+    "optimized delivery 1280: no media errors or uncaught exceptions",
+    "optimized delivery 1280: no horizontal overflow",
+    "optimized delivery 1280: exact Return destination preserved",
+    "approved direct baseline 768: mounted",
+    "approved direct baseline 768: two responsive logos and all eight category images",
+    "approved direct baseline 768: canonical URLs and successful image decode",
+    "approved direct baseline 768: image HTTP200 and MIME",
+    "approved direct baseline 768: no media errors or uncaught exceptions",
+    "approved direct baseline 768: no horizontal overflow",
+    "approved direct baseline 768: exact Return destination preserved",
+    "optimized delivery 768: mounted",
+    "optimized delivery 768: two responsive logos and all eight category images",
+    "optimized delivery 768: canonical URLs and successful image decode",
+    "optimized delivery 768: image HTTP200 and MIME",
+    "optimized delivery 768: no media errors or uncaught exceptions",
+    "optimized delivery 768: no horizontal overflow",
+    "optimized delivery 768: exact Return destination preserved",
+    "approved direct baseline 390: mounted",
+    "approved direct baseline 390: two responsive logos and all eight category images",
+    "approved direct baseline 390: canonical URLs and successful image decode",
+    "approved direct baseline 390: image HTTP200 and MIME",
+    "approved direct baseline 390: no media errors or uncaught exceptions",
+    "approved direct baseline 390: no horizontal overflow",
+    "approved direct baseline 390: exact Return destination preserved",
+    "optimized delivery 390: mounted",
+    "optimized delivery 390: two responsive logos and all eight category images",
+    "optimized delivery 390: canonical URLs and successful image decode",
+    "optimized delivery 390: image HTTP200 and MIME",
+    "optimized delivery 390: no media errors or uncaught exceptions",
+    "optimized delivery 390: no horizontal overflow",
+    "optimized delivery 390: exact Return destination preserved",
+    "direct mutable fallback: mounted",
+    "direct mutable fallback: two responsive logos and all eight category images",
+    "direct mutable fallback: canonical URLs and successful image decode",
+    "direct mutable fallback: image HTTP200 and MIME",
+    "direct mutable fallback: no media errors or uncaught exceptions",
+    "direct mutable fallback: no horizontal overflow",
+    "direct mutable fallback: exact Return destination preserved",
+    "direct immutable fallback: mounted",
+    "direct immutable fallback: two responsive logos and all eight category images",
+    "direct immutable fallback: canonical URLs and successful image decode",
+    "direct immutable fallback: image HTTP200 and MIME",
+    "direct immutable fallback: no media errors or uncaught exceptions",
+    "direct immutable fallback: no horizontal overflow",
+    "direct immutable fallback: exact Return destination preserved",
+    "null currentScript with explicit server config: mounted",
+    "null currentScript with explicit server config: two responsive logos and all eight category images",
+    "null currentScript with explicit server config: canonical URLs and successful image decode",
+    "null currentScript with explicit server config: image HTTP200 and MIME",
+    "null currentScript with explicit server config: no media errors or uncaught exceptions",
+    "null currentScript with explicit server config: no horizontal overflow",
+    "null currentScript with explicit server config: exact Return destination preserved",
+    "deferred execution with explicit server config: mounted",
+    "deferred execution with explicit server config: two responsive logos and all eight category images",
+    "deferred execution with explicit server config: canonical URLs and successful image decode",
+    "deferred execution with explicit server config: image HTTP200 and MIME",
+    "deferred execution with explicit server config: no media errors or uncaught exceptions",
+    "deferred execution with explicit server config: no horizontal overflow",
+    "deferred execution with explicit server config: exact Return destination preserved",
+    "server directory without trailing slash: mounted",
+    "server directory without trailing slash: two responsive logos and all eight category images",
+    "server directory without trailing slash: canonical URLs and successful image decode",
+    "server directory without trailing slash: image HTTP200 and MIME",
+    "server directory without trailing slash: no media errors or uncaught exceptions",
+    "server directory without trailing slash: no horizontal overflow",
+    "server directory without trailing slash: exact Return destination preserved",
+    "per-instance override wins over global config: mounted",
+    "per-instance override wins over global config: two responsive logos and all eight category images",
+    "per-instance override wins over global config: canonical URLs and successful image decode",
+    "per-instance override wins over global config: image HTTP200 and MIME",
+    "per-instance override wins over global config: no media errors or uncaught exceptions",
+    "per-instance override wins over global config: no horizontal overflow",
+    "per-instance override wins over global config: exact Return destination preserved",
+    "unsafe explicit config: clear rejected mount",
+    "unsafe explicit config: Promise rejection handled without uncaught exception",
+    "unsafe explicit config: never requests optimizer-relative media",
+    "optimized script without server config: clear rejected mount",
+    "optimized script without server config: Promise rejection handled without uncaught exception",
+    "optimized script without server config: never requests optimizer-relative media",
+    "missing script and config: clear rejected mount",
+    "missing script and config: Promise rejection handled without uncaught exception",
+    "missing script and config: never requests optimizer-relative media"
+  ],
+  "results": [
+    {
+      "name": "approved direct baseline 1280",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "optimized delivery 1280",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "approved direct baseline 768",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "optimized delivery 768",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "approved direct baseline 390",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "optimized delivery 390",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "direct mutable fallback",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "direct immutable fallback",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "null currentScript with explicit server config",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "deferred execution with explicit server config",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "server directory without trailing slash",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "per-instance override wins over global config",
+      "images": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": false
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "width": 280,
+          "height": 113,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "width": 640,
+          "height": 427,
+          "visible": true
+        }
+      ],
+      "mediaResponses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/missionmed-logo.png",
+          "status": 200,
+          "mime": "image/png"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/hero.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/laptop-screen-brand.svg",
+          "status": 200,
+          "mime": "image/svg+xml"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/mountain.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/statement.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/cv.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/records.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/letters.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/interview.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/research.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/other.webp",
+          "status": 200,
+          "mime": "image/webp"
+        },
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200,
+          "mime": "image/webp"
+        }
+      ]
+    },
+    {
+      "name": "unsafe explicit config",
+      "result": {
+        "ready": "error",
+        "errors": [
+          "File Vault image configuration is unavailable."
+        ]
+      }
+    },
+    {
+      "name": "optimized script without server config",
+      "result": {
+        "ready": "error",
+        "errors": [
+          "File Vault image configuration is unavailable."
+        ]
+      }
+    },
+    {
+      "name": "missing script and config",
+      "result": {
+        "ready": "error",
+        "errors": [
+          "File Vault image configuration is unavailable."
+        ]
+      }
+    }
+  ]
+}

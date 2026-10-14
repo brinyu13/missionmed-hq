@@ -1,0 +1,7 @@
+{
+  "at": "2026-10-14T20:58:07.078801+00:00",
+  "command": "Unmodified tests/file-vault-v2-browser-contract.cjs with FV2_EVIDENCE_DIR empty, isolated serial rerun",
+  "exit_code": 0,
+  "stdout": "PASS: 623 File Vault V2 browser, responsive, and accessibility checks",
+  "earlier_failure": "browser-tests.json preserved; one visible lazy image sampled beforedecode. Controlled baseline/candidate reproduction in image-timing-diagnosis.json. No assertion/source change."
+}

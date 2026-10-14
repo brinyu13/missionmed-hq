@@ -1,0 +1,17 @@
+{
+  "authority": "DR-440",
+  "os_commit": "35e0197abae46a78d40e7a8640ed770a68c6a915",
+  "baseline": "20fbdc38a48b92535214c79c738b0fbc141f8c16",
+  "lease_epochs": [
+    5945,
+    5946,
+    5947,
+    5948,
+    5949,
+    5950
+  ],
+  "media_public_parity": "13/13 HTTP200 correct MIME and approved local hashes",
+  "matrix_guard": "15 local/origin/public PASS before edits",
+  "live_preimage": "five current origin/public release targets and19preserved sentinels PASS",
+  "scope": "media URL only; CSS and13media preserved"
+}

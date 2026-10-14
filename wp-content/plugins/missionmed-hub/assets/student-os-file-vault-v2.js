@@ -72,7 +72,26 @@
 	var INTRO_KEY = "mmed.fileVaultV2.introSeen";
 	var LEGACY_V1_ROUTE_MARKER = "Private student file metadata with direct R2 upload wiring";
 	var LEGACY_V1_ROUTE_SAFE_MARKER = "Private student file metadata with direct R2 upload\u200b wiring";
-	var CINEMATIC_ASSETS = new URL("file-vault-cinematic/", document.currentScript && document.currentScript.src || window.location.href).href;
+	var CINEMATIC_SCRIPT_URL = document.currentScript && document.currentScript.src;
+
+	function cinematicAssetsUrl(config) {
+		try {
+			if (config.cinematicAssetsUrl) {
+				var configured = new URL(config.cinematicAssetsUrl);
+				if (!/^https?:$/.test(configured.protocol) || configured.username || configured.password) throw new Error();
+				configured.pathname = configured.pathname.replace(/\/?$/, "/");
+				configured.search = "";
+				configured.hash = "";
+				return configured.href;
+			}
+			// Only a captured direct File Vault script can provide a legacy/local fallback.
+			var direct = CINEMATIC_SCRIPT_URL && new URL(CINEMATIC_SCRIPT_URL);
+			if (direct && /^https?:$/.test(direct.protocol) && /\/student-os-file-vault-v2(?:\.[a-f0-9]{16})?\.js$/.test(direct.pathname)) {
+				return new URL("file-vault-cinematic/", direct).href;
+			}
+		} catch (error) {}
+		throw new Error("File Vault image configuration is unavailable.");
+	}
 	var currentInstance = null;
 	var integration = {
 		fallbackActive: false,
@@ -294,6 +313,7 @@
 		this.root = root;
 		this.options = options || {};
 		this.config = Object.assign({}, window.mmedFileVaultV2Config || {}, this.options.config || {});
+		this.cinematicAssetsUrl = cinematicAssetsUrl(this.config);
 		this.injectedApi = this.options.api || null;
 		this.uploadFactory = this.options.uploadTransport || null;
 		this.hashFileFactory = this.options.hashFile || null;
@@ -495,7 +515,7 @@
 			'<div class="fv2-atmosphere" aria-hidden="true"><i></i><i></i></div><div class="fv2-frame" data-fv2-frame' + (this.introVisible ? ' aria-hidden="true" inert' : '') + '>',
 			'<header class="fv2-hud">',
 			'<a class="fv2-matrix-return" href="' + escAttr(MATRIX_DASHBOARD_URL) + '" aria-label="Return to Matrix" data-matrix-app-mode-return="1" data-matrix-dashboard-return="true">' + icon("arrowLeft") + '<span>Return to Matrix</span></a>',
-			'<div class="fv2-brand" aria-label="MissionMed File Vault"><img class="fv2-mobile-brand" src="' + escAttr(CINEMATIC_ASSETS + 'missionmed-logo.png') + '" alt="MissionMed Institute" width="279" height="110"><span class="fv2-brand-matrix">MissionMed</span><span class="fv2-brand-slash">//</span><strong>FileVault</strong></div>',
+			'<div class="fv2-brand" aria-label="MissionMed File Vault"><img class="fv2-mobile-brand" src="' + escAttr(this.cinematicAssetsUrl + 'missionmed-logo.png') + '" alt="MissionMed Institute" width="279" height="110"><span class="fv2-brand-matrix">MissionMed</span><span class="fv2-brand-slash">//</span><strong>FileVault</strong></div>',
 			'<div class="fv2-hud-context"><span class="fv2-lens" data-fv2-lens>Vault</span><span class="fv2-student" data-fv2-student></span></div>',
 			'<div class="fv2-hud-actions">',
 			'<span class="fv2-role-pill" data-fv2-role>Student view</span>',
@@ -899,7 +919,7 @@
 			: (this.capability("share_mission_file") ? '<button type="button" class="fv2-rail-upload" data-fv2-action="open-share-upload" data-fv2-share-source="missionmed"' + (this.storageReady() ? "" : " disabled") + '>' + icon("upload") + '<span>Share Mission File</span></button>' : "");
 		var viewAs = isAdmin ? '<div class="fv2-view-as"><span>Viewing as</span>' + lensButtons + "</div>" : "";
 		var accountName = String(this.config.viewerName || (role === "admin" ? "MissionMed administrator" : (role === "mentor" ? "MissionMed mentor" : (this.state.data && this.state.data.student && this.state.data.student.display_name) || "MissionMed student")));
-		return '<div class="fv2-rail-brand"><img src="' + escAttr(CINEMATIC_ASSETS + 'missionmed-logo.png') + '" alt="MissionMed Institute" width="279" height="110"><strong>File<em>Vault</em></strong><span>SECURE. ORGANIZE. ACHIEVE.</span></div>' + uploadCta + '<div class="fv2-rail-label">' + esc(roleLabel) + "</div>" + markup + '<div class="fv2-rail-bottom"><p class="fv2-rail-motto">Your Next Chapter.<br><strong>Better Prepared.</strong></p>' + viewAs + '<div class="fv2-rail-account"><span>' + esc(accountName.charAt(0).toUpperCase() || "M") + '</span><strong>' + esc(accountName) + '</strong></div><div class="fv2-rail-foot"><span>Private by design</span><span>Secure document workflow</span></div></div>';
+		return '<div class="fv2-rail-brand"><img src="' + escAttr(this.cinematicAssetsUrl + 'missionmed-logo.png') + '" alt="MissionMed Institute" width="279" height="110"><strong>File<em>Vault</em></strong><span>SECURE. ORGANIZE. ACHIEVE.</span></div>' + uploadCta + '<div class="fv2-rail-label">' + esc(roleLabel) + "</div>" + markup + '<div class="fv2-rail-bottom"><p class="fv2-rail-motto">Your Next Chapter.<br><strong>Better Prepared.</strong></p>' + viewAs + '<div class="fv2-rail-account"><span>' + esc(accountName.charAt(0).toUpperCase() || "M") + '</span><strong>' + esc(accountName) + '</strong></div><div class="fv2-rail-foot"><span>Private by design</span><span>Secure document workflow</span></div></div>';
 	};
 
 	FileVaultV2.prototype.viewMarkup = function () {
@@ -1058,9 +1078,10 @@
 			["other", "Other Documents", "Organize everything else.", "other", ""],
 			["shared", "Shared with Me", "Collaborate securely.", "shared", ""]
 		];
+		var mediaBase = this.cinematicAssetsUrl;
 		var cards = categories.map(function (category) {
 			var attrs = category[3] === "shared" ? 'data-fv2-action="navigate" data-fv2-view="shared"' : 'data-fv2-action="open-file-group" data-fv2-file-group="' + escAttr(category[3]) + '" data-fv2-category-search="' + escAttr(category[4]) + '"';
-			return '<button type="button" class="fv2-category-card" ' + attrs + '><img src="' + escAttr(CINEMATIC_ASSETS + category[0] + '.webp') + '" alt="" width="640" height="427" loading="lazy"><span class="fv2-category-copy"><strong>' + esc(category[1]) + '</strong><small>' + esc(category[2]) + '</small></span><span class="fv2-category-arrow">' + icon("arrowRight") + '</span></button>';
+			return '<button type="button" class="fv2-category-card" ' + attrs + '><img src="' + escAttr(mediaBase + category[0] + '.webp') + '" alt="" width="640" height="427" loading="lazy"><span class="fv2-category-copy"><strong>' + esc(category[1]) + '</strong><small>' + esc(category[2]) + '</small></span><span class="fv2-category-arrow">' + icon("arrowRight") + '</span></button>';
 		}).join("");
 		var notice = this.storageReady() ? "" : this.inlineNoticeMarkup("blocked", "Private storage is unavailable", "Existing metadata remains visible. Uploads and secure downloads stay blocked until storage is restored.");
 		return notice + '<div class="fv2-cinema-home"><div class="fv2-cinema-main"><section class="fv2-cinema-hero"><span class="fv2-cinema-kicker">MISSIONMED <b>//</b> FILEVAULT</span><h1 tabindex="-1" data-fv2-page-heading>Your Documents.<br>Your Journey.<br><em>A Brighter Tomorrow.</em></h1><p>Secure. Organize. Prepare. Achieve. All in one place.</p><div class="fv2-cinema-actions"><button type="button" class="fv2-button fv2-button-primary" data-fv2-action="navigate" data-fv2-view="upload"' + (canUpload ? '' : ' disabled') + '>' + icon("upload") + 'Upload a File</button><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="files">View My Files' + icon("arrowRight") + '</button></div></section><section class="fv2-categories" aria-labelledby="fv2-categories-title"><h2 id="fv2-categories-title">Your Document Categories</h2><div class="fv2-category-grid">' + cards + '</div></section><div class="fv2-home-utility"><button type="button" data-fv2-action="navigate" data-fv2-view="journey">Application journey ' + icon("arrowRight") + '</button><button type="button" data-fv2-action="navigate" data-fv2-view="recent">Recently uploaded ' + icon("clock") + '</button></div></div><aside class="fv2-home-aside">' + this.homeActivityMarkup() + this.storageSummaryMarkup() + '</aside></div>';
@@ -4455,7 +4476,9 @@
 			return Promise.resolve(currentInstance);
 		}
 		if (currentInstance) currentInstance.unmount();
-		var instance = new FileVaultV2(root, options || {});
+		var instance;
+		try { instance = new FileVaultV2(root, options || {}); }
+		catch (error) { return Promise.reject(error); }
 		currentInstance = instance;
 		integration.mountRoot = root;
 		var mountPromise = instance.mount().then(function () { return instance; });

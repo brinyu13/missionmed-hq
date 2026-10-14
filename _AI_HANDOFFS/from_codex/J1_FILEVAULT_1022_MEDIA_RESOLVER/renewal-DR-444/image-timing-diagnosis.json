@@ -1,0 +1,47 @@
+{
+  "results": [
+    {
+      "baseline": true,
+      "before": {
+        "complete": false,
+        "width": 0,
+        "top": 825.1875,
+        "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp"
+      },
+      "after": {
+        "complete": true,
+        "width": 640,
+        "height": 427,
+        "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp"
+      },
+      "responses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "baseline": false,
+      "before": {
+        "complete": false,
+        "width": 0,
+        "top": 825.1875,
+        "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp"
+      },
+      "after": {
+        "complete": true,
+        "width": 640,
+        "height": 427,
+        "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp"
+      },
+      "responses": [
+        {
+          "url": "http://127.0.0.1:8782/wp-content/plugins/missionmed-hub/assets/file-vault-cinematic/shared.webp",
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "interpretation": "Both preserved baseline and repaired candidate can be sampled before lazy image decode; both decode canonical640x427 asset withHTTP200 afterawait. Existing browser audit has no decode wait; failed run preserved. No source or test assertion changed."
+}

@@ -1,0 +1,39 @@
+{
+  "at": "2026-10-14T20:52:29.458691+00:00",
+  "results": [
+    {
+      "command": [
+        "php",
+        "tests/file-vault-v2-php-contract.php"
+      ],
+      "stdout": "PASS: 118 File Vault V2 PHP contract checks",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "php",
+        "tests/file-vault-v2-v1-lock-contract.php"
+      ],
+      "stdout": "PASS: 41 File Vault V1 fallback lock checks",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "php",
+        "-l",
+        "wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php"
+      ],
+      "stdout": "No syntax errors detected in wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php",
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js"
+      ],
+      "stdout": "",
+      "exit_code": 0
+    }
+  ]
+}

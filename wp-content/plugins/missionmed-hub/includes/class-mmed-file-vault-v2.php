@@ -23,7 +23,7 @@ class MMED_File_Vault_V2 {
 	const CAP_FINALIZE      = 'mmed_finalize_file_vault';
 	const CAP_AUDIT         = 'mmed_view_file_vault_audit';
 	const ASSET_CSS         = 'student-os-file-vault-v2.6a510a57bfbbf85e.css';
-	const ASSET_JS          = 'student-os-file-vault-v2.960a6069c8ea8967.js';
+	const ASSET_JS          = 'student-os-file-vault-v2.2248e4c648e596bc.js';
 
 	/**
 	 * Register runtime hooks.
@@ -129,6 +129,7 @@ class MMED_File_Vault_V2 {
 				'viewerName'  => sanitize_text_field( wp_get_current_user()->display_name ),
 				'restUrl'     => untrailingslashit( rest_url( self::NAMESPACE . '/file-vault' ) ),
 				'matrixUrl'   => home_url( '/member-dashboard/' ),
+				'cinematicAssetsUrl' => MMED_HUB_URL . 'assets/file-vault-cinematic/',
 				'nonce'       => wp_create_nonce( 'wp_rest' ),
 				'maxFileSize'     => MMED_File_Vault_V2_Repository::MAX_FILE_SIZE,
 				'nonceRefreshUrl' => admin_url( 'admin-ajax.php?action=mmed_file_vault_v2_nonce' ),

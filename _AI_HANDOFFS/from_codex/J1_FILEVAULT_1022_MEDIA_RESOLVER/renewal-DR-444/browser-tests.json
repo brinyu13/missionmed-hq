@@ -1,0 +1,6 @@
+{
+  "at": "2026-10-14T20:53:51.058299+00:00",
+  "stdout": "",
+  "stderr": "CHECK FAILED: responsive 760x900: premium destination legibility treatment missing [{\"label\":\"Shared with MeCollaborate securely.\",\"hasDestinationArt\":false,\"hasDarkBlend\":true,\"hasTextShadow\":true}]\nFAIL: 1 of 623 File Vault V2 browser checks failed\n1. responsive 760x900: premium destination legibility treatment missing [{\"label\":\"Shared with MeCollaborate securely.\",\"hasDestinationArt\":false,\"hasDarkBlend\":true,\"hasTextShadow\":true}]\n",
+  "exit_code": 1
+}

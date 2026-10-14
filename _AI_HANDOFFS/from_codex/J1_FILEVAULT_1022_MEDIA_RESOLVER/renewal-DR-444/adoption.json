@@ -1,0 +1,51 @@
+{
+  "authority": "DR-444",
+  "os_head": "2a9e0acda64dc5e63a7ab8fbf5de0a2089e63063",
+  "baseline_head": "20fbdc38a48b92535214c79c738b0fbc141f8c16",
+  "at_utc": "20261014T205138Z",
+  "fences": [
+    {
+      "scope": "PRODUCT:FILE-VAULT",
+      "epoch": 5965
+    },
+    {
+      "scope": "PATH:c4785fad62e14454abca03e8a96505cc4df5e6df0579e303aab5db5aeea1746e",
+      "epoch": 5966
+    },
+    {
+      "scope": "PATH:ba82c943dd3aa6a0752fb2f20708b4a4b4f50d971d1c1b6b2ad71fba28033a0d",
+      "epoch": 5967
+    },
+    {
+      "scope": "PATH:a6a9f56f2a47ca8ed55f497d180e4ba3c5b74d36154ae74edc40b8be9ee17c5b",
+      "epoch": 5968
+    },
+    {
+      "scope": "PATH:4dca78c43a480e75c1659c5497522b51ea02d102518f75da668971fbd4b6a52b",
+      "epoch": 5969
+    },
+    {
+      "scope": "PATH:a4ec65d45e11b81c73ab2a802b40f5c8bfd700a2ac3773eb91fd8a553854710e",
+      "epoch": 5970
+    },
+    {
+      "scope": "PATH:b78c44a61a3fe440e56b3c84ef76d90b9c79ffd39abba7903c6b7cd7b69ba166",
+      "epoch": 5971
+    }
+  ],
+  "old_fences": "5945-5950/5953 EXPIRED unreleased; stopped keepers; old status files preserved",
+  "prior_helper_sha256": "ab8efce09747d1fab6f90afa386e52239903e6cc20982ea939345caebcb58b52",
+  "new_helper_sha256": "656f3a8d419d21f9485a181d0ff7c6bfb3a126c7fcad5f93460e18632ebb1ca1",
+  "test_change": "fence/status/output references only",
+  "role_acceptance": {
+    "staff": "OPEN - direct Chrome navigation redirected to login",
+    "student": "OPEN - genuine authenticated session unavailable"
+  },
+  "pre_renewal_current_checks": {
+    "php": 118,
+    "v1_lock": 41,
+    "browser": 623
+  },
+  "new_backup_proposal": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/J1-FILEVAULT-1022-MEDIA/20261014T205138Z",
+  "preflight": "canonical unmodified script PASS with known same-worktree and exact dirty adoption warnings covered by Founder instruction and DR444"
+}

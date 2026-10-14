@@ -1,0 +1,13 @@
+{
+  "verifier": "independent filevault_renewal_review session",
+  "verdict": "PASS",
+  "scope": "Exact 7 source/test paths and explicitly enumerated preserved parent and additive renewal evidence",
+  "tests": 922,
+  "matrix_guard": 15,
+  "roles": "Current Staff and genuine Student acceptance OPEN",
+  "condition": "Sealed committed source and package review still required before prepare",
+  "source_hashes": {
+    "js": "2248e4c648e596bce984da5efafe89d5360aee1009a359e00faf11d7d4adc0e7",
+    "controller": "e7fc83aacc6dcb2a4654eaf2765c099f38b72cd540ddd7c7dfcba2e242d422f1"
+  }
+}

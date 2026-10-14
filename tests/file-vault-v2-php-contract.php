@@ -7,6 +7,8 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'MMED_FILE_VAULT_PRIVATE_STORAGE_VERIFIED', true );
 define( 'MMED_FILE_VAULT_V2_TESTING', true );
+define( 'MMED_HUB_PATH', dirname( __DIR__ ) . '/wp-content/plugins/missionmed-hub/' );
+define( 'MMED_HUB_URL', 'https://assets.fixture.invalid/custom-plugin-base/' );
 
 $GLOBALS['fv2_options'] = array();
 $GLOBALS['fv2_caps']    = array();
@@ -52,6 +54,10 @@ class FV2_Request {
 	public function get_method() { return $this->method; }
 }
 
+class MMED_Hub_Page {
+	public static function is_hub_page() { return true; }
+}
+
 class MMED_Access_Gate {
 	public static function get_access_payload( $user_id ) { return $GLOBALS['fv2_access'][ absint( $user_id ) ] ?? null; }
 }
@@ -92,6 +98,18 @@ function home_url() { return 'https://missionmed.test/'; }
 function wp_parse_url( $value ) { return parse_url( $value ); }
 function wp_verify_nonce( $nonce, $action ) { return 'good-nonce' === $nonce && 'wp_rest' === $action; }
 
+// Capture actual enqueue output without WordPress or network access.
+function wp_add_inline_script() {}
+function wp_enqueue_style() {}
+function wp_script_is() { return false; }
+function wp_enqueue_script() {}
+function wp_localize_script( $handle, $name, $config ) { $GLOBALS['fv2_localized'][ $name ] = $config; }
+function wp_get_current_user() { return (object) array( 'display_name' => 'Synthetic fixture' ); }
+function rest_url( $path = '' ) { return 'https://missionmed.test/wp-json/' . $path; }
+function untrailingslashit( $value ) { return rtrim( $value, '/' ); }
+function wp_create_nonce() { return 'synthetic-enqueue-nonce'; }
+function admin_url( $path = '' ) { return 'https://missionmed.test/wp-admin/' . $path; }
+
 require_once dirname( __DIR__ ) . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2-repository.php';
 require_once dirname( __DIR__ ) . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php';
 
@@ -128,6 +146,9 @@ $GLOBALS['fv2_options'][ MMED_File_Vault_V2::OPTION_MODE ] = 'on';
 fv2_assert( MMED_File_Vault_V2::is_user_eligible(), 'on includes entitled users' );
 $GLOBALS['fv2_caps'][17][ MMED_File_Vault_V2::CAP_REVIEW ] = true;
 fv2_assert( 'mentor' === MMED_File_Vault_V2::role_for_user(), 'mentor capability is server-derived' );
+
+MMED_File_Vault_V2::enqueue_assets();
+fv2_assert( MMED_HUB_URL . 'assets/file-vault-cinematic/' === $GLOBALS['fv2_localized']['mmedFileVaultV2Config']['cinematicAssetsUrl'], 'actual enqueue publishes the canonical plugin media directory independently of optimizer and page URLs' );
 
 fv2_assert( 'other' === MMED_File_Vault_V2_Repository::normalize_document_type( 'not-real' ), 'unknown document type is not trusted' );
 fv2_assert( 'personal_statement' === MMED_File_Vault_V2_Repository::normalize_document_type( 'personal_statement' ), 'known document type survives normalization' );

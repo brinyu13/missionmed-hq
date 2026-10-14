@@ -1,0 +1,102 @@
+{
+  "comparisons": [
+    {
+      "width": 1280,
+      "baseline": "same-run-approved",
+      "dimensions": [
+        1280,
+        844
+      ],
+      "different_pixels": 13641,
+      "pixels_channel_over_2": 496,
+      "pixels_channel_over_10": 5,
+      "mean_absolute_channels": [
+        0.007274696386255925,
+        0.004386663210900474,
+        0.009405546504739336
+      ]
+    },
+    {
+      "width": 1280,
+      "baseline": "preserved-approved",
+      "dimensions": [
+        1280,
+        844
+      ],
+      "different_pixels": 18679,
+      "pixels_channel_over_2": 629,
+      "pixels_channel_over_10": 10,
+      "mean_absolute_channels": [
+        0.00979894845971564,
+        0.005953791469194313,
+        0.01257127517772512
+      ]
+    },
+    {
+      "width": 768,
+      "baseline": "same-run-approved",
+      "dimensions": [
+        768,
+        844
+      ],
+      "different_pixels": 27,
+      "pixels_channel_over_2": 0,
+      "pixels_channel_over_10": 0,
+      "mean_absolute_channels": [
+        1.3884774881516587e-05,
+        1.3884774881516587e-05,
+        1.542752764612954e-05
+      ]
+    },
+    {
+      "width": 768,
+      "baseline": "preserved-approved",
+      "dimensions": [
+        768,
+        844
+      ],
+      "different_pixels": 102,
+      "pixels_channel_over_2": 0,
+      "pixels_channel_over_10": 0,
+      "mean_absolute_channels": [
+        6.942387440758294e-05,
+        5.862460505529226e-05,
+        4.011157187993681e-05
+      ]
+    },
+    {
+      "width": 390,
+      "baseline": "same-run-approved",
+      "dimensions": [
+        390,
+        844
+      ],
+      "different_pixels": 0,
+      "pixels_channel_over_2": 0,
+      "pixels_channel_over_10": 0,
+      "mean_absolute_channels": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "width": 390,
+      "baseline": "preserved-approved",
+      "dimensions": [
+        390,
+        844
+      ],
+      "different_pixels": 0,
+      "pixels_channel_over_2": 0,
+      "pixels_channel_over_10": 0,
+      "mean_absolute_channels": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "css_media": "unchanged; exact22sentinels checked independently",
+  "qualification": "Local synthetic screenshots; not authenticated production acceptance or global pixel-perfect claim."
+}
