@@ -27,6 +27,25 @@
 .rlq-return-to-matrix:hover { border-color: rgba(255,255,255,.48); background: rgba(255,255,255,.14); color: #fff; text-decoration: none; }
 .rlq-return-to-matrix:focus-visible { outline: 3px solid #f4c96b; outline-offset: 2px; }
 .rlq-return-to-matrix__arrow { font-size: 16px; line-height: .8; }
+body:has(#rlqModeSelector) #ranklist-root,
+body:has([data-mm-modal-open="1"]) #ranklist-root { isolation: auto; }
+body:has(#rlqModeSelector) #mm-ranklist-app #mm-header-v2 .mm-header-appchrome,
+body:has([data-mm-modal-open="1"]) #mm-ranklist-app #mm-header-v2 .mm-header-appchrome {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  right: var(--mmHeaderPadX);
+  left: var(--mmHeaderPadX);
+  width: auto;
+  padding: 0;
+  z-index: 2147483001;
+  pointer-events: none;
+}
+body:has(#rlqModeSelector) .rlq-return-to-matrix,
+body:has([data-mm-modal-open="1"]) .rlq-return-to-matrix { pointer-events: auto; }
+body:has(#rlqModeSelector) #mm-header-appchrome-left > :not(.rlq-return-to-matrix),
+body:has(#rlqModeSelector) #mm-header-appchrome-right,
+body:has([data-mm-modal-open="1"]) #mm-header-appchrome-left > :not(.rlq-return-to-matrix),
+body:has([data-mm-modal-open="1"]) #mm-header-appchrome-right { visibility: hidden; pointer-events: none; }
 .rlq-mode-chip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; margin-left: 8px; padding: 5px 6px 5px 10px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(255,255,255,.08); color: #f8fafc; font-size: 11px; font-weight: 900; letter-spacing: .06em; white-space: nowrap; }
 .rlq-mode-chip button { border: 0; border-radius: 999px; padding: 5px 9px; background: rgba(255,255,255,.14); color: inherit; cursor: pointer; font: inherit; letter-spacing: 0; }
 .rlq-import-button { width: 100%; margin: 0 0 14px; border: 1px solid rgba(22,52,93,.2); border-radius: 14px; padding: 12px 16px; background: linear-gradient(135deg,#173a67,#8b1e2d); color: #fff; font-weight: 900; cursor: pointer; }

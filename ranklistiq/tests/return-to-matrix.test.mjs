@@ -105,3 +105,15 @@ test("Return control keeps visible focus and compact 390px styling", () => {
   assert.match(css, /@media \(max-width: 480px\)[\s\S]*\.rlq-return-to-matrix\s*\{/);
   assert.doesNotMatch(css, /\.rlq-return-to-matrix(?:__label)?[^{}]*\{[^}]*display:\s*none/s);
 });
+
+test("mode selector and active app modals keep only Return navigation above overlays", () => {
+  const css = readFileSync(cssPath, "utf8");
+  assert.match(css, /body:has\(#rlqModeSelector\) #ranklist-root,[\s\S]*isolation:\s*auto;/s);
+  assert.match(css, /body:has\(#rlqModeSelector\) #mm-ranklist-app #mm-header-v2 \.mm-header-appchrome,[\s\S]*position:\s*fixed;[^}]*top:\s*max\(8px,\s*env\(safe-area-inset-top,\s*0px\)\);[^}]*right:\s*var\(--mmHeaderPadX\);[^}]*left:\s*var\(--mmHeaderPadX\);[^}]*z-index:\s*2147483001;[^}]*pointer-events:\s*none;/s);
+  assert.match(css, /body:has\(\[data-mm-modal-open="1"\]\) #mm-ranklist-app #mm-header-v2 \.mm-header-appchrome[\s\S]*position:\s*fixed;[^}]*z-index:\s*2147483001;[^}]*pointer-events:\s*none;/s);
+  assert.match(css, /body:has\(#rlqModeSelector\) \.rlq-return-to-matrix,[\s\S]*pointer-events:\s*auto;/s);
+  assert.match(css, /body:has\(\[data-mm-modal-open="1"\]\) \.rlq-return-to-matrix\s*\{[^}]*pointer-events:\s*auto;/s);
+  assert.match(css, /body:has\(#rlqModeSelector\) #mm-header-appchrome-left > :not\(\.rlq-return-to-matrix\)[\s\S]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s);
+  assert.match(css, /body:has\(#rlqModeSelector\) #mm-header-appchrome-right[\s\S]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s);
+  assert.match(css, /body:has\(\[data-mm-modal-open="1"\]\) #mm-header-appchrome-left > :not\(\.rlq-return-to-matrix\)[\s\S]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s);
+});
