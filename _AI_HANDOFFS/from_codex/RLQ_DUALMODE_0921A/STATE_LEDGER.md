@@ -133,3 +133,26 @@ generated file embeds the correct build metadata at the top, but a legacy base
 assignment later shadows the runtime `window.__RANKLISTIQ_BUILD__` global.
 Artifact hashes and the source marker remain authoritative; no product behavior
 or saved workspace data is affected.
+
+## 2026-10-14 Return-to-Matrix addendum
+
+This addendum does not change the accepted RLQ-DUALMODE-0921A production
+verdict above. Mission `MX-GX-20261013-001-RANKLISTIQ-RETURN`, under DR-435,
+produced corrected source commit
+`b11d7f7bcf0a3016ec990a0682cade1cc86f1797` and sealed private candidate
+`af13d903134babe7246f0e0ac41edf7820ef7698611dd9690e54fb5371a45df3`.
+The candidate adds an exact native top-level Return-to-Matrix anchor and passed
+`30/30` tests plus independent deterministic-package approval.
+
+Production promotion is **not accepted**. The available browser profile was
+administrator-only and the previously verified entitled student tab became
+unavailable. Admin desktop diagnostics proved top-level pointer and keyboard
+navigation, and exact `390x844` static layout passed, but neither substitutes
+for the required student journey. The candidate was atomically withdrawn.
+
+Current provider and cache-busted public SHA-256 are the still-accepted
+`c7690c76cf89fa717ac19b82d0db409c60ab20e84b00fd906a752b1cebc05a1a`,
+owner/mode remain `theresidencyacademy:www-data 0644`, the temporary path is
+absent, and all four forbidden canaries remain `404`. No QA Save Progress or
+list mutation occurred. Full evidence is in
+`_AI_HANDOFFS/from_codex/MX_GX_20261013_001_RANKLISTIQ_RETURN/`.

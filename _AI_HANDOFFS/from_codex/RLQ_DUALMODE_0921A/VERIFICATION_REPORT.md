@@ -80,3 +80,28 @@ hashes, but the legacy base later shadows the runtime
 `window.__RANKLISTIQ_BUILD__` global with its historical label. This is a
 provenance-label cleanup, not a functional, data-integrity, entitlement, or
 release blocker; the source marker and SHA-256 hashes above are authoritative.
+
+## 2026-10-14 Return-to-Matrix addendum
+
+Verdict: **PARTIAL / WITHDRAWN — corrected package approved; genuine-student
+acceptance open.**
+
+The corrected build `20261014T142400Z-gb11d7f7b` from pushed source
+`b11d7f7bcf0a3016ec990a0682cade1cc86f1797` has HTML SHA-256
+`af13d903134babe7246f0e0ac41edf7820ef7698611dd9690e54fb5371a45df3`
+and runtime SHA-256
+`58c9f3fc9e7c90b5444ba496b9ca1e259462be261f981714d209c7c2b643c357`.
+It passed `30/30` tests and independent clean reconstruction. Desktop admin-only
+diagnostics proved pointer and Enter replace the outer page with the exact
+Matrix Dashboard URL; reload preserved observed RankListIQ state. Exact
+`390x844` static layout also passed with no iframe horizontal overflow.
+
+The required entitled non-admin student session was unavailable. No admin
+evidence was promoted to student acceptance, no login/cookie/impersonation
+workaround was used, and no QA Save Progress or list edit occurred. The
+candidate was therefore atomically withdrawn. Current live and cache-busted
+public SHA-256 are the accepted
+`c7690c76cf89fa717ac19b82d0db409c60ab20e84b00fd906a752b1cebc05a1a`;
+all four forbidden canaries remain `404`. See the dedicated handoff directory
+for the state delta, rollback receipt, package review, and full verification
+matrix.
