@@ -92,14 +92,14 @@
       "id": "cdn_arena_live",
       "system": "arena",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/arena.html",
-      "approved_sha256": "4d6580fa0b8c4752b0921db8247b35b01097c8438910eb73d518e8a3f099da28",
+      "approved_sha256": "3c20c14ba27945655a9e9f91f0d2f4bf6ddf9cfecce0b4ef7e5962ccf661794a",
       "required_markers": [
         "/api/auth/exchange",
         "/api/auth/bootstrap",
         "fglyvdykwgbuivikqoah"
       ],
       "local_source_path": "LIVE/arena.html",
-      "local_source_note": "Pinned by MX-ARENA-AVATAR-20261013 frontend polish release (2026-10-14)."
+      "local_source_note": "Pinned by MX-ARENA-AVATAR-20261013 r4 integrity repair release (2026-10-14 04:59Z)."
     }
   ],
   "route_checks": [

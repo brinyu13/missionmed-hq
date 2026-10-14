@@ -77,3 +77,12 @@
 **Deployed:** via release/deploy_arena_single_surface.sh (single surface: html-system/LIVE/arena.html + one immutable brand asset)
 **Deployed By:** Fable (founder-authorized), from the device VM
 **Rollback Hash:** bd44e33f0c8b75dc28bf63190f0ab9c462af1700df287e7bcd377116dea7444c (release/receipts/arena.html.ROLLBACK_bd44e33f)
+
+## [2026-10-14 05:06 UTC] MX-ARENA-AVATAR-20261013 r4 — avatar integrity-path repair
+
+**Files Modified:** LIVE/arena.html (uploadArenaAvatar only; all other runtime bytes identical to r3), _SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json, tests/arena/avatar-integrity-path.test.cjs (Codex independent harness), tests/arena/avatar-integrity-rejection.test.cjs (builder harness)
+**Change:** Fixes the defect found by the Codex independent audit (2026-10-14 03:44Z): a rejected reference-photo hash or identity_conditioned:false logged an error but still persisted and activated the avatar. uploadArenaAvatar now hashes the exact bytes sent, requires success:true, identity_conditioned:true, matching SHA-256 + byte count and an https avatar URL BEFORE any URL becomes persistence-eligible; every rejection, malformed response, provider/HTTP/network error, missing endpoint or unavailable hashing exits via rejectAvatarGeneration() (zero persistence, zero activation, no raw-photo fallback, modal back to Preview with the photo retained). Base = r3 4d6580fa0b8c4752b0921db8247b35b01097c8438910eb73d518e8a3f099da28; candidate 3c20c14ba27945655a9e9f91f0d2f4bf6ddf9cfecce0b4ef7e5962ccf661794a.
+**Risk Level:** HIGH
+**Deployed:** 2026-10-14 04:59Z via release/deploy_arena_single_surface.sh (single surface), receipt release/receipts/receipt_20261014T045941Z.json
+**Deployed By:** Fable (founder-authorized P0 repair directive 2026-10-14 00:52 ET), from the device VM
+**Rollback Hash:** 4d6580fa0b8c4752b0921db8247b35b01097c8438910eb73d518e8a3f099da28 (r3, release/receipts/arena.html.ROLLBACK)

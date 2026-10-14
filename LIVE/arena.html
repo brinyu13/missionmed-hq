@@ -1,8 +1,8 @@
 <!-- VERSION: MR-254_AVATAR_SYSTEM_FINAL -->
 <!--
 SYSTEM: ARENA
-VERSION: 2026-10-14 01:25 MX-ARENA-AVATAR-20261013-frontend-polish-r3
-CHANGE: MX-ARENA-AVATAR-20261013: remove Arena Beta Preview banner (+CSS, +stale copy in locked-mode modal); official MissionMed Institute logo in Avatar Studio / Create Your Avatar / locker tile (single ARENA_BRAND_LOGO_URL); two-step avatar deletion confirmation modal (server-confirmed, active-avatar note, in-flight guard); Download saves same-origin blob with real extension; reference-photo SHA-256 integrity check; gender toggle shown on preview step. Base = live CDN bytes sha256 bd44e33f0c8b75dc28bf63190f0ab9c462af1700df287e7bcd377116dea7444c (2026-10-12 DRJ-DAILY-DRILLS-RECOVERY patched build; prior header retained below).
+VERSION: 2026-10-14 05:20 MX-ARENA-AVATAR-20261013-frontend-polish-r4-integrity
+CHANGE: MX-ARENA-AVATAR-20261013 r4 (integrity repair, Codex audit 2026-10-14 03:44Z): uploadArenaAvatar now verifies the full response contract (success:true, identity_conditioned:true, SHA-256 + byte count of the exact photo sent, https avatar URL) BEFORE any URL becomes persistence-eligible; every rejection / provider error / malformed response exits via rejectAvatarGeneration() with zero persistence/activation, no raw-photo fallback, modal back to Preview. r1-r3: remove Arena Beta Preview banner (+CSS, +stale copy in locked-mode modal); official MissionMed Institute logo in Avatar Studio / Create Your Avatar / locker tile (single ARENA_BRAND_LOGO_URL); two-step avatar deletion confirmation modal (server-confirmed, active-avatar note, in-flight guard); Download saves same-origin blob with real extension; reference-photo SHA-256 integrity check; gender toggle shown on preview step. Base = live CDN bytes sha256 bd44e33f0c8b75dc28bf63190f0ab9c462af1700df287e7bcd377116dea7444c (2026-10-12 DRJ-DAILY-DRILLS-RECOVERY patched build; prior header retained below).
 PRIOR: 2026-06-08 13:50 MM-SPEED-ARENA-005-avatar-image-optimization — swap Arena default/squad avatar PNG URLs to q100 WebP variants under wp-content/uploads/2026/06/mm-speed-arena-005; originals retained and backed up.
 AUTHORITY: MM-HTML-DEPLOYMENT-SYSTEM-LOCK-001
 SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
@@ -10554,83 +10554,82 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       setAvatarModalStatus('Generating your avatar...', '');
       showToast('Generating your avatar...', 'info');
 
+      // MX-ARENA-AVATAR-20261013 integrity repair (r4). Control flow is now
+      // strictly: hash the exact bytes we send -> request -> validate the FULL
+      // response contract -> only then assign a persistence-eligible URL.
+      // Any failure (missing/mismatched hash, identity_conditioned !== true,
+      // malformed payload, HTTP/network/provider error, unusable URL, hashing
+      // unavailable, endpoint missing) exits through rejectAvatarGeneration():
+      // nothing is saved, nothing is activated, no raw-photo fallback, and the
+      // modal returns to the Preview step with the photo retained. This
+      // replaces the earlier version that assigned the URL before validation,
+      // swallowed the validation error, and fell back to saving the raw photo.
       var remoteAvatarUrl = '';
       var remoteThumbnailUrl = '';
       var remoteAvatarId = createAvatarUuid();
       var persistedRecord = null;
-      var remoteError = '';
       var remotePayload = null;
 
-      if(AVATAR_API_ENDPOINT){
-        try{
-          var formData = new FormData();
-          formData.append('photo', file);
-          formData.append('gender', normalizeAvatarGender(avatarState.gender));
-          formData.append('user_id', String(ArenaUser.id || ''));
-          formData.append('wp_user_id', String(ArenaUser.wpUserId || ''));
-          formData.append('username', String(ArenaUser.username || ''));
-          formData.append('display_name', String(ArenaUser.displayName || ''));
-          formData.append('avatar_id', remoteAvatarId);
-          formData.append('source', 'arena_v1');
-
-          var response = await fetch(AVATAR_API_ENDPOINT, {
-            method: 'POST',
-            body: formData
-          });
-
-          var payload = null;
-          try {
-            payload = await response.json();
-          } catch(_parseErr) {
-            payload = null;
-          }
-          remotePayload = payload;
-          if(!response.ok){
-            var apiMessage = payload && (payload.error || payload.message) ? String(payload.error || payload.message) : '';
-            throw new Error('HTTP ' + response.status + (apiMessage ? (': ' + apiMessage) : ''));
-          }
-          remoteAvatarId = extractAvatarIdFromPayload(payload) || remoteAvatarId;
-          remoteAvatarUrl = extractAvatarUrlFromPayload(payload);
-          remoteThumbnailUrl = extractThumbnailUrlFromPayload(payload);
-          if(!remoteAvatarUrl) throw new Error('No avatar_url returned');
-          // MX-ARENA-AVATAR-20261013 (candidate): reference-integrity + identity
-          // engine check. The backend echoes the SHA-256 of the exact bytes it
-          // received; it must match the photo previewed/sent from this browser.
-          if(payload && typeof payload.source_photo_sha256 === 'string' && payload.source_photo_sha256){
-            var sentSha = await sha256HexOfBlob(file);
-            var integrityOk = !sentSha || sentSha === payload.source_photo_sha256;
-            console.info('[AVATAR_SOURCE_INTEGRITY]', { match: integrityOk, sent_bytes: Number(file.size || 0), server_bytes: payload.source_photo_bytes || null, engine: payload.engine || null });
-            if(!integrityOk) throw new Error('Reference photo mismatch; the avatar was not generated from your photo. Please retry.');
-          }
-          if(payload && payload.identity_conditioned === false){
-            throw new Error('Avatar engine did not use your photo. Please retry or change photo.');
-          }
-        } catch(remoteErr){
-          remoteError = remoteErr && remoteErr.message ? remoteErr.message : String(remoteErr);
-          console.warn('[AVATAR_REMOTE_FAILED_USING_FALLBACK]', remoteError);
-        }
+      if(!AVATAR_API_ENDPOINT){
+        return rejectAvatarGeneration('endpoint_unavailable', 'Avatar service endpoint is not configured.');
+      }
+      var expectedSha = await sha256HexOfBlob(file);
+      var expectedBytes = Number(file && file.size) || 0;
+      if(!expectedSha || !/^[0-9a-f]{64}$/.test(expectedSha) || expectedBytes <= 0){
+        return rejectAvatarGeneration('reference_hash_unavailable', 'Could not fingerprint the reference photo in this browser.');
       }
 
-      if(remoteAvatarUrl){
-        remoteThumbnailUrl = remoteThumbnailUrl || remoteAvatarUrl;
-        console.info('[AVATAR_REMOTE_URL_ACCEPTED]', {
-          user_id: String(ArenaUser.id || ''),
-          avatar_id: remoteAvatarId,
-          has_avatar_url: !!remoteAvatarUrl
-        });
-      } else {
-        var uploadedPrimary = await uploadAvatarAssetToR2ViaBackend(file, {
-          avatarId: remoteAvatarId
-        });
-        if(uploadedPrimary && uploadedPrimary.avatar_url){
-          remoteAvatarUrl = String(uploadedPrimary.avatar_url || '').trim();
-          remoteAvatarId = isUuid(uploadedPrimary.avatar_id) ? String(uploadedPrimary.avatar_id) : remoteAvatarId;
-          remoteThumbnailUrl = remoteAvatarUrl;
-        } else {
-          remoteError = remoteError || 'upload_failed';
-          remoteAvatarUrl = '';
-        }
+      var formData = new FormData();
+      formData.append('photo', file);
+      formData.append('gender', normalizeAvatarGender(avatarState.gender));
+      formData.append('user_id', String(ArenaUser.id || ''));
+      formData.append('wp_user_id', String(ArenaUser.wpUserId || ''));
+      formData.append('username', String(ArenaUser.username || ''));
+      formData.append('display_name', String(ArenaUser.displayName || ''));
+      formData.append('avatar_id', remoteAvatarId);
+      formData.append('source', 'arena_v1');
+
+      var response = null;
+      try{
+        response = await fetch(AVATAR_API_ENDPOINT, { method: 'POST', body: formData });
+      } catch(networkErr){
+        return rejectAvatarGeneration('provider_network_error', networkErr && networkErr.message ? networkErr.message : String(networkErr));
       }
+      var payload = null;
+      try{
+        payload = await response.json();
+      } catch(_parseErr){
+        payload = null;
+        if(response && response.ok) return rejectAvatarGeneration('malformed_response', 'Avatar service returned an unreadable response.');
+      }
+      remotePayload = payload;
+      if(!response || !response.ok){
+        var apiMessage = payload && typeof payload === 'object' && !Array.isArray(payload) && (payload.error || payload.message)
+          ? String(payload.error || payload.message) : '';
+        return rejectAvatarGeneration('provider_http_error', 'HTTP ' + (response ? response.status : 0) + (apiMessage ? (': ' + apiMessage) : ''));
+      }
+      var verdict = validateAvatarGenerationResponse(payload, expectedSha, expectedBytes);
+      console.info('[AVATAR_SOURCE_INTEGRITY]', {
+        match: verdict.ok,
+        code: verdict.ok ? 'verified' : verdict.code,
+        sent_bytes: expectedBytes,
+        server_bytes: payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload.source_photo_bytes === undefined ? null : payload.source_photo_bytes) : null,
+        engine: payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload.engine || null) : null
+      });
+      if(!verdict.ok){
+        return rejectAvatarGeneration(verdict.code, verdict.detail);
+      }
+      // Verified: the URL becomes persistence-eligible only here.
+      remoteAvatarUrl = verdict.avatarUrl;
+      remoteThumbnailUrl = verdict.thumbnailUrl || verdict.avatarUrl;
+      remoteAvatarId = verdict.avatarId || remoteAvatarId;
+      console.info('[AVATAR_REMOTE_URL_ACCEPTED]', {
+        user_id: String(ArenaUser.id || ''),
+        avatar_id: remoteAvatarId,
+        has_avatar_url: !!remoteAvatarUrl,
+        identity_conditioned: true,
+        source_photo_sha256_match: true
+      });
 
       if(remoteAvatarUrl){
         var remotePersistResult = await persistAvatarRecord({
@@ -10701,96 +10700,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
           payload: remotePayload
         };
       }
-
-      var fallbackAvatarId = createAvatarUuid();
-      var uploadedFallback = await uploadAvatarAssetToR2ViaBackend(file, {
-        avatarId: fallbackAvatarId
-      });
-      if(!uploadedFallback || !uploadedFallback.avatar_url){
-        setAvatarModalStatus('Avatar upload failed. No avatar was saved.', 'error');
-        showToast('Avatar upload failed. No avatar was saved.', 'error');
-        return {
-          avatar_id: fallbackAvatarId,
-          avatar_url: '',
-          thumbnail_url: '',
-          fallback: true,
-          reason: remoteError || 'upload_failed',
-          error: 'avatar_upload_failed'
-        };
-      }
-      var localFallbackUrl = String(uploadedFallback.avatar_url || '').trim();
-      fallbackAvatarId = isUuid(uploadedFallback.avatar_id) ? String(uploadedFallback.avatar_id) : fallbackAvatarId;
-      var fallbackThumbUrl = localFallbackUrl;
-      var fallbackPersistResult = await persistAvatarRecord({
-        id: fallbackAvatarId,
-        avatar_url: localFallbackUrl,
-        thumbnail_url: fallbackThumbUrl || localFallbackUrl,
-        gender: normalizeAvatarGender(avatarState.gender)
-      });
-      if(!fallbackPersistResult || !fallbackPersistResult.success || !fallbackPersistResult.record){
-        setAvatarModalStatus('Avatar save failed. Please retry.', 'error');
-        showToast('Avatar save failed. Please retry.', 'error');
-        return {
-          avatar_id: fallbackAvatarId,
-          avatar_url: localFallbackUrl,
-          thumbnail_url: fallbackThumbUrl || localFallbackUrl,
-          fallback: true,
-          reason: remoteError || 'remote_unavailable',
-          error: fallbackPersistResult ? fallbackPersistResult.error : 'persist_failed'
-        };
-      }
-      persistedRecord = fallbackPersistResult.record;
-      var committedFallbackId = persistedRecord && persistedRecord.id ? persistedRecord.id : fallbackAvatarId;
-      console.log('[AVATAR_SAVE_COMMIT]', {
-        user_id: String(ArenaUser.id || ''),
-        avatar_id: committedFallbackId,
-        avatar_url: persistedRecord && persistedRecord.avatar_url ? persistedRecord.avatar_url : localFallbackUrl
-      });
-      var fallbackSelectionCommitted = await persistActiveAvatarSelection(committedFallbackId);
-      if(!fallbackSelectionCommitted){
-        setAvatarModalStatus('Avatar active selection failed. Please retry.', 'error');
-        showToast('Avatar active selection failed. Please retry.', 'error');
-        return {
-          avatar_id: committedFallbackId,
-          avatar_url: localFallbackUrl,
-          thumbnail_url: fallbackThumbUrl || localFallbackUrl,
-          fallback: true,
-          reason: remoteError || 'remote_unavailable',
-          error: 'selection_commit_failed'
-        };
-      }
-      var fallbackHydrated = await hydrateAvatarState({ force: true, source: 'uploadArenaAvatar.fallback_commit' });
-      var fallbackActive = fallbackHydrated && fallbackHydrated.active ? fallbackHydrated.active : getActiveAvatarRecord();
-      if(!fallbackActive || fallbackActive.id !== committedFallbackId){
-        setAvatarModalStatus('Avatar state mismatch after save. Please retry.', 'error');
-        showToast('Avatar state mismatch after save. Please retry.', 'error');
-        return {
-          avatar_id: committedFallbackId,
-          avatar_url: localFallbackUrl,
-          thumbnail_url: fallbackThumbUrl || localFallbackUrl,
-          fallback: true,
-          reason: remoteError || 'remote_unavailable',
-          error: 'hydrate_state_mismatch'
-        };
-      }
-      var finalFallbackUrl = String(fallbackActive.avatar_url || '').trim();
-      var finalFallbackThumb = String(fallbackActive.thumbnail_url || fallbackActive.avatar_url || '').trim();
-      var finalFallback = applyResolvedAvatarResult(finalFallbackUrl, {
-        statusMessage: 'Avatar ready. Saved with safe fallback.',
-        toastMessage: 'Avatar saved (fallback path).',
-        thumbnailUrl: finalFallbackThumb,
-        avatarId: fallbackActive.id
-      });
-      if(remoteError){
-        console.info('[AVATAR_FALLBACK_REASON]', remoteError);
-      }
-      return {
-        avatar_id: fallbackActive.id,
-        avatar_url: finalFallbackUrl || finalFallback,
-        thumbnail_url: finalFallbackThumb,
-        fallback: true,
-        reason: remoteError || 'remote_unavailable'
-      };
+      // Unreachable: remoteAvatarUrl is always set once verification passed.
+      return rejectAvatarGeneration('internal_no_url', 'Verified response produced no avatar URL.');
     } catch(err){
       logAvatarSupabase(
         'avatar.save.fatal',
@@ -10803,17 +10714,105 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         err,
         'error'
       );
-      setAvatarModalStatus('Avatar generation failed. No avatar was saved.', 'error');
-      showToast('Avatar generation failed. No avatar was saved.', 'error');
+      var fatalMessage = err && err.message ? err.message : String(err || 'unknown_error');
+      if(!persistedRecord){
+        // Nothing was saved: recoverable rejection (Preview step, photo kept).
+        return rejectAvatarGeneration('fatal_error', fatalMessage);
+      }
+      setAvatarModalStatus('Avatar generation failed after save. Please refresh Arena and check your locker.', 'error');
+      showToast('Avatar generation failed after save. Please refresh Arena.', 'error');
       return {
         avatar_url: '',
         fallback: false,
-        reason: 'fatal_error',
-        error: err && err.message ? err.message : String(err || 'unknown_error')
+        reason: 'fatal_error_after_persist',
+        error: fatalMessage
       };
     } finally {
       unlockAvatarRequestLock();
     }
+  }
+
+  // ---- MX-ARENA-AVATAR-20261013 integrity repair (r4) helpers -------------
+  // Kept adjacent to uploadArenaAvatar on purpose: they are part of its
+  // verified contract and are exercised together by tests/arena/avatar-integrity-path.test.cjs.
+  var AVATAR_GENERATION_REJECTED_MESSAGE = "We couldn't verify this avatar. No avatar was added to your locker, and your current avatar is unchanged. Please try again or choose a different photo.";
+  function isVerifiedHttpsImageUrl(value){
+    if(typeof value !== 'string' || !value || value !== value.trim()) return false;
+    var parsed = null;
+    try{ parsed = new URL(value); } catch(_urlErr){ return false; }
+    if(!parsed || parsed.protocol !== 'https:') return false;
+    if(parsed.username || parsed.password) return false;
+    if(!parsed.hostname) return false;
+    return true;
+  }
+  // Full response contract. Returns {ok:true, avatarUrl, thumbnailUrl, avatarId}
+  // or {ok:false, code, detail}. Fail closed on anything unexpected.
+  function validateAvatarGenerationResponse(payload, expectedSha, expectedBytes){
+    if(!payload || typeof payload !== 'object' || Array.isArray(payload)){
+      return { ok: false, code: 'malformed_response', detail: 'Avatar service response was not an object.' };
+    }
+    if(payload.success !== true){
+      return { ok: false, code: 'provider_unsuccessful', detail: payload.error || payload.message ? String(payload.error || payload.message) : 'Avatar service did not report success.' };
+    }
+    if(payload.error){
+      return { ok: false, code: 'provider_error', detail: String(payload.error) };
+    }
+    if(payload.identity_conditioned !== true){
+      return { ok: false, code: 'identity_not_conditioned', detail: 'Avatar engine did not confirm it used your photo.' };
+    }
+    var serverSha = payload.source_photo_sha256;
+    if(typeof serverSha !== 'string' || !/^[0-9a-fA-F]{64}$/.test(serverSha)){
+      return { ok: false, code: 'reference_hash_missing', detail: 'Avatar service did not return a valid reference-photo fingerprint.' };
+    }
+    if(serverSha.toLowerCase() !== String(expectedSha || '').toLowerCase()){
+      return { ok: false, code: 'reference_hash_mismatch', detail: 'The avatar was not generated from the photo sent by this browser.' };
+    }
+    var serverBytes = payload.source_photo_bytes;
+    if(typeof serverBytes !== 'number' || !isFinite(serverBytes) || Math.floor(serverBytes) !== serverBytes || serverBytes <= 0 || serverBytes !== expectedBytes){
+      return { ok: false, code: 'reference_bytes_mismatch', detail: 'Reference photo size did not match what this browser sent.' };
+    }
+    var avatarUrl = payload.avatar_url;
+    if(!isVerifiedHttpsImageUrl(avatarUrl)){
+      return { ok: false, code: 'avatar_url_invalid', detail: 'Avatar service did not return a usable avatar image URL.' };
+    }
+    var thumbnailUrl = '';
+    if(payload.thumbnail_url !== undefined && payload.thumbnail_url !== null && payload.thumbnail_url !== ''){
+      if(!isVerifiedHttpsImageUrl(payload.thumbnail_url)){
+        return { ok: false, code: 'thumbnail_url_invalid', detail: 'Avatar service returned an unusable thumbnail URL.' };
+      }
+      thumbnailUrl = payload.thumbnail_url;
+    }
+    var avatarId = extractAvatarIdFromPayload(payload) || '';
+    return { ok: true, avatarUrl: avatarUrl, thumbnailUrl: thumbnailUrl, avatarId: avatarId };
+  }
+  // Single exit for every non-verified outcome: no persistence, no activation,
+  // no success state. Returns the modal to Preview with the photo retained so
+  // the student can retry or choose a different photo.
+  function rejectAvatarGeneration(code, detail){
+    var reason = String(code || 'rejected');
+    var message = detail ? String(detail) : reason;
+    console.warn('[AVATAR_GENERATION_REJECTED]', { code: reason, detail: message, persisted: false, activated: false });
+    logAvatarSupabase(
+      'avatar.generate.rejected',
+      { user_id: String((ArenaUser && ArenaUser.id) || ''), reason: reason, has_file: !!(avatarState && avatarState.file) },
+      null,
+      message,
+      'error'
+    );
+    latestGeneratedAvatarUrl = '';
+    setAvatarResult('');
+    setAvatarStep('preview');
+    setAvatarModalStatus(AVATAR_GENERATION_REJECTED_MESSAGE, 'error');
+    showToast('Avatar not verified. Nothing was saved.', 'error');
+    return {
+      avatar_id: '',
+      avatar_url: '',
+      thumbnail_url: '',
+      fallback: false,
+      rejected: true,
+      reason: reason,
+      error: message
+    };
   }
 
   async function handleAvatarSubmit(e){
