@@ -592,3 +592,23 @@ test('researchMissionMatches returns false for corrupted mission packet', () => 
   const matches = researchMissionMatches({broken: true}, input);
   assert.equal(matches, false);
 });
+
+// Canonical RISE identity permits a genuinely absent track label. Preserve it;
+// never invent Categorical or reject otherwise valid current coverage.
+test('blank canonical track survives coverage, mission generation and reuse', () => {
+  const input = makeValidInput();
+  input.program.track = '';
+  assert.equal(projectResearchCoverage(input).program.track, '');
+  const mission = buildResearchMission({...input, missionId: '8599af3e-936b-4c95-8174-0aa70045abf8'});
+  assert.equal(mission.program.track, '');
+  assert.equal(researchMissionMatches(mission,input), true);
+  assert.equal(typeof researchMissionReuseKey(input), 'string');
+});
+test('blank track exception does not accept malformed identity or forged coverage', () => {
+  for (const track of [null,undefined,42,{},'   ','bad\u0000track','x'.repeat(301)]) {
+    const input=makeValidInput(); input.program.track=track;
+    assert.throws(()=>projectResearchCoverage(input));
+  }
+  const input=makeValidInput(); input.program.track='';input.coverage.receipt.sha256='0'.repeat(64);
+  assert.throws(()=>projectResearchCoverage(input));
+});

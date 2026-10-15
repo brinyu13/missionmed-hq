@@ -43,7 +43,7 @@ function publicUrl(x){
 }
 function projection(program,coverage,now){
   need(plain(program)&&plain(coverage)&&Number.isSafeInteger(now),'coverage_unavailable');
-  const canonical={id:id(program.id),name:text(program.name,500),track:text(program.track,300),registryReleaseId:id(program.registryReleaseId)};
+  const canonical={id:id(program.id),name:text(program.name,500),track:program.track===''?'':text(program.track,300),registryReleaseId:id(program.registryReleaseId)};
   need(coverage.programId===canonical.id&&coverage.registryReleaseId===canonical.registryReleaseId,'coverage_identity_mismatch');
   const observed=instant(coverage.observedAt);need(observed<=now&&now-observed<=300000,'coverage_not_current');
   need(plain(coverage.receipt)&&typeof coverage.receipt.sha256==='string'&&HASH.test(coverage.receipt.sha256),'invalid_coverage_receipt');
