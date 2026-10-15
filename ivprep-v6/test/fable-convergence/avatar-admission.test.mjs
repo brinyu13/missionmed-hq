@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {avatarAdmissionReady,refreshAvatarAdmission,interviewPresenceCue,AVATAR_UNAVAILABLE} from '../../public/studio-fable/app/adapters/avatar-admission.mjs';
 const ready={schema:'ivoc.founder-qa.v1',available:true,enabled:true,sourceIntegrity:true,maxSeconds:170};
-test('actual Room presentation keeps blocked authorization visible after device readiness, without enabling Start',()=>{
+test('explicit Avatar selection keeps blocked authorization visible after device readiness, without enabling Start',()=>{
   const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
   const start=source.indexOf('  function updateAvatarAdmissionPresentation(){');
   const helper=source.slice(start,source.indexOf('\n  updateAvatarAdmissionPresentation();',start));
@@ -47,15 +47,15 @@ test('interviewer speech has precedence over microphone energy; no premature lis
 test('real Room wires the fresh gate before context/session creation and preserves non-Founder flow',()=>{
   const room=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
   assert.ok(room.includes("account?.role==='admin'&&account?.subject==='wp:1'"));
-  assert.ok(room.includes('Boolean(founderQa&&!avatarAdmissionReady(founderQa))'));
+  assert.ok(room.includes("$('interview-mode')?.value==='avatar'"));
   assert.ok(room.includes("$('start-session').disabled=avatarBlocked()"));
   const start=room.slice(room.indexOf('  async function start(){'));
   assert.ok(start.indexOf('await refreshAvatarAdmission()')<start.indexOf('await liveContext('));
   assert.ok(start.indexOf('await refreshAvatarAdmission()')<start.indexOf('await controller.startSession('));
-  assert.ok(start.includes('if(founderQa){'));
+  assert.ok(start.includes('if(selectedAvatar&&founderQa){'));
   assert.ok(start.includes('Math.min(avatarDurationSeconds,fresh.maxSeconds)'));
   assert.equal(room.includes('This interview uses the voice interviewer.'),false);
-  assert.ok(room.includes('if(!founderQa||started)'));
+  assert.ok(room.includes("if(interviewEmbodiment!=='avatar'||started)"));
   assert.ok(AVATAR_UNAVAILABLE.includes('No avatar interview will start'));
   assert.ok(room.includes('interviewPresenceCue({interviewerSpeaking,candidateSpeaking:f.speaking'));
 });

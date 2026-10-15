@@ -37,7 +37,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const targetQuestions=mode==='mock'?resolveMockQuestionTarget(cfg.targetQuestions,plan.length,{goal:session.retry?.wizard?.goal||session.settings?.goal}):1;
   const settings={...(session.settings||defaultSettings()),targetQuestions};
   let avatarDurationSeconds=avatarCanary?Math.min(avatarCanary.maxSeconds,Math.round(Number(cfg.durationMin||settings.durationMin||15)*60)):0;
-  const avatarBlocked=()=>Boolean(founderQa&&!avatarAdmissionReady(founderQa));
+  // Mode selection is independent of avatar capability; Voice is always the default.
+  const avatarBlocked=()=>Boolean($('interview-mode')?.value==='avatar'&&!(founderQa?avatarAdmissionReady(founderQa):avatarCanary));
   let interviewerSpeaking=false,pendingInterviewerLine='';
   const profile=environmentProfile(selectedEnvironment(settings,session.retry));
   let density=mode==='mock'&&!state.preferences?.densityPersisted?'interview':(state.preferences?.density||'coached');
@@ -62,29 +63,21 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       ${environmentControlsMarkup(profile,{mode})}
       <div class="meeting-stage">
       <section class="presence" id="presence" data-speaking="false" aria-live="polite">
-        <div class="interviewer-embodiment" data-embodiment-host aria-label="AI interviewer presence"><span class="t-kick">${mode==='mock'?'AI voice interviewer':'Self Practice'}</span></div>
-        <div class="orb" aria-hidden="true">${mode === 'mock' ? 'PD' : 'Q'}</div>
-        <div class="who"><strong id="presence-name">${mode === 'mock' ? `${esc(settings.style || 'Owl')} · ${esc(settings.role || 'Program Director')}` : 'Practice rep'}</strong><span id="presence-sub">${mode === 'mock' ? 'Starts only when you choose Start Interview' : 'Your private answer recording'}</span></div>
-        <div class="presence-tag"><span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="t-tech" id="presence-state">waiting</span></div>
-        <div class="line" id="presence-line">${mode === 'mock' ? 'The interviewer will begin when you are ready.' : esc(practiceQ.canonical_text)}</div>
+        <div class="interviewer-embodiment" data-embodiment-host aria-label="AI interviewer presence"></div>
+        <div class="orb" aria-hidden="true"></div>
+
       </section>
       <div class="stage" id="stage" data-guides="${overlaysVisible}" data-idle="false">
         <canvas id="overlay"></canvas>
         <div class="frame-guide" aria-hidden="true"></div>
-        <span class="tag" id="stage-tag"><i></i>You</span>
-        <p class="self-view-hidden" hidden>Self view hidden · your camera, recording, and enabled measurements continue.</p>
-        <div class="captions" id="captions" hidden><span></span></div>
-        <div class="controls" id="controls">
-          <button class="btn btn-primary" type="button" id="primary-action">Start answer</button>
-        </div>
         <div class="stage-enter" id="enter">
           <div>
             <div class="t-kick gold">${mode === 'mock' ? 'Mock interview' : 'Practice rep'} · ${targetQuestions} question${targetQuestions > 1 ? 's' : ''}${mode === 'mock' && targetQuestions !== plan.length ? ` · ${plan.length} selected` : ''}</div>
             <h2 class="t-h2" style="margin:8px 0 6px">${mode === 'mock' ? 'Ready for your interview?' : 'Ready for your answer?'}</h2>
             <p>${mode === 'mock' ? `Priority: ${esc(String(session.priority || 'leave one natural hook the interviewer can follow').replace(/[.\s]+$/, ''))}.` : `Priority: ${esc(String(session.priority || 'finish the answer in under 90 seconds').replace(/[.\s]+$/, ''))}.`}</p>
             ${mode==='mock'&&account?.mode==='REAL'&&account.role==='admin'?`<details class="expert" style="margin-top:10px;text-align:left"><summary>Admin voice audition</summary><label class="field"><span class="t-label">Native interviewer voice</span><select id="admin-live-voice">${VOICES.map(voice=>`<option value="${voice}" ${selectedAdminVoice(settings,account,mode)===voice?'selected':''}>${voice}</option>`).join('')}</select></label><small class="note">The same real interview and recording path; only the voice changes. Select before Start. Student default remains marin. No external TTS.</small></details>`:''}
-            ${avatarCanary&&!founderQa?'<label class="field avatar-canary"><input type="checkbox" id="avatar-canary"> Authorized avatar canary · one 45-second session</label>':''}
-            ${founderQa?`<p class="note" data-qa-limit role="status">${!avatarBlocked()?`Founder avatar QA: up to ${fmt(avatarDurationSeconds)} including connection time, then finish and save. ${esc(founderQa.usage?.creditLimit||0)} prepaid credits TOTAL; cleanup is reserved separately inside that allowance. No overage or automatic retry. Use headphones. Wait until you hear the full question before answering; interruptions currently end avatar playback.`:AVATAR_UNAVAILABLE}</p>`:''}
+            ${mode==='mock'?`<label class="field interview-mode"><span class="t-label">Interviewer</span><select id="interview-mode"><option value="voice" selected>Voice interview</option>${founderQa||avatarCanary?'<option value="avatar">Avatar · development twin</option>':''}</select></label><p class="note" data-mode-note>Voice interview uses the native interviewer. Avatar requires a separate test allowance.</p>`:''}
+            ${founderQa?`<p class="note" data-qa-limit role="status" hidden>${avatarAdmissionReady(founderQa)?`Founder avatar QA: up to ${fmt(avatarDurationSeconds)} including connection time, then finish and save. ${esc(founderQa.usage?.creditLimit||0)} prepaid credits TOTAL; cleanup is reserved separately inside that allowance. No overage or automatic retry. Use headphones. Wait until you hear the full question before answering; interruptions currently end avatar playback.`:AVATAR_UNAVAILABLE}</p>`:''}
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px"><button type="button" id="connect-real" hidden>Reconnect devices</button><button class="btn btn-primary btn-lg" type="button" id="start-session" disabled>${mode === 'mock' ? 'Start Interview' : 'Start recorded answer'} ▸</button></div>
           </div>
         </div>
@@ -94,7 +87,15 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       <p class="note readiness-status" id="enter-note" role="status" aria-live="polite"></p>
       <div class="note" id="primary-recovery" role="status" aria-live="polite" hidden><span data-primary-status></span> <button class="btn btn-quiet" type="button" data-reselect-primary>Lock to me</button></div>
       ${profile.simulated?'<div class="environment-controls" data-environment-controls></div>':''}
-      <div class="under-stage" id="under-stage"><span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button>${!profile.simulated?'<button type="button" class="btn btn-quiet" data-self-view aria-pressed="true" disabled>Hide self view</button>':''}</div>
+      <div class="under-stage" id="under-stage"><div class="presence-details">        <div class="who"><strong id="presence-name">${mode === 'mock' ? `${esc(settings.style || 'Owl')} · ${esc(settings.role || 'Program Director')}` : 'Practice rep'}</strong><span id="presence-sub">${mode === 'mock' ? 'Starts only when you choose Start Interview' : 'Your private answer recording'}</span></div>
+        <div class="presence-tag"><span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="t-tech" id="presence-state">waiting</span></div>
+        <div class="line" id="presence-line" ${mode==='mock'?'hidden':''}>${mode === 'mock' ? 'The interviewer will begin when you are ready.' : esc(practiceQ.canonical_text)}</div></div>        <span class="tag" id="stage-tag"><i></i>You</span>
+        <p class="self-view-hidden" hidden>Self view hidden · your camera, recording, and enabled measurements continue.</p>
+        <div class="captions" id="captions" hidden><span></span></div>
+        <div class="controls" id="controls">
+          <button class="btn btn-primary" type="button" id="primary-action">Start answer</button>
+        </div>
+<span id="engine-label">Nothing is measured yet.</span><button class="transcript-toggle" type="button" id="transcript-toggle" aria-expanded="false">Transcript</button>${!profile.simulated?'<button type="button" class="btn btn-quiet" data-self-view aria-pressed="true" disabled>Hide self view</button>':''}</div>
       <div class="readiness-dock" data-readiness-dock><details class="room-devices" id="room-devices" data-room-devices><summary>Camera &amp; mic</summary>${deviceControlsMarkup({variant:'room'})}</details>${readinessLinesMarkup(projectReadinessLines({mode,liveInterviewAvailable:account?.liveInterviewAvailable===true}))}</div>
       <details class="room-settings" id="room-settings"><summary aria-label="Room settings">⚙ Settings</summary><div class="room-settings-panel">
       <p class="note" id="room-preference-note" role="status" hidden></p>
@@ -115,10 +116,10 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     const message=expired
       ?'Avatar authorization required: this Founder test allowance has expired. No interview or recording has started. Ask the Foreman to prepare a newly authorized test.'
       :AVATAR_UNAVAILABLE;
-    const button=$('start-session'),notice=main.querySelector('[data-qa-limit]');
+    const button=$('start-session'),notice=main.querySelector('[data-mode-note]');
     button.disabled=true;button.textContent='Start unavailable';button.dataset.admission='blocked';
     button.setAttribute('aria-describedby','avatar-admission-note');
-    notice.id='avatar-admission-note';notice.dataset.admission='blocked';notice.textContent=message;
+    notice.hidden=false;notice.id='avatar-admission-note';notice.dataset.admission='blocked';notice.textContent=message;
     $('rec-text').textContent='BLOCKED';$('presence-state').textContent='authorization required';
     $('presence-sub').textContent='This avatar interview is not authorized to start.';
     $('presence-line').textContent='Your devices can be ready while avatar authorization is unavailable.';
@@ -134,8 +135,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         const response=await fetch('/api/ivoc/v1/admin/embodiment-canary/kill',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-MMHQ-CSRF':account.api.csrfToken},body:'{}'});
         if(!response.ok)throw new Error();
         founderQa.enabled=false;founderQa.available=false;
-        main.querySelector('[data-qa-limit]').textContent=AVATAR_UNAVAILABLE;
-        if(!started){$('start-session').disabled=true;updateAvatarAdmissionPresentation();}
+        const notice=main.querySelector('[data-qa-limit]');if(notice)notice.textContent=AVATAR_UNAVAILABLE;
+        if(!started&&!starting&&avatarBlocked())updateAvatarAdmissionPresentation();
         main.querySelector('[data-qa-status]').textContent='Avatar QA disabled. Active avatar termination requested; no new avatar sessions can start.';
       }catch{main.querySelector('[data-qa-status]').textContent='Disable could not be confirmed. Finish and save, then contact the Foreman.';event.currentTarget.disabled=false;}
     };
@@ -162,7 +163,21 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   const observer=mode==='mock'?new NativeInterviewObserver({questions:plan,config:conductorConfig(settings,{durationMin:cfg.durationMin,interviewPolicy:controller.interviewPolicy}),context:{specialty:session.program?.specialty||null,program:session.program?.verified?{verified:true,name:String(session.program.name||'').slice(0,160)}:null},now:()=>controller.elapsed*1000}):null;
   const at=()=>controller.elapsed;
   const mark=(kind,label)=>events.push({t:at(),kind,label});
-  function setDensityControls(disabled){room.querySelectorAll('.density [data-density]').forEach(button=>{button.disabled=disabled;});$('reset-density').disabled=disabled;const voice=$('admin-live-voice');if(voice)voice.disabled=disabled||started||finished;}
+  function setDensityControls(disabled){const choice=$('interview-mode');if(choice)choice.disabled=disabled||started||finished||Boolean(interviewEmbodiment);room.querySelectorAll('.density [data-density]').forEach(button=>{button.disabled=disabled;});$('reset-density').disabled=disabled;const voice=$('admin-live-voice');if(voice)voice.disabled=disabled||started||finished;}
+  let interviewEmbodiment=null; // This room owns the mode pin; saved/retry settings never select it.
+  $('interview-mode')?.addEventListener('change',e=>{
+    if(!current()||starting||started||saving||finished||interviewEmbodiment){e.target.value=interviewEmbodiment||'voice';return;}
+    const selectedAvatar=e.target.value==='avatar';
+    e.target.value=selectedAvatar?'avatar':'voice';
+    const note=main.querySelector('[data-mode-note]'),qa=main.querySelector('[data-qa-limit]');
+    if(qa)qa.hidden=!selectedAvatar;
+    note.textContent=selectedAvatar?'Avatar is a separately authorized development test.':'Voice interview uses the native interviewer. Avatar requires a separate test allowance.';
+    $('start-session').disabled=$('stage').dataset.previewReady!=='true'||avatarBlocked();
+    $('start-session').textContent='Start Interview ▸';delete $('start-session').dataset.admission;$('start-session').removeAttribute('aria-describedby');
+    $('rec-text').textContent='READY';restoreReadinessPresence();
+    $('enter-note').textContent=$('stage').dataset.previewReady==='true'?'Preview visible · microphone connected. Nothing is recorded until you start.':'Check your camera and microphone before starting.';
+    updateAvatarAdmissionPresentation();
+  });
   $('admin-live-voice')?.addEventListener('change',e=>{
     if(!current()||starting||started||saving||finished)return;
     settings.voice=selectedAdminVoice({voice:e.target.value},account,mode);
@@ -193,8 +208,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     if(hint&&interviewer?.appendHookContext(hint))observer.hookContextSent(hint);
   }
   const callbacks={
-    onLine(text){if(!current()||saving)return;pendingInterviewerLine=text;if(!founderQa||started)$('presence-line').textContent=text;},
-    onSpeaking(on){if(!current()||saving)return;interviewerSpeaking=on;$('presence').dataset.speaking=String(on);$('presence-state').textContent=interviewPresenceCue({connecting:starting,interviewerSpeaking:on,avatar:Boolean(founderQa)});},
+    onLine(text){if(!current()||saving)return;pendingInterviewerLine=text;if(interviewEmbodiment!=='avatar'||started)$('presence-line').textContent=text;},
+    onSpeaking(on){if(!current()||saving)return;interviewerSpeaking=on;$('presence').dataset.speaking=String(on);$('presence-state').textContent=interviewPresenceCue({connecting:starting&&!started,interviewerSpeaking:on,avatar:interviewEmbodiment==='avatar'});},
     onFinal(text,directive,event){addTurn('interviewer',text,event);},
     onApplicantFinal(text,event){addTurn('applicant',text,event);},
     onTranscriptFragment(event){
@@ -213,7 +228,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       for(let i=0;i<observation.count;i++)events.push({t,kind:'overlap',label:'Transcript overlap observed — interruption unverified.',state:'MESSAGE_RECEIPT'});
     },
     onCaptions(groups){if(!current()||saving)return;captions=groups;renderTranscript();},
-    onStatus(status){if(!current()||saving)return;if(status.state==='active'&&started&&!founderQa)$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
+    onStatus(status){if(!current()||saving)return;if(status.state==='active'&&started&&interviewEmbodiment!=='avatar')$('presence-sub').textContent='Your interviewer is listening';if(status.state==='closed'&&started)providerFailed();},
     onProviderFailed:providerFailed,
     onDeviceFailure(message){if(!current()||saving||finished)return;roomFault={message:'Device change interrupted',detail:message};$('room-preference-note').hidden=false;$('room-preference-note').textContent=message;mark('gap',message);}
   };
@@ -277,7 +292,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     }
     if(f.cue&&f.cue.id!==lastCueId){lastCueId=f.cue.id;events.push({t:f.t,kind:'cue',label:f.cue.message,state:f.state});}
     if(!f.cue)lastCueId=null;
-    $('presence-state').textContent=interviewPresenceCue({interviewerSpeaking,candidateSpeaking:f.speaking,avatar:Boolean(founderQa)});
+    $('presence-state').textContent=interviewPresenceCue({interviewerSpeaking,candidateSpeaking:f.speaking,avatar:interviewEmbodiment==='avatar'});
   };
   const onState=e=>{if(saving||disposed)return;const d=e.detail||{};if(['partial','recovering','unavailable'].includes(d.state)){if(!roomFault||roomFault.subsystem)roomFault={message:d.subsystem==='audio'?'Check microphone':'Check camera',detail:d.message||'',subsystem:d.subsystem};if(started)mark('gap',d.subsystem||'Signal unavailable');}else if(d.state==='recovered'&&roomFault?.subsystem&&((d.subsystem==='visibility'&&roomFault.detail==='document_hidden')||d.subsystem===roomFault.subsystem))roomFault=null;else if(d.state==='running'&&roomFault?.subsystem)roomFault=null;};
   const onWord=e=>{if(current()&&e.detail?.state==='unavailable')$('pace-basis').textContent='Timed-word pace unavailable';};
@@ -295,6 +310,8 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
     if(!preInterviewReady(session.preflight,controller)){void connect();return;}
     if(avatarBlocked()){$('enter-note').textContent=AVATAR_UNAVAILABLE;$('start-session').disabled=true;updateAvatarAdmissionPresentation();return;}
     if(!current()||starting||started||deviceSwitching)return;starting=true;$('start-session').disabled=true;$('connect-real').disabled=true;
+    const selectedAvatar=mode==='mock'&&$('interview-mode')?.value==='avatar';
+    interviewEmbodiment=selectedAvatar?'avatar':'voice';
     initialPresentationMode=density==='interview'?'interview':'coached';setDensityControls(true);
     main.querySelectorAll('[data-device-kind]').forEach(select=>{select.disabled=true;});
     $('enter-note').textContent='Get ready. Nothing is recording yet.';
@@ -324,7 +341,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       // Non-creating, fresh admission before recording, GPT or Actor CREATE.
       // Existing server recovery may clean up a stale session during this GET.
       // Never turn an exhausted/stale avatar test into a voice-only interview.
-      if(founderQa){
+      if(selectedAvatar&&founderQa){
         $('enter-note').textContent='Verifying your avatar test allowance…';
         const fresh=await refreshAvatarAdmission();
         if(!current())return;
@@ -334,9 +351,11 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       room.dataset.entryPhase='connecting';
       $('enter-note').textContent='Connecting your interviewer and preparing your private recording…';
       const wizard=toWizard(settings,{program:session.program,mode,contextSources:session.contextSources||[],retry:session.retry||null,priority:session.priority,interviewPolicy:controller.interviewPolicy});
-      const useAvatar=avatarCanary&&(founderQa?founderQa.enabled:$('avatar-canary')?.checked===true);
+      // Keep the deliberate selection pinned; capability can deny Avatar, never change it to Voice.
+      const useAvatar=selectedAvatar;
+      if(useAvatar&&!(founderQa?avatarAdmissionReady(founderQa):avatarCanary))throw new Error(AVATAR_UNAVAILABLE);
       if(useAvatar){wizard.embodimentCanary=true;wizard.embodimentDurationSeconds=avatarDurationSeconds;}
-      const audioRenderer=useAvatar?new EmbodimentRenderer({host:main.querySelector('[data-embodiment-host]'),csrfToken:account.api.csrfToken,sessionId:avatarCanary.sessionId}):null;
+      const audioRenderer=useAvatar?new EmbodimentRenderer({host:main.querySelector('[data-embodiment-host]'),csrfToken:account.api.csrfToken,sessionId:(founderQa||avatarCanary).sessionId}):null;
       const context=mode==='mock'?await liveContext({wizard,interviewSet:plan,targetQuestions}):null;
       if(!current())return;
       observer?.start(); // before provider callbacks; native start owns the sole opening question
@@ -346,13 +365,21 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       interviewer=result.interviewer;started=true;room.dataset.phase='live';$('room-settings').open=false;$('enter').remove();$('enter-note').hidden=true;$('rec').dataset.state='recording';$('rec-text').textContent='REC';
       main.querySelector('[data-room-devices]').open=false;
       $('primary-action').hidden=true;$('engine-label').textContent='Recording privately to your account';$('end').disabled=false;
-      $('presence-sub').textContent=founderQa?'Use headphones. Hear the full question, then answer. Interruptions end avatar playback.':mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
-      if(founderQa){$('presence-line').textContent=pendingInterviewerLine||'Wait for your interviewer’s spoken question.';$('presence-state').textContent=interviewPresenceCue({interviewerSpeaking,avatar:true});}
+      $('presence-sub').textContent=selectedAvatar?'Use headphones. Hear the full question, then answer. Interruptions end avatar playback.':mode==='mock'?'Speak naturally. Your interviewer can hear you.':'Answer the question. Finish & save when you are done.';
+      if(selectedAvatar)$('presence-line').textContent=pendingInterviewerLine||'Wait for your interviewer’s spoken question.';
+      callbacks.onSpeaking?.($('presence').dataset.speaking==='true');
       mark('recording','Recording started');mark('question','Q1 planned');recordDensity();renderPlan();
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
-    }catch(error){if(current()){restoreReadinessPresence();$('stage').dataset.previewReady='false';$('enter-note').textContent=error?.diagnostics?.category==='CLIENT_NETWORK'?'Your connection changed before the interviewer was ready. The interview did not start.':error.message;
+    }catch(error){if(current()){restoreReadinessPresence();
+      // Never let a late rejection release a replacement room's capture owner.
+      // A failed cleanup keeps this room's mode pinned until it is safe to leave.
+      let safelyReleased=false;
+      if(controller.engine===engine){try{await controller.release('room_start_failed');safelyReleased=true;}catch{}}
+      if(!current())return;
+      if(safelyReleased)interviewEmbodiment=null;
+      $('stage').dataset.previewReady='false';$('enter-note').textContent=error?.diagnostics?.category==='CLIENT_NETWORK'?'Your connection changed before the interviewer was ready. The interview did not start.':error.message;
       if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href=session.setupReturnHash||'#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
-      if(founderQa&&error.message===AVATAR_UNAVAILABLE){founderQa.available=false;updateAvatarAdmissionPresentation();}
+      if(selectedAvatar&&founderQa&&error.message===AVATAR_UNAVAILABLE){founderQa.available=false;updateAvatarAdmissionPresentation();}
       $('start-session').disabled=true;$('connect-real').disabled=false;
       const back=document.createElement('a');back.href='#/devices?return=room&mode='+mode;back.textContent=' Return to device check';$('enter-note').append(back);}}
     finally{entryAbort=null;starting=false;if(current()){$('entry-countdown').hidden=true;setDensityControls(false);disposeEnvironment.refresh();await disposeDevices?.refresh?.().catch(()=>{});}}
