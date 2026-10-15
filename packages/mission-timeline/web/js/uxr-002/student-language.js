@@ -128,6 +128,11 @@ export function studentMessage(input,{context="generic",fallback=""}={}){
   if(code&&Object.hasOwn(CODE_LANGUAGE,code))return CODE_LANGUAGE[code];
   if(code&&Object.hasOwn(ACCESS_LANGUAGE,code))return ACCESS_LANGUAGE[code];
   const raw=rawText(input);
+  // Generated filenames can contain code-like underscores; preserve a truthful
+  // success notice without routing their names through the error classifier.
+  if(!code&&context==="export"&&/^(Download requested|Exported) · [^\r\n]+\.(?:pdf|pptx|png)$/.test(raw)){
+    return raw.startsWith("Download requested")?"Download requested. Check your downloads.":"File exported. Check your downloads.";
+  }
   if(isStudentSafe(raw))return raw;
   for(const[pattern,message]of MESSAGE_LANGUAGE){
     if(pattern.test(raw))return message;
