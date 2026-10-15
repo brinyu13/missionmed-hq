@@ -37,7 +37,7 @@ function badgeFor(route){
 function railNavButton([route,label,short]){
   const active=S.ui.route===route;
   const b=badgeFor(route);
-  return `<button type="button" data-act="nav" data-to="${route}" class="rtab ${active?'on':''} ${['intel','growth','contribute'].includes(route)?'secondary':''}" ${active?'aria-current="page"':''} aria-label="${esc(label)}"><span class="rtl">${esc(label)}${coreOnly()&&!coreRoute(route)?comingSoonBadge():''}</span><span class="rts" aria-hidden="true">${esc(short)}</span>${b?`<span class="badge">${b}</span>`:''}</button>`;
+  return `<button type="button" data-act="nav" data-to="${route}" class="rtab ${active?'on':''} ${['intel','growth','contribute'].includes(route)?'secondary':''}" ${active?'aria-current="page"':''} aria-label="${esc(label)}"><span class="rtl">${esc(label)}${coreOnly()&&!coreRoute(route)&&!(route==='prep'&&threeboxEnabled())?comingSoonBadge():''}</span><span class="rts" aria-hidden="true">${esc(short)}</span>${b?`<span class="badge">${b}</span>`:''}</button>`;
 }
 function personaSelect(){ return `<div class="roleSwitch"><div class="rsLbl">Signed in</div><span class="on">${esc(viewLabel())}${studentPreview()?' · Preview':''}</span></div>`; }
 function administratorViewSwitch(){
@@ -316,7 +316,7 @@ function researchCta(i,cls='rowBtn'){
 }
 function helpResearchCta(i,cls='rowBtn'){
   if(!owns(i)||roleName()!=='student')return '';
-  if(capabilities.contributions===true)return `<button class="${cls} ctaHelp" type="button" data-act="nav" data-to="contribute"><span aria-hidden="true">🤝</span> Help research this program</button>`;
+  if(capabilities.contributions===true||mrxUI())return `<button class="${cls} ctaHelp" type="button" data-act="nav" data-to="contribute"><span aria-hidden="true">🤝</span> Help research this program</button>`;
   return `<button class="${cls} ctaHelp" type="button" data-act="coming-soon" data-label="Crowdsourced research · BEING CONNECTED"><span aria-hidden="true">🤝</span> Help research this program${comingSoonBadge()}</button>`;
 }
 function ivChips(i){
@@ -398,7 +398,7 @@ function renderPrepare(){
     <div class="growthGrid">
       <div>
         ${resolved.length? resolved.map(i=>{ const rs=researchState(i); const w=S.why[i.id]; const pr=(S.practice[i.id]||[]).filter(a=>a.feedback).length; const vf=visibleFacts(i.program); return `<div class="panel panel-gap"><div class="pHead"><div class="h2">${esc(title(i))}</div><span class="tiny">${i.instant?hoursLabel(hoursUntil(i)):i.date?'time not set':'date unknown'}</span></div><div class="pBody">
-          <p class="tiny" style="margin-bottom:10px">${vf.allow? esc(rs.short) : 'Shared research is not available to you — '+esc(vf.reason)+'.'} ${w?.text?'· Why points saved.':'· No Why points yet.'} ${pr?'· '+pr+' rehearsal'+(pr>1?'s':'')+'.':'· Not rehearsed.'}</p>
+          <p class="tiny" style="margin-bottom:10px">${threeboxEnabled()?'Open Why This Program to load current RISE evidence and build your private Three Boxes.':vf.allow? esc(rs.short) : 'Shared research is not available to you — '+esc(vf.reason)+'.'} ${w?.text?'· Why points saved.':'· No Why points yet.'} ${pr?'· '+pr+' rehearsal'+(pr>1?'s':'')+'.':'· Not rehearsed.'}</p>
           <div class="row"><button class="rowBtn pri" type="button" data-act="open-section" data-id="${i.id}" data-section="brief">Brief</button><button class="rowBtn pri" type="button" data-act="open-section" data-id="${i.id}" data-section="why">Why this program</button><button class="rowBtn pri" type="button" data-act="open-section" data-id="${i.id}" data-section="rehearse">Rehearse</button><button class="rowBtn" type="button" data-act="open-section" data-id="${i.id}" data-section="day">Day sheet</button></div></div></div>`; }).join('') : '<div class="empty">No program-confirmed upcoming interview to prepare for.</div>'}
         ${unresolved.length? `<div class="panel amber pad"><b>${unresolved.length} offer${unresolved.length>1?'s':''} still need${unresolved.length>1?'':'s'} the exact program.</b> <span class="tiny">Research and the program question wait for it; your own experience is ready now.</span><div class="row" style="margin-top:8px">${unresolved.map(i=>`<button class="rowBtn pri" type="button" data-act="open-section" data-id="${i.id}" data-section="identify">Confirm ${esc(title(i))}</button>`).join('')}</div></div>`:''}
       </div>
@@ -503,7 +503,7 @@ function render(){syncLoiCompositionView();
   const openSet=new Set([...document.querySelectorAll('main details[open] > summary')].map(s=>s.textContent.trim()));
   const calendarOpen=new Set([...document.querySelectorAll('main details[data-calendar-disclosure][open]')].map(d=>d.dataset.calendarDisclosure));
   if(!(r==='interviews' && S.ui.open)) html='<p class="print-hint route-hint">This page is not designed for paper. To print a day sheet, open an interview’s Interview day section.</p>'+html;
-  if(coreOnly()&&!coreRoute(r))html=comingSoonPanel(navItems().find(x=>x[0]===r)?.[1]||r)+html;
+  if(coreOnly()&&!coreRoute(r))html=(r==='prep'&&threeboxEnabled()?'<div class="panel pad" role="status"><p>Why This Program is ready: save your private Three-Box worksheet, review current RISE evidence, and assemble your answer. Rehearsal and day-sheet integrations are not active.</p></div>':comingSoonPanel(navItems().find(x=>x[0]===r)?.[1]||r))+html;
   document.getElementById('main').innerHTML=html;
   document.querySelectorAll('main details > summary').forEach(s=>{ if(openSet.has(s.textContent.trim())) s.parentElement.open=true; });
   document.querySelectorAll('main details[data-calendar-disclosure]').forEach(d=>{if(calendarOpen.has(d.dataset.calendarDisclosure))d.open=true;});
