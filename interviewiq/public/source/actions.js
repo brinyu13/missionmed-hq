@@ -395,9 +395,15 @@ function loadCohort({background=false}={}){
  })();const flight={key,promise,seq,page};cohortFlight=flight;void promise.finally(()=>{if(cohortFlight===flight)cohortFlight=null;});return promise;
 }
 async function loadCalendarRoster(q='',tier='all'){
- if(!calendarV2()||actor.role!=='admin')return;const a=calendarAuthority(),seq=++calendarRosterSequence;calendarRoster={students:[],q,tier,loading:true};render();let after=0;
- try{do{const r=await apiFetch('/calendar/roster?'+new URLSearchParams({after:String(after),q,tier}));if(!currentCalendar(a)||seq!==calendarRosterSequence)return;if(!Array.isArray(r.students)||r.students.length>200)throw Error('The current roster response was invalid.');for(const s of r.students)if(!calendarRoster.students.some(x=>x.wpUserId===s.wpUserId))calendarRoster.students.push(s);if(r.nextAfter!=null&&(!Number.isSafeInteger(r.nextAfter)||r.nextAfter<=after))throw Error('Student paging did not advance. Retry.');after=r.nextAfter;render();}while(after!=null);calendarRoster.loading=false;render();}
- catch(e){if(currentCalendar(a)&&seq===calendarRosterSequence){calendarRoster.loading=false;calendarRoster.error=e.message;render();}}
+ if(!calendarV2()||actor.role!=='admin')return;const a=calendarAuthority(),seq=++calendarRosterSequence;
+ const binding=JSON.stringify([a.id,a.role,a.epoch,sessionEpoch,actor.tier]),previous=calendarRoster;
+ // In-tab name suggestions only; every selection still requests fresh server admission.
+ const all=previous?.binding===binding?previous.allStudents:null,parts=q.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+ const preview=all?all.filter(s=>(tier==='all'||s.tier===tier)&&parts.every(p=>s.name.toLocaleLowerCase().includes(p))):[];
+ const page=calendarRoster={students:preview,q,tier,loading:true,binding,allStudents:all,preview:preview.length>0};render();let after=0;const fresh=[];
+ const current=()=>currentCalendar(a)&&seq===calendarRosterSequence&&calendarRoster===page&&binding===JSON.stringify([actor.id,actor.role,calendarEpoch,sessionEpoch,actor.tier]);
+ try{do{const r=await apiFetch('/calendar/roster?'+new URLSearchParams({after:String(after),q,tier}));if(!current())return;if(!Array.isArray(r.students)||r.students.length>200)throw Error('The current roster response was invalid.');for(const s of r.students)if(!fresh.some(x=>x.wpUserId===s.wpUserId))fresh.push(s);if(r.nextAfter!=null&&(!Number.isSafeInteger(r.nextAfter)||r.nextAfter<=after))throw Error('Student paging did not advance. Retry.');after=r.nextAfter;if(!page.preview)page.students=fresh;render();}while(after!=null);page.students=fresh;page.allStudents=!q.trim()&&tier==='all'?fresh:all;page.preview=false;page.loading=false;render();}
+ catch(e){if(current()){page.students=[];page.allStudents=null;page.preview=false;page.loading=false;page.error=e.message;render();}}
 }
 async function selectCalendarStudent(id){
  if(!calendarV2()||actor.role!=='admin')return;const student=calendarRoster?.students.find(s=>String(s.wpUserId)===String(id))||(String(calendarSelection?.wpUserId)===String(id)?calendarSelection:null);if(!student)throw Error('Choose a current eligible student.');
