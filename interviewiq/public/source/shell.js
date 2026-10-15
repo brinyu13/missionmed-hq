@@ -376,14 +376,14 @@ function roomQuickActions(i,secs){
 function renderRoom(i){
   const nm=nextMove(i); const secs=sectionsFor(i);
   if(!S.ui.section || !secs.find(s=>s[0]===S.ui.section)) S.ui.section=nm.section && secs.find(s=>s[0]===nm.section)? nm.section : secs[0][0];
-  const sec=S.ui.section;
+  const sec=S.ui.section,worksheet=sec==='why'&&threeboxEnabled();
   const body=coreOnly()&&!coreSection(sec)?comingSoonPanel(secs.find(x=>x[0]===sec)?.[1]||sec):{loi:renderLoi, identify:renderIdentify, brief:renderBrief, why:renderWhy, rehearse:renderRehearse, day:renderDay, debrief:renderDebrief, learned:renderLearned, schedule:renderSchedule}[sec](i);
   const hero=i.program?programHero(i.program):null;
-  return `<section data-view="interview" class="live">
+  return `<section data-view="interview" class="live${worksheet?' tbRoom':''}">
     <div class="roomHead${hero?' hasHero':''}">${hero?`<div class="roomHero"><img src="${esc(hero.url)}" alt="${esc(hero.alt||'')}" loading="lazy" decoding="async" width="1200" height="400"><span class="roomHeroCap">${esc(hero.caption||'')}${hero.publisher?' · '+esc(hero.publisher):''}</span></div>`:''}<div class="roomNav"><button class="back" type="button" data-act="close-interview"><span class="backIcon" aria-hidden="true">‹</span> Interviews</button><span class="breadSep" aria-hidden="true">/</span><span class="breadCurrent">${esc(title(i))}</span></div><div class="roomMeta"><div class="h1">${esc(title(i))}</div><div class="ivChips">${ivChips(i)}</div><div class="roomDetails"><span class="tiny">${metaLine(i)}${inviteReceived(i)}</span><span class="tiny roomId">${esc(i.id)}</span></div>${pulseSVG(i)}</div><div class="roomActions">${stateChip(i)}<button class="rowBtn" type="button" data-act="cal-item" data-item="iv-${i.id}">Calendar</button></div></div>
-    <div class="nextMove"><div class="nextMoveIcon" aria-hidden="true">→</div><div class="nextMoveBody"><span class="lbl">Next move</span><b>${esc(nm.label)}</b><p>${esc(nm.why)}</p></div><button class="rowBtn pri" type="button" data-act="${nm.act}" data-id="${i.id}" data-section="${nm.section}">Go</button></div>
+    ${worksheet?'<details class="tbOtherTools"><summary>Other interview tools and sections</summary>':''}<div class="nextMove"><div class="nextMoveIcon" aria-hidden="true">→</div><div class="nextMoveBody"><span class="lbl">Next move</span><b>${esc(nm.label)}</b><p>${esc(nm.why)}</p></div><button class="rowBtn pri" type="button" data-act="${nm.act}" data-id="${i.id}" data-section="${nm.section}">Go</button></div>
     ${roomQuickActions(i,secs)}
-    ${journeyNav(i,secs,sec)}
+    ${journeyNav(i,secs,sec)}${worksheet?'</details>':''}
     <div class="section section-${sec}" id="section-${sec}" tabindex="-1">${sec!=='day'?'<p class="print-hint">To print, open the Interview day section of this interview. Other sections are not printed.</p>':''}${body}</div>
   </section>`;
 }

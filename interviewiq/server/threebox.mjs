@@ -5,7 +5,7 @@ import {interview,updateGap} from './records.mjs';
 import {projectProgramResearch} from './rise-owner.mjs';
 
 export const THREEBOX_CATEGORIES=Object.freeze(['Didactics','Fellowship opportunities','Exposure','Location','Research','Resident feedback','Teaching opportunities','Faculty / leadership','Program-specific opportunity']);
-export const THREEBOX_TEACHING='missionmed-threebox-2025-2026-v1';
+export const THREEBOX_TEACHING='missionmed-threebox-20230709-founder-v2';
 export const threeboxCommands=new Set(['threebox.read','threebox.evidence','threebox.save','threebox.assemble']);
 const type='iiq.threebox.revision';
 export function threeboxEnabled(config,actor){return config.threebox?.enabled===true&&actor?.role==='student'&&actor.eligible===true&&['360','ivprep_complete'].includes(actor.tier)&&(!config.threebox.ownerId||config.threebox.ownerId===actor.id);}
@@ -58,8 +58,7 @@ export function checkThreebox(reasons,evidence,{specificityConfirmed=false,factu
     if(r.intel.length)warnings.push(`${r.general.category}: interview-day observations remain attributed private notes; they are not verified program Details.`);
   }
   const detailKeys=selected.flatMap(r=>r.details.map(d=>d.field+'|'+d.claimRef));if(detailKeys.length&&new Set(detailKeys).size<selected.length)errors.push('Several reasons repeat the same Detail. Choose distinct program-specific proof.');
-  if(selected.length!==3)warnings.push('Aim for about three strong reasons; quality matters more than the count.');
-  if(reasons.length<5)warnings.push('Consider overbuilding about five candidates before narrowing.');
+  if(selected.some(r=>r.details.length>2))warnings.push('Keep your research bank; choose one or two specifics per reason when speaking. You do not need to say every detail.');
   if(selected.length>1&&[selected[0],selected.at(-1)].some(r=>r.general.category==='Location')&&!locationException)warnings.push('Location usually belongs in the middle. Move it or confirm an unusually strong connection.');
   if(!factualConfirmed)errors.push('Review the selected sources and confirm factual accuracy.');
   if(!specificityConfirmed)errors.push('Stress test: could this answer work unchanged at another program? Return to the boxes until you can confirm it would change.');
@@ -94,14 +93,16 @@ export function spokenDetail(evidence){
     requireValue(assertion.trim(),'threebox_rendering_review_required',reviewMessage);
     return assertion;
   }
-  return detailText(evidence.value);
+  const value=evidence.value;
+  if(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===1&&typeof value.summary==='string')return value.summary;
+  return detailText(value);
 }
 export function assembleThreebox(program,reasons,evidence,delivery='STANDARD'){
   const selected=reasons.filter(r=>r.selected).sort((a,b)=>a.rank-b.rank);
   const ordered=delivery==='RELATIONSHIP'?[...selected].sort((a,b)=>Number(b.personal.enabled)-Number(a.personal.enabled)):delivery==='RESEARCH'?[...selected].sort((a,b)=>Number(/Research|Faculty/.test(b.general.category))-Number(/Research|Faculty/.test(a.general.category))):selected;
   const clauses=ordered.map(r=>{const details=r.details.map(d=>spokenDetail(evidence.find(e=>e.field===d.field&&e.claimRef===d.claimRef)));return {category:r.general.category,details,personal:r.personal.enabled?r.personal.text.trim():''};});
-  const sentence=(c,concise)=>`${c.category}: ${(concise?c.details.slice(0,1):c.details).join('; ')}.${c.personal?' This matters to me because '+c.personal.replace(/[.!?]+$/,'')+'.':''}`;
-  return {standard:`I’m interested in ${program.name} for several reasons.\n\n${clauses.map(c=>sentence(c,delivery==='CONCISE')).join('\n\n')}\n\nI’m enthusiastic about the opportunity to learn and contribute in your program.`,concise:`What draws me to ${program.name} is:\n${clauses.map(c=>sentence(c,true)).join('\n')}`,bullets:clauses.map(c=>`${c.category} → ${c.details.join('; ')}${c.personal?' → '+c.personal:''}`).join('\n'),delivery};
+  const sentence=(c,concise)=>`${c.category}: ${(concise?c.details.slice(0,1):c.details).map(x=>x.trim().replace(/[.!?]+$/,'')).join('; ')}.${c.personal?' This matters to me because '+c.personal.replace(/[.!?]+$/,'')+'.':''}`;
+  return {standard:`I’m interested in ${program.name} for several reasons.\n\n${clauses.map(c=>sentence(c,delivery==='CONCISE')).join('\n\n')}\n\nI’m enthusiastic about the opportunity to learn and contribute at ${program.name}.`,concise:`What draws me to ${program.name} is:\n${clauses.map(c=>sentence(c,true)).join('\n')}`,bullets:clauses.map(c=>`${c.category} → ${c.details.join('; ')}${c.personal?' → '+c.personal:''}`).join('\n'),delivery};
 }
 export async function threeboxEvidence(ctx){
   const {db,actor,config,owners,clock=()=>new Date()}=ctx;requireThreebox(config,actor);const row=await interview(db,actor,ctx.interviewId);

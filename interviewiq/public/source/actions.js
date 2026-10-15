@@ -432,6 +432,7 @@ Object.assign(A,{
 });
 async function saveAdminCalendar(command,data){if(!calendarV2()||actor.role!=='admin'||!capabilities.adminLogistics||!adminCalendarTarget)throw Error('Open a current administrator target.');const t=adminCalendarTarget;await calendarMutation('/calendar/admin/'+t.eventRef,{command,data},{command,data,expectedVersion:t.version,expectedInterviewVersion:t.interview.version});return A['admin-calendar-read']({dataset:{ref:t.eventRef}});}
 
+function threeboxRender(){const open=[...document.querySelectorAll('.tbBuilder details[id][open]')].map(el=>el.id);render();for(const id of open){const el=document.getElementById(id);if(el)el.open=true;}}
 function threeboxInterview(el){const i=iv(el);requireOwn(i);if(!threeboxEnabled())throw previewError();return i;}
 async function saveThreebox(el,assemble=false){
   const i=threeboxInterview(el),d=threeboxForm(i),serial=d.serial,epoch=threeboxEpoch;
@@ -439,16 +440,16 @@ async function saveThreebox(el,assemble=false){
   if(epoch!==threeboxEpoch||!threeboxEnabled()||d!==threeboxDrafts.get(i.id))throw Error('The private builder changed while saving.');
   const h=S.why[i.id]?.threebox?.current;d.expectedHead=h?.revisionId??null;d.expectedAnswerVersion=h?.answerVersion??0;
   if(d.serial===serial){threeboxDrafts.delete(i.id);const next=threeboxForm(i);next.status=assemble?'Saved evidence-bound answer. Practice the facts and structure.':'Private worksheet saved.';}else d.status='Submitted version saved. Your newer typing is still unsaved.';
-  render();return result;
+  threeboxRender();return result;
 }
 Object.assign(A,{
- 'threebox-add'(el){const i=threeboxInterview(el);threeboxNewReason(threeboxForm(i));render();},
- 'threebox-remove'(el){const i=threeboxInterview(el),d=threeboxForm(i);d.reasons=d.reasons.filter(r=>r.id!==el.dataset.reason);threeboxTouch(d);render();},
- 'threebox-clear-details'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason);if(r)r.details=[];threeboxTouch(d);render();},
- 'threebox-intel'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason);if(!r||r.intel.length>=8)throw Error('Keep at most eight observations per reason.');r.intel.push({id:crypto.randomUUID(),speaker:'',role:'',text:'',confirmed:false});threeboxTouch(d);render();},
- 'threebox-replace'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason),facts=threeboxEvidenceCache.get(i.id)?.research.facts||[];const boxes=[...document.querySelectorAll('[data-tb-field="detail"][data-reason="'+el.dataset.reason+'"]')];const selected=boxes.filter(x=>x.checked).map(x=>facts[Number(x.dataset.evidence)]).filter(Boolean);if(!r||!selected.length)throw Error('Check a stronger current supported Detail first.');r.details=selected.map(x=>({...threeboxEvidenceCache.get(i.id).evidenceBindings.find(b=>b.field===x.field&&b.claimRef===x.claimRef)}));threeboxTouch(d);d.status='Weaker saved selections replaced. Save a new version to retain this change.';render();},
- async 'threebox-evidence'(el){const i=threeboxInterview(el),binding=threeboxBinding(i),epoch=threeboxEpoch,r=await command('threebox.evidence',i.id,{}, {render:false});if(!threeboxEnabled()||epoch!==threeboxEpoch||binding!==threeboxBinding(S.interviews.find(x=>x.id===i.id)||{}))throw Error('The interview changed while evidence was loading.');threeboxEvidenceCache.set(i.id,r);threeboxForm(i).status='Current RISE evidence loaded. Review each selected Detail.';render();return r;},
- async 'threebox-read'(el){const i=threeboxInterview(el),epoch=threeboxEpoch,r=await command('threebox.read',i.id,{}, {render:false});if(epoch!==threeboxEpoch)throw Error('Builder access changed.');await refreshWorkspace();if(epoch!==threeboxEpoch)throw Error('Builder access changed.');threeboxDrafts.delete(i.id);threeboxEvidenceCache.delete(i.id);threeboxForm(i).status='Saved worksheet reloaded. Review current evidence before assembling.';render();return r;},
+ 'threebox-add'(el){const i=threeboxInterview(el);threeboxNewReason(threeboxForm(i));threeboxRender();},
+ 'threebox-remove'(el){const i=threeboxInterview(el),d=threeboxForm(i);d.reasons=d.reasons.filter(r=>r.id!==el.dataset.reason);threeboxTouch(d);threeboxRender();},
+ 'threebox-clear-details'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason);if(r)r.details=[];threeboxTouch(d);threeboxRender();},
+ 'threebox-intel'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason);if(!r||r.intel.length>=8)throw Error('Keep at most eight observations per reason.');r.intel.push({id:crypto.randomUUID(),speaker:'',role:'',text:'',confirmed:false});threeboxTouch(d);threeboxRender();},
+ 'threebox-replace'(el){const i=threeboxInterview(el),d=threeboxForm(i),r=d.reasons.find(r=>r.id===el.dataset.reason),facts=threeboxEvidenceCache.get(i.id)?.research.facts||[];const boxes=[...document.querySelectorAll('[data-tb-field="detail"][data-reason="'+el.dataset.reason+'"]')];const selected=boxes.filter(x=>x.checked).map(x=>facts[Number(x.dataset.evidence)]).filter(Boolean);if(!r||!selected.length)throw Error('Check a stronger current supported Detail first.');r.details=selected.map(x=>({...threeboxEvidenceCache.get(i.id).evidenceBindings.find(b=>b.field===x.field&&b.claimRef===x.claimRef)}));threeboxTouch(d);d.status='Weaker saved selections replaced. Save a new version to retain this change.';threeboxRender();},
+ async 'threebox-evidence'(el){const i=threeboxInterview(el),binding=threeboxBinding(i),epoch=threeboxEpoch,r=await command('threebox.evidence',i.id,{}, {render:false});if(!threeboxEnabled()||epoch!==threeboxEpoch||binding!==threeboxBinding(S.interviews.find(x=>x.id===i.id)||{}))throw Error('The interview changed while evidence was loading.');threeboxEvidenceCache.set(i.id,r);threeboxForm(i).status='Current RISE evidence loaded. Review each selected Detail.';threeboxRender();return r;},
+ async 'threebox-read'(el){const i=threeboxInterview(el),epoch=threeboxEpoch,r=await command('threebox.read',i.id,{}, {render:false});if(epoch!==threeboxEpoch)throw Error('Builder access changed.');await refreshWorkspace();if(epoch!==threeboxEpoch)throw Error('Builder access changed.');threeboxDrafts.delete(i.id);threeboxEvidenceCache.delete(i.id);threeboxForm(i).status='Saved worksheet reloaded. Review current evidence before assembling.';threeboxRender();return r;},
  'threebox-save'(el){return saveThreebox(el);},
  'threebox-assemble'(el){return saveThreebox(el,true);}
 });
@@ -469,6 +470,7 @@ function threeboxFieldEvent(ev){
  else if(key==='detail'){const fact=threeboxEvidenceCache.get(i.id)?.research.facts[Number(t.dataset.evidence)];if(!fact)return;r.details=r.details.filter(x=>x.field!==fact.field||x.claimRef!==fact.claimRef);if(value)r.details.push({...threeboxEvidenceCache.get(i.id).evidenceBindings.find(b=>b.field===fact.field&&b.claimRef===fact.claimRef)});}
  else if(key.startsWith('intel')){const x=r.intel.find(x=>x.id===t.dataset.intel);if(!x)return;if(key==='intelConfirmed')x.confirmed=value;else{x[key==='intelSpeaker'?'speaker':key==='intelRole'?'role':'text']=value;x.confirmed=false;}}
  threeboxTouch(d);
+ if(['category','selected','detail'].includes(key)){const selector='[data-tb-field="'+key+'"][data-reason="'+r.id+'"]'+(key==='detail'?'[data-evidence="'+t.dataset.evidence+'"]':'');threeboxRender();document.querySelector(selector)?.focus({preventScroll:true});}
 }
 document.addEventListener('input',threeboxFieldEvent);document.addEventListener('change',ev=>{if(ev.target?.tagName==='SELECT')threeboxFieldEvent(ev);});
 
