@@ -1157,3 +1157,9 @@ body:has(.calendar-first) .route-hint{display:none}
 @media(max-width:760px){.intakeProgress li .stepLabel,.intakeProgress li[aria-current=step] .stepLabel{font-size:11px;letter-spacing:0;white-space:nowrap;max-width:none}.intakeWizard .wizHead{gap:6px}.intakeWizard .wizHead .eyebrow{font-size:11px;letter-spacing:.12em}}
 
 .intakeWizard .wizHead{padding-right:44px}
+
+/* Personal dates: use the existing signed-owner result for the entire cell. */
+.calendar-first .mcv2-month-day.is-own-day{background:#12452f;color:#f2fff6;opacity:1}
+.calendar-first .mcv2-month-day.is-own-day:hover{background:#195d40}
+.calendar-first .mcv2-month-day.is-own-day.is-outside .mcv2-day-number{opacity:.7}
+.calendar-first .mcv2-month-day.is-own-day.is-today{box-shadow:inset 0 3px 0 var(--em)}

@@ -2,7 +2,7 @@
   "approvedPrototypeSha256": "9c6db6695507a9e6d300f01ced31150c380f2bc8d951f148139f5bb7df5d9718",
   "assets": {
     "index.html": "c7d16ae928755b7ef580d502a6af6fbf97b3bd36feee6cf659660b52774e25b2",
-    "styles.css": "ef94e0ae8a8668418741b922b6e07ba331eae1971cd914a72b591350461b5f17",
-    "app.js": "1d20037eb7213920651ae4f8a442eca49e5b7cb4223da9c48d68ad4759e81e24"
+    "styles.css": "77fcfa1dc743314fd6cf9e1fe87fd7cc48215ca022c8f45e696e226ff09d5c6b",
+    "app.js": "44fffeac176f8d84445b34644c0ff497d209e95714e0f22b1d27ab76be24563d"
   }
 }
