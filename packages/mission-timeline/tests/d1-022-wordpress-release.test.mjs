@@ -15,7 +15,7 @@ const runtime=id=>`wp-content/mu-plugins/missionmed-timeline-runtime/releases/${
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const basePlan={schema_version:'d1-022-wordpress-operation.1',authority_ticket_sha256:'e27016edef2f722f1424a16d7246e5e1851d266b7825d832f7bbf62e84ec147c',snapshot_id:'022-20260907T020000Z-aaaaaaaa'};
 const settings={timeline_enabled:false,rollout_stage:'off',consent_version:'d1-500-v1'};
-async function fixture(t){
+async function fixture(t,fixtureSettings=settings){
   const base=await realpath(await mkdtemp(join(tmpdir(),'timeline022-release-test-')));t.after(()=>rm(base,{recursive:true,force:true}));
   const root=join(base,'public'),privateRoot=join(base,'private');await mkdir(root);await mkdir(privateRoot);
   for(const rel of [...paths.filter(path=>path!==include),runtime(oldId)]){await mkdir(dirname(join(root,rel)),{recursive:true});await writeFile(join(root,rel),rel.endsWith('.php')?'<?php return array();':'old source');}
@@ -23,7 +23,7 @@ async function fixture(t){
   await writeFile(join(root,'sibling.txt'),'preserve unrelated bytes');
   const invoke=(mode,plan,options={})=>{
     const php="define('D1_022_LIBRARY_ONLY',true); require $argv[1]; $a=json_decode(stream_get_contents(STDIN),true); try{$r=tl022_operation($a['mode'],$a['plan'],$a['root'],$a['private'],$a['settings'],$a['execute']); echo json_encode(['ok'=>true,'result'=>$r]);}catch(Throwable $e){echo json_encode(['ok'=>false,'code'=>$e->getMessage()]);}";
-    return JSON.parse(execFileSync('php',['-r',php,helper],{input:JSON.stringify({mode,plan,root,private:privateRoot,settings:options.settings||settings,execute:options.execute??true}),maxBuffer:1024*1024}).toString());
+    return JSON.parse(execFileSync('php',['-r',php,helper],{input:JSON.stringify({mode,plan,root,private:privateRoot,settings:options.settings||fixtureSettings,execute:options.execute??true}),maxBuffer:1024*1024}).toString());
   };
   const inspection=invoke('inspect',basePlan);assert.equal(inspection.ok,true,inspection.code);const before=inspection.result.inventory;
   const plan={...basePlan,baseline:before};
@@ -102,4 +102,37 @@ test('rollback refuses a newer live edit and malformed PHP never changes the act
   assert.equal(f.invoke('install',f.plan).code,'CANDIDATE_PHP_LINT_FAILED');assert.equal(await readlink(join(f.root,'wp-content/mu-plugins/missionmed-timeline-runtime/current')),`releases/${oldId}`);
   f.candidate();const installed=f.invoke('install',f.plan);assert.equal(installed.ok,true,installed.code);f.plan.installed_inventory=installed.result.inventory;
   await writeFile(join(f.root,include),'newer unrelated operator edit');assert.equal(f.invoke('rollback',f.plan).code,'BASELINE_DRIFT');assert.equal(await readFile(join(f.root,include),'utf8'),'newer unrelated operator edit');
+});
+
+test('existing founder IDs and course binding survive backup, isolated restore and scoped rollback exactly',async t=>{
+  const founderIds=Array.from({length:18},(_,i)=>101+i);
+  for(const courseId of [0,7777]){
+    const current={...settings,founder_authorized_wp_user_ids:founderIds,iv_prep_complete_course_id:courseId};
+    const f=await fixture(t,current),backup=f.backup();
+    const snapshot=join(f.privateRoot,'d1-timeline-022-backups',basePlan.snapshot_id);
+    assert.equal(backup.isolated_file_restore,true);
+    for(const rel of ['settings.json','isolated-restore/settings.json']){
+      assert.equal(await readFile(join(snapshot,rel),'utf8'),JSON.stringify(current));
+    }
+    f.candidate();const installed=f.invoke('install',f.plan);assert.equal(installed.ok,true,installed.code);
+    f.plan.installed_inventory=installed.result.inventory;
+    const restored=f.invoke('rollback',f.plan);assert.equal(restored.ok,true,restored.code);
+    assert.equal(restored.result.inventory.settings_sha256,f.before.settings_sha256);
+    assert.deepEqual(restored.result.inventory.files,f.before.files);
+    assert.equal(await readFile(join(f.root,'sibling.txt'),'utf8'),'preserve unrelated bytes');
+  }
+  const empty=await fixture(t,{...settings,founder_authorized_wp_user_ids:[],iv_prep_complete_course_id:0});
+  assert.equal(empty.backup().status,'BACKUP_VERIFIED');
+});
+test('malformed founder IDs and course bindings fail closed without creating a backup',async t=>{
+  const f=await fixture(t);
+  for(const value of [null,false,123,'123',[0],[-1],['101'],[1.5],[true],[null],[[101]],{unexpected:101},{'2':101}]){
+    const result=f.invoke('backup',f.plan,{settings:{...settings,founder_authorized_wp_user_ids:value}});
+    assert.deepEqual(result,{ok:false,code:'SETTINGS_VALUE_INVALID'});
+  }
+  for(const value of [null,false,-1,'0','7777',1.5,[],{}]){
+    const result=f.invoke('backup',f.plan,{settings:{...settings,iv_prep_complete_course_id:value}});
+    assert.deepEqual(result,{ok:false,code:'SETTINGS_VALUE_INVALID'});
+  }
+  await assert.rejects(readFile(join(f.privateRoot,'d1-timeline-022-backups',basePlan.snapshot_id,'receipt.json')),{code:'ENOENT'});
 });

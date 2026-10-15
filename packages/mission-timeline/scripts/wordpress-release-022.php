@@ -21,12 +21,17 @@ function tl022_nonsecret_settings($settings) {
     // option snapshot. Unknown keys stop for reconciliation instead of stripping.
     $allowed = ['timeline_enabled','rollout_stage','canary_wp_user_ids','eligibility_verified',
         'entitlement_version','consent_version','ai_processing_mode','ai_consent_version',
-        'founder_standard_manager_wp_user_ids','base_path','matrix_url','api_origin','issuer',
+        'founder_standard_manager_wp_user_ids','founder_authorized_wp_user_ids','iv_prep_complete_course_id','base_path','matrix_url','api_origin','issuer',
         'audience','active_key_id','token_ttl_seconds','rate_limit_requests',
         'rate_limit_window_seconds','matrix_menu_locations'];
     tl022_require(is_array($settings) && array_diff(array_keys($settings), $allowed) === [], 'SETTINGS_UNKNOWN_OR_SECRET_KEY');
     foreach ($settings as $key => $value) {
-        if (in_array($key, ['canary_wp_user_ids','founder_standard_manager_wp_user_ids'], true)) {
+        if ($key === 'founder_authorized_wp_user_ids') {
+            tl022_require(is_array($value) && array_is_list($value), 'SETTINGS_VALUE_INVALID');
+            foreach ($value as $id) { tl022_require(is_int($id) && $id > 0, 'SETTINGS_VALUE_INVALID'); }
+        } elseif ($key === 'iv_prep_complete_course_id') {
+            tl022_require(is_int($value) && $value >= 0, 'SETTINGS_VALUE_INVALID');
+        } elseif (in_array($key, ['canary_wp_user_ids','founder_standard_manager_wp_user_ids'], true)) {
             tl022_require(is_array($value) && count($value) <= 10, 'SETTINGS_VALUE_INVALID');
             foreach ($value as $id) { tl022_require(is_int($id) && $id > 0, 'SETTINGS_VALUE_INVALID'); }
         } elseif ($key === 'matrix_menu_locations') {
