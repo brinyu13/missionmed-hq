@@ -37,7 +37,7 @@ function badgeFor(route){
 function railNavButton([route,label,short]){
   const active=S.ui.route===route;
   const b=badgeFor(route);
-  return `<button type="button" data-act="nav" data-to="${route}" class="rtab ${active?'on':''} ${['intel','growth','contribute'].includes(route)?'secondary':''}" ${active?'aria-current="page"':''} aria-label="${esc(label)}"><span class="rtl">${esc(label)}${coreOnly()&&!coreRoute(route)&&!(route==='prep'&&threeboxEnabled())?comingSoonBadge():''}</span><span class="rts" aria-hidden="true">${esc(short)}</span>${b?`<span class="badge">${b}</span>`:''}</button>`;
+  return `<button type="button" data-act="nav" data-to="${route}" class="rtab ${active?'on':''} ${['intel','growth','contribute'].includes(route)?'secondary':''}" ${active?'aria-current="page"':''} aria-label="${esc(label)}"><span class="rtl">${esc(label)}${coreOnly()&&!coreRoute(route)&&!(route==='prepare'&&threeboxEnabled())?comingSoonBadge():''}</span><span class="rts" aria-hidden="true">${esc(short)}</span>${b?`<span class="badge">${b}</span>`:''}</button>`;
 }
 function personaSelect(){ return `<div class="roleSwitch"><div class="rsLbl">Signed in</div><span class="on">${esc(viewLabel())}${studentPreview()?' · Preview':''}</span></div>`; }
 function administratorViewSwitch(){
@@ -503,7 +503,7 @@ function render(){syncLoiCompositionView();
   const openSet=new Set([...document.querySelectorAll('main details[open] > summary')].map(s=>s.textContent.trim()));
   const calendarOpen=new Set([...document.querySelectorAll('main details[data-calendar-disclosure][open]')].map(d=>d.dataset.calendarDisclosure));
   if(!(r==='interviews' && S.ui.open)) html='<p class="print-hint route-hint">This page is not designed for paper. To print a day sheet, open an interview’s Interview day section.</p>'+html;
-  if(coreOnly()&&!coreRoute(r))html=(r==='prep'&&threeboxEnabled()?'<div class="panel pad" role="status"><p>Why This Program is ready: save your private Three-Box worksheet, review current RISE evidence, and assemble your answer. Rehearsal and day-sheet integrations are not active.</p></div>':comingSoonPanel(navItems().find(x=>x[0]===r)?.[1]||r))+html;
+  if(coreOnly()&&!coreRoute(r))html=(r==='prepare'&&threeboxEnabled()?'<div class="panel pad" role="status"><p>Why This Program is ready: save your private Three-Box worksheet, review current RISE evidence, and assemble your answer. Rehearsal and day-sheet integrations are not active.</p></div>':comingSoonPanel(navItems().find(x=>x[0]===r)?.[1]||r))+html;
   document.getElementById('main').innerHTML=html;
   document.querySelectorAll('main details > summary').forEach(s=>{ if(openSet.has(s.textContent.trim())) s.parentElement.open=true; });
   document.querySelectorAll('main details[data-calendar-disclosure]').forEach(d=>{if(calendarOpen.has(d.dataset.calendarDisclosure))d.open=true;});
