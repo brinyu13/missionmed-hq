@@ -1,0 +1,24 @@
+{
+  "records": [
+    {
+      "programSpecialtyId": "rise_ps_synthetic_a",
+      "state": "SAVED",
+      "notes": null,
+      "goldStarred": true,
+      "priorityPosition": 1,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "updatedAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "programSpecialtyId": "rise_ps_synthetic_b",
+      "state": "SAVED",
+      "notes": null,
+      "goldStarred": false,
+      "priorityPosition": 2,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "updatedAt": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "persistence": "durable"
+}
+

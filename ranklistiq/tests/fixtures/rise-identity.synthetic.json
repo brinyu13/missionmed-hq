@@ -1,0 +1,26 @@
+{
+  "registryReleaseId": "rise_release_synthetic",
+  "program": {
+    "programSpecialtyId": "rise_ps_synthetic_a",
+    "display": {
+      "programName": "Synthetic Teaching Hospital",
+      "institution": "Synthetic Institution",
+      "hospital": "Synthetic Teaching Hospital",
+      "city": "Example City",
+      "state": "EX",
+      "zip": "00000"
+    },
+    "designation": "Internal Medicine",
+    "kind": "single",
+    "entryFormat": "unknown",
+    "identifiers": [
+      { "namespace": "ACGME_PROGRAM", "value": "0000000000" }
+    ],
+    "fields": {
+      "J1": { "knowledge": { "state": "known", "value": true } },
+      "H1B": { "knowledge": { "state": "unknown" } }
+    }
+  },
+  "research": null
+}
+
