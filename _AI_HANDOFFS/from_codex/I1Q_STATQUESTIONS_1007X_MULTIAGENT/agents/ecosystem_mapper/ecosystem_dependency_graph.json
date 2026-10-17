@@ -1,0 +1,843 @@
+{
+  "schema_version": "i1q-1007x-ecosystem-dependency-graph-v1",
+  "generated_at": "2026-07-15T08:04:18-04:00",
+  "mission": "I1Q-1007X-MA",
+  "mode": "read_only_repository_cartography",
+  "scope_root": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000",
+  "authority_snapshot": {
+    "assignment_treatment": "DR-006_REVIEWED_CANDIDATE_CANONICAL_MERGE_PENDING",
+    "assignment_candidate_branch": "codex/i1q-1007x-registration",
+    "assignment_candidate_commit": "b3d8089dbc436bad6ec48de95e1d57b6985b7444",
+    "assignment_source_branch": "i1q-question-platform-ultra-1007x-ma",
+    "assignment_source_commit": "5ae58b091842af0a0aa570cd53a8c879e2925d24",
+    "observed_after_assignment": {
+      "missionmed_os_main_commit": "93c0404794fe105235b80514c75fffc3177f140b",
+      "missionmed_os_origin_main_commit": "93c0404794fe105235b80514c75fffc3177f140b",
+      "merge_parents": [
+        "714443573c41e7a04e4241e67244c334787e1bed",
+        "b3d8089dbc436bad6ec48de95e1d57b6985b7444"
+      ],
+      "merge_subject": "Merge PR #12: register and authorize I1Q Question Platform",
+      "candidate_and_main_dr006_sha256": "8126c24b1d8f2b36439aad13d82e63b3f0cc5b3666abe29eb2f794ee5e068dae",
+      "candidate_authority_diff_from_main": "none_for_routed_authority_files",
+      "independent_mapper_certification": "NOT_PERFORMED",
+      "interpretation": "Canonical merge was pending at assignment time. A clean synchronized merge is now observed; final acceptance remains with the Root Supervisor."
+    },
+    "operating_rule": "Use DR-006 as reviewed authority for mapping and proposed adapters only. This mapper did not exercise integration, migration, deployment, or feature-flag authority."
+  },
+  "source_snapshot": {
+    "topology_anchor_commit": "5ae58b091842af0a0aa570cd53a8c879e2925d24",
+    "observed_head_during_initial_trace": "d2caf7d8c7e28c69502bc64225d840b9cebb3786",
+    "observed_head_during_validation": "4724a24a6201af8228a7671732d9f61d9f2e4ada",
+    "observed_origin_head_during_validation": "6d2a3ce808ed84f477110f5a8f2bbb34d8da8a48",
+    "post_anchor_change_class": "handoff_evidence_plus_i1q_owned_repair_wave",
+    "committed_application_change": "4724a24 adds I1Q-owned STAT, class-A, and Drills adapters plus 34 direct adapter tests",
+    "in_flight_uncommitted_application_paths_observed": [
+      "i1q-question-platform/src/auth.mjs",
+      "i1q-question-platform/src/pipeline.mjs",
+      "i1q-question-platform/src/privacy.mjs",
+      "i1q-question-platform/src/server.mjs"
+    ],
+    "protected_shared_runtime_migration_and_deployment_diff_from_anchor": "none_observed",
+    "certification_rule": "The requested 5ae58b0 topology is the baseline. Later I1Q-owned repairs are recorded as in-flight and are not release-certified by this map.",
+    "pre_existing_untracked_material_preserved": true
+  },
+  "current_feature_and_release_state": {
+    "mission_registration": "OBSERVED_MERGED",
+    "dr006_authority": "OBSERVED_MERGED_ROOT_ACCEPTANCE_REQUIRED",
+    "internal_application": "LOCAL_MEMORY_REPOSITORY_AUTH_ADAPTER_REQUIRED",
+    "canonical_identity_adapter": "ABSENT",
+    "transactional_database_adapter": "ABSENT",
+    "candidate_sql": "DESIGN_ONLY_NOT_APPLIED",
+    "preview": "NOT_PROVEN",
+    "staging": "NOT_PROVEN",
+    "internal_production": "NOT_DEPLOYED",
+    "monitoring": "NOT_PROVEN",
+    "rollback_execution": "NOT_PROVEN",
+    "real_corpus_inventory": "STATE_A_EVIDENCE_PRESENT_EXTRACTION_BLOCKED",
+    "privacy_safe_working_transcripts": "NOT_CREATED",
+    "security_release_verdict": "BASELINE_VETO_REPAIRS_IN_FLIGHT_NOT_RECERTIFIED",
+    "privacy_release_verdict": "VETO_ALL_97_SOURCES_BLOCKED",
+    "ux_accessibility_release_verdict": "VETO",
+    "consumer_adapter_repair": "COMMITTED_AT_4724A24_DIRECT_TESTS_PASS_CONSUMER_OWNER_CERTIFICATION_PENDING",
+    "legacy_v4_reconciliation": "SANITIZED_HASHED_STATIC_AND_CDN_INVENTORY_PRESENT_NO_IMPORT_OR_PRODUCTION_DB_READ",
+    "feature_flags": {
+      "internal_platform_enabled": false,
+      "authorized_internal_candidate_review": false,
+      "stat_adapter_enabled": false,
+      "drills_adapter_enabled": false,
+      "student_release_enabled": false
+    }
+  },
+  "dependency_alert": {
+    "classification": "REPOSITORY_WIDE_RELEASE_RISK",
+    "audit_observation": "npm audit reported four advisories affecting three vulnerable packages",
+    "audit_metadata": {
+      "critical": 0,
+      "high_packages": 2,
+      "moderate_packages": 0,
+      "low_packages": 1,
+      "total_vulnerable_packages": 3
+    },
+    "advisories": [
+      {
+        "package": "form-data",
+        "dependency_type": "direct_root_dependency",
+        "severity": "high",
+        "advisory": "GHSA-hmw2-7cc7-3qxx"
+      },
+      {
+        "package": "ws",
+        "dependency_type": "direct_root_dependency",
+        "severity": "high",
+        "advisory": "GHSA-96hv-2xvq-fx4p"
+      },
+      {
+        "package": "ws",
+        "dependency_type": "direct_root_dependency",
+        "severity": "moderate",
+        "advisory": "GHSA-58qx-3vcg-4xpx"
+      },
+      {
+        "package": "esbuild",
+        "dependency_type": "transitive_root_dependency",
+        "severity": "low",
+        "advisory": "GHSA-g7r4-m6w7-qqqr"
+      }
+    ],
+    "source_import_scan": "NO_IMPORTS_FOUND",
+    "scope_note": "The isolated i1q-question-platform package declares no dependencies, but the root lock and Railway repository build context are shared release surfaces. Absence of imports lowers demonstrated exploitability; it does not clear release risk.",
+    "owner": "Root Supervisor with Auth and Release Security",
+    "release_gate": "Update and lock dependencies through an isolated reviewed change, then rerun root tests, HQ tests, static consumer validation, audit, and deployment artifact checks."
+  },
+  "nodes": [
+    {
+      "id": "mmos_boot_authority",
+      "kind": "authority_registry",
+      "owner": "Root Supervisor and Brian",
+      "authority": [
+        "/Users/brianb/MissionMed_OS/BOOT.md",
+        "/Users/brianb/MissionMed_OS/CURRENT.md",
+        "/Users/brianb/MissionMed_OS/authority_index.json",
+        "/Users/brianb/MissionMed_OS/missions.json",
+        "/Users/brianb/MissionMed_OS/products_index.json",
+        "/Users/brianb/MissionMed_OS/decisions/DR-006_i1q_question_platform_internal_integration.md",
+        "/Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS/question-platform.md"
+      ],
+      "coupling": "Selects mission, product passport, protected decision, and routed operational authority.",
+      "protected_status": "PROTECTED_ROOT_ONLY",
+      "safest_adapter": "No runtime adapter. Root updates append-only authority records and regenerates CURRENT through MissionMed OS procedure.",
+      "baseline_tests": [
+        "BOOT route read",
+        "CURRENT freshness and blocked-state check",
+        "authority index and passport resolution",
+        "candidate-to-main content hash and diff",
+        "clean synchronized main check"
+      ],
+      "current_state": "CLEAN_MAIN_MERGE_OBSERVED"
+    },
+    {
+      "id": "i1q_internal_app",
+      "kind": "application",
+      "owner": "MissionMed Question Platform; integration controlled by Root Supervisor",
+      "authority": [
+        "DR-006",
+        "Question Platform product passport",
+        "I1Q-1004C Architecture Amendment",
+        "I1Q-1006 combined handoff"
+      ],
+      "coupling": "Dedicated internal review application; must consume canonical identity and persist to additive RANKLISTIQ i1q schema.",
+      "protected_status": "ISOLATED_CANDIDATE_NOT_DEPLOYED",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/public",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/tests"
+      ],
+      "safest_adapter": "Dedicated service with a narrow canonical identity resolver, explicit role mapping, transaction-scoped database context, and no shared-auth weakening.",
+      "baseline_tests": [
+        "npm test: 30 of 30 passing",
+        "non-demo health returns AUTH_ADAPTER_REQUIRED",
+        "production API without resolver returns production_identity_adapter_required",
+        "feature flags remain false",
+        "negative answer/source isolation tests"
+      ],
+      "current_state": "MEMORY_ONLY_AUTH_AND_DB_ADAPTERS_ABSENT"
+    },
+    {
+      "id": "wordpress_identity",
+      "kind": "identity_source",
+      "owner": "WordPress and HQ",
+      "authority": [
+        "MR-078B Data Flow Contract",
+        "DR-006",
+        "Critical Systems Contract"
+      ],
+      "coupling": "Canonical source for user identity, email, and WordPress roles.",
+      "protected_status": "PROTECTED",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/wp-content/mu-plugins/missionmed-hq-auth-handoff.php",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/wp-content/mu-plugins/missionmed-hq-proxy.php"
+      ],
+      "safest_adapter": "Reuse the signed handoff and first-party auth proxy. Map identity to I1Q roles inside an app-owned assignment table; do not widen global WordPress role admission.",
+      "baseline_tests": [
+        "logged-out redirect",
+        "60-second handoff expiry",
+        "return and final host allowlists",
+        "signature tamper rejection",
+        "role mismatch rejection"
+      ],
+      "current_state": "ACTIVE_SHARED_IDENTITY"
+    },
+    {
+      "id": "hq_railway_session",
+      "kind": "auth_session_runtime",
+      "owner": "HQ",
+      "runtime_owner": "railway_missionmed_hq",
+      "authority": [
+        "Critical Systems Manifest",
+        "MissionMed HQ passport",
+        "DR-006"
+      ],
+      "coupling": "Exchanges WordPress identity, issues encrypted cookie and bearer session, provisions RANKLISTIQ Supabase Auth, returns bootstrap tokens.",
+      "protected_status": "PROTECTED_ACTIVE_RUNTIME",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/missionmed-hq/server.mjs",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/railway.json"
+      ],
+      "routes": [
+        "/api/auth/start",
+        "/api/auth/session",
+        "/api/auth/validate-wp",
+        "/api/auth/exchange",
+        "/api/auth/bootstrap",
+        "/api/auth/logout"
+      ],
+      "safest_adapter": "Root-owned app-specific identity introspection or mounted isolated route after security repair. Do not share the session secret into a second service without an explicit decision.",
+      "baseline_tests": [
+        "Critical Manifest health and CORS probes",
+        "cookie and bearer parity",
+        "CSRF on logout and all writes",
+        "expired, malformed, revoked, and fixed-session rejection",
+        "missing configured-secret hard failure",
+        "allowed-origin deny tests"
+      ],
+      "current_state": "ACTIVE_WITH_RELEASE_BLOCKING_EXPIRY_AND_SECRET_CHECK_FINDINGS"
+    },
+    {
+      "id": "ranklistiq_supabase",
+      "kind": "datastore_and_auth",
+      "owner": "Arena and STAT data plane; migration application is Root-only",
+      "authority": [
+        "MR-078B Data Flow Contract",
+        "Critical Systems Manifest",
+        "DR-006"
+      ],
+      "project_ref": "fglyvdykwgbuivikqoah",
+      "coupling": "Owns Arena/STAT auth, duel data, dataset questions, telemetry, and the authorized future additive i1q schema.",
+      "protected_status": "PROTECTED_SHARED_PROJECT",
+      "safest_adapter": "Add i1q objects through a canonical RANKLISTIQ migration route and server-side repository. Pin project, schema, object, role, and transaction-local identity on every operation.",
+      "baseline_tests": [
+        "preview migration lint and dry run",
+        "forced-RLS anonymous and cross-assignment denial",
+        "connection-pool identity isolation",
+        "rollback and forward-reapply proof",
+        "Arena and STAT regression suites",
+        "old-attempt historical joins"
+      ],
+      "current_state": "TARGET_AUTHORIZED_MIGRATION_ROUTE_UNRESOLVED"
+    },
+    {
+      "id": "growth_engine_supabase",
+      "kind": "datastore",
+      "owner": "HQ and Growth Engine data plane",
+      "authority": [
+        "MR-078A Supabase Migration Protocol",
+        "MR-078B Data Flow Contract"
+      ],
+      "project_ref": "plgndqcplokwiuimwhzh",
+      "coupling": "Owns HQ CRM, media tables, and contract-listed drill registry; root supabase/migrations targets this project.",
+      "protected_status": "PROTECTED_HISTORY_DESYNCHRONIZED",
+      "safest_adapter": "Read through existing owner APIs only. Do not place I1Q schema migrations in the root Growth Engine migration directory.",
+      "baseline_tests": [
+        "project-ref pin",
+        "migration history reconciliation",
+        "no cross-project object assumptions"
+      ],
+      "current_state": "NOT_I1Q_DATASTORE_TARGET"
+    },
+    {
+      "id": "i1q_schema",
+      "kind": "candidate_schema",
+      "owner": "Architecture and Data for design; Root Supervisor for canonical migration",
+      "authority": [
+        "DR-006",
+        "MR-078A",
+        "I1Q-1004C"
+      ],
+      "coupling": "Stores governance, sources, privacy records, revisions, reviews, releases, artifacts, flags, and audit events.",
+      "protected_status": "CANDIDATE_ONLY",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/0001_i1q_question_platform.sql",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/rollback/0001_compensating_disable.sql"
+      ],
+      "safest_adapter": "Translate reviewed design into a new correctly named, headed, transactional RANKLISTIQ migration. Bind trusted transaction-local actor and roles from the server and make review access assignment-scoped.",
+      "baseline_tests": [
+        "real Postgres migration",
+        "RLS matrix",
+        "GUC spoof and pooled-connection tests",
+        "immutable record tests",
+        "answer and source isolation",
+        "forward compensation and reapply"
+      ],
+      "current_state": "UNAPPLIED_PROTOCOL_NONCOMPLIANT_DESIGN_FILE"
+    },
+    {
+      "id": "matrix_runtime",
+      "kind": "protected_adjacent_consumer",
+      "owner": "Matrix",
+      "authority": [
+        "Matrix Runtime Lock Protocol",
+        "Matrix Runtime Lock Manifest",
+        "Matrix passport"
+      ],
+      "coupling": "No direct I1Q consumer is authorized. Shares WordPress identity and protected production estate; changes must remain isolated.",
+      "protected_status": "ACTIVE_DELEGATED_LOCK",
+      "routes": [
+        "/member-dashboard/#dashboard",
+        "/member-dashboard/#calendar",
+        "/member-dashboard/#scheduler",
+        "/member-dashboard/#filevault",
+        "/member-dashboard/#messages",
+        "/member-dashboard/#storyforge"
+      ],
+      "safest_adapter": "No Matrix adapter in this wave. Link only after a separate Matrix decision; run guard preflight before any future touch.",
+      "baseline_tests": [
+        "matrix_runtime_guard preflight before touch",
+        "manifest hash checks",
+        "all route App Mode smokes",
+        "Return to Matrix Dashboard invariant"
+      ],
+      "current_state": "PROTECTED_UNTOUCHED"
+    },
+    {
+      "id": "arena",
+      "kind": "protected_router_and_consumer",
+      "owner": "Arena",
+      "authority": [
+        "Arena passport",
+        "Critical Systems Manifest",
+        "MR-078B"
+      ],
+      "coupling": "Authenticates through HQ, connects to RANKLISTIQ, routes users to STAT and Daily Rounds, and reads drill controls.",
+      "protected_status": "LEGACY_PROTECTED",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/LIVE/arena.html",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/wp-content/mu-plugins/arena-route-proxy.php"
+      ],
+      "safest_adapter": "No Arena code change for I1Q. Enable a server-side STAT dataset release only after consumer certification; keep route and auth behavior invariant.",
+      "baseline_tests": [
+        "VALIDATION/validate_deploy.sh",
+        "authenticated Arena entry",
+        "RANKLISTIQ project pin",
+        "route /stat",
+        "route /drills?entry=daily_rounds",
+        "avatar and drill menu regression"
+      ],
+      "current_state": "ACTIVE_UNCHANGED"
+    },
+    {
+      "id": "stat",
+      "kind": "protected_question_consumer",
+      "owner": "STAT",
+      "authority": [
+        "STAT_CANON_SPEC",
+        "MR-078B",
+        "DR-006"
+      ],
+      "coupling": "Consumes immutable dataset_questions and sealed duel packs; I1Q may publish only the exact frozen nine-field server dataset projection.",
+      "protected_status": "PROTECTED_FROZEN_CONTRACT",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/LIVE/stat.html",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/wp-content/mu-plugins/stat-route-proxy.php",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_SYSTEM/STAT_CANON_SPEC.md",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/supabase/migrations/20260420113000_stat_canon_rpcs.sql"
+      ],
+      "safest_adapter": "Server-side release projection and additive dataset version registration. Never write active v4, alter sealed packs, expose answer_map, or modify the client for I1Q ingestion.",
+      "baseline_tests": [
+        "exact nine-field dataset projection",
+        "fixed hash vector 9253830103fdf96a341797f34f42fa98427be4089e4fa1483402141b6386575f",
+        "pre-answer answer/explanation absence",
+        "post-finalization answer availability only",
+        "choice order and sealed-pack parity",
+        "old-attempt joins",
+        "Arena-to-STAT route smoke"
+      ],
+      "current_state": "CONSUMER_FLAG_OFF_EXISTING_CONTRACT_COLLISIONS_REQUIRE_RULING"
+    },
+    {
+      "id": "drills",
+      "kind": "protected_media_consumer",
+      "owner": "Drills and existing MMVS ingestion owner",
+      "authority": [
+        "DR-006",
+        "MR-078B",
+        "HTML Deployment System Lock"
+      ],
+      "coupling": "Loads selected registry row, playback or Stream identifier, required nodes URL, and optional transcript URL from the existing drill API.",
+      "protected_status": "PROTECTED_INGESTION_OWNER_UNCHANGED",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/LIVE/drills.html",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/wp-content/mu-plugins/drills-route-proxy.php",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/wp-content/mu-plugins/mmvs-drills-proxy.php"
+      ],
+      "safest_adapter": "Read-only sidecar projection keyed by stable video_id with explicit playback, transcript, VTT, and nodes availability. Do not change ingestion tables or API rows.",
+      "baseline_tests": [
+        "API array contract",
+        "playback_url or stream_id required",
+        "nodes_url required",
+        "transcript_url missing is explicit and non-blocking",
+        "flat and wrapped nodes normalization",
+        "transcript wrapper normalization",
+        "selected video_id launch and return path"
+      ],
+      "current_state": "CONSUMER_FLAG_OFF_BASELINE_INCOMPATIBLE_ADAPTER_REPAIR_AT_4724A24_DIRECT_TESTS_PASS_OWNER_CERTIFICATION_PENDING"
+    },
+    {
+      "id": "daily_rounds",
+      "kind": "protected_media_consumer",
+      "owner": "Daily Rounds surface with Drills/Arena integration ownership; distinct human owner not found",
+      "authority": [
+        "DR-006",
+        "Arena passport",
+        "HTML Deployment System Lock"
+      ],
+      "coupling": "Fetches the MMVS drill registry, requires five launch fields, reads RANKLISTIQ drill_registry_control, and launches Drills.",
+      "protected_status": "PROTECTED_SHARED_RUNTIME",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/LIVE/daily.html",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/wp-content/mu-plugins/drills-route-proxy.php"
+      ],
+      "safest_adapter": "No I1Q write path. Reuse the existing registry row and attach read-only explicit availability metadata through the Drills owner adapter.",
+      "baseline_tests": [
+        "all required fields: video_id, title, playback_url, nodes_url, transcript_url",
+        "active-control filter",
+        "credentials and cross-origin behavior",
+        "launch payload to /drills?video_id",
+        "Arena daily route smoke"
+      ],
+      "current_state": "NO_I1Q_CHANNEL_ACTIVE"
+    },
+    {
+      "id": "mmvs_drill_registry_api",
+      "kind": "media_registry",
+      "owner": "MMVS and Drills ingestion owner; named human owner not found",
+      "authority": [
+        "DR-006 read-only source authority",
+        "Drills consumer contract"
+      ],
+      "coupling": "Canonical current registry response used by Daily and Drills; WordPress exposes a GET proxy to the Railway MMVS backend.",
+      "protected_status": "READ_ONLY_FOR_I1Q",
+      "routes": [
+        "https://missionmedinstitute.com/api/drills",
+        "https://mmvs-backend-production.up.railway.app/api/drills"
+      ],
+      "safest_adapter": "Inventory and fetch only. Persist hashes, availability, lineage, and privacy state in i1q; never patch registry rows.",
+      "baseline_tests": [
+        "GET only",
+        "schema and duplicate IDs",
+        "URL allowlist and reachability",
+        "source hash reproducibility",
+        "zero source mutations"
+      ],
+      "current_state": "97_ROWS_ALL_PLAYBACK_NODES_TRANSCRIPT"
+    },
+    {
+      "id": "media_engine_cie",
+      "kind": "media_metadata_service",
+      "owner": "HQ Media Engine and CIE",
+      "authority": [
+        "HQ runtime",
+        "MR-078B media ownership",
+        "DR-006 read-only authority"
+      ],
+      "coupling": "Authenticated HQ media routes bridge CIE and may backfill media_transcript_chunks from Supabase.",
+      "protected_status": "PROTECTED_AUTHENTICATED_SERVICE",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/missionmed-hq/server.mjs",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/supabase/migrations/20260402021500_vrs9d_media_system_schema.sql"
+      ],
+      "safest_adapter": "Prefer a dedicated read-only service credential or owner-provided static export after auth repair. Do not use HQ media write routes.",
+      "baseline_tests": [
+        "authenticated read gate",
+        "CIE health",
+        "media list and detail schema",
+        "transcript chunk access policy",
+        "no user-state or media mutation"
+      ],
+      "current_state": "AVAILABLE_PATH_NOT_USED_BY_CURRENT_I1Q_APP"
+    },
+    {
+      "id": "stream_r2_cdn",
+      "kind": "media_and_runtime_delivery",
+      "owner": "Media owner for Stream objects; Root deployment owner for R2/CDN runtime assets",
+      "authority": [
+        "DR-006",
+        "HTML Deployment System Lock"
+      ],
+      "coupling": "Cloudflare Stream supplies playback; R2/CDN supplies runtime HTML and referenced static artifacts.",
+      "protected_status": "PROTECTED_READ_ONLY_SOURCE_AND_CONTROLLED_DEPLOY_TARGET",
+      "safest_adapter": "Read metadata and objects only for corpus processing. Runtime writes only through the approved GitHub-controlled deployment route after all gates.",
+      "baseline_tests": [
+        "URL host allowlist",
+        "content type and hash",
+        "no PUT, DELETE, cache purge, or key change during extraction",
+        "CDN checksum and WordPress wrapper smoke for deployment"
+      ],
+      "current_state": "NO_I1Q_DEPLOYMENT"
+    },
+    {
+      "id": "transcript_vtt_nodes",
+      "kind": "restricted_source_artifacts",
+      "owner": "Media and Drills ingestion owner; privacy processing owned by interim Privacy Owner",
+      "authority": [
+        "DR-006",
+        "I1Q-1004C privacy and extraction gates"
+      ],
+      "coupling": "Source lineage for concept and candidate extraction. Raw text is restricted and only redacted working transcripts may enter extraction.",
+      "protected_status": "RESTRICTED",
+      "safest_adapter": "Fetch in a restricted process, hash, classify speakers, redact student/patient/third-party identity, then persist only privacy-safe normalized segments.",
+      "baseline_tests": [
+        "speaker-aware privacy recall",
+        "timestamp coverage",
+        "student speech removal",
+        "patient and third-party redaction",
+        "one ambiguous Dr. J source adjudication",
+        "no raw text in logs or evidence"
+      ],
+      "current_state": "97_SOURCE_LEVEL_VERIFIED_DRJ;_96_POTENTIAL_SEGMENT_ALLOWLISTS;_1_ZERO_RETENTION;_VTT_NOT_OBSERVED;_ALL_EXTRACTION_BLOCKED"
+    },
+    {
+      "id": "missionmed_drive_sources",
+      "kind": "optional_restricted_source",
+      "owner": "MissionMed Drive content owner and interim Privacy Owner",
+      "authority": [
+        "DR-006 authorized MissionMed Drive corpus files"
+      ],
+      "coupling": "Optional source of authorized corpus files; no source was found by current read-only searches.",
+      "protected_status": "READ_ONLY_IF_EXPLICITLY_AUTHORIZED",
+      "safest_adapter": "Use an owner-approved file allowlist and persist only file ID, hash, rights, privacy, and lineage metadata.",
+      "baseline_tests": [
+        "file owner and rights proof",
+        "shared-drive scope",
+        "hash and MIME verification",
+        "privacy normalization"
+      ],
+      "current_state": "NO_ADDITIONAL_CORPUS_OBSERVED_ABSENCE_NOT_PROVEN"
+    },
+    {
+      "id": "legacy_v4_and_historical_joins",
+      "kind": "frozen_dataset_and_telemetry",
+      "owner": "STAT",
+      "authority": [
+        "DR-006",
+        "STAT Canon",
+        "MR-078B"
+      ],
+      "coupling": "Read-only hashed v4 reconciliation and dataset-version-aware joins to historical attempts and question metadata.",
+      "protected_status": "IMMUTABLE",
+      "safest_adapter": "Static read-only export plus explicit composite dataset_version and question_id mapping. Never update v4 rows or rewrite attempts.",
+      "baseline_tests": [
+        "source hash and row count",
+        "duplicate and collision map",
+        "composite question identity",
+        "old-attempt joins",
+        "retirement and replacement evidence"
+      ],
+      "current_state": "SANITIZED_STATIC_V4_845_ROWS_AND_CDN_3961_ROWS_HASHED;_ZERO_ID_OVERLAP;_NO_IMPORT_OR_PRODUCTION_DB_READ"
+    },
+    {
+      "id": "github_delivery",
+      "kind": "deployment_control_plane",
+      "owner": "Root Supervisor and Release and Reliability",
+      "authority": [
+        "DR-006",
+        "Critical Systems Contract",
+        "MR-078A"
+      ],
+      "coupling": "Only authorized route for preview, staging, internal production, migration promotion, and known-good rollback.",
+      "protected_status": "ROOT_ONLY",
+      "source_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/railway.json",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_SYSTEM/deploy.sh",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_SYSTEM/DEPLOY_MANIFEST.json",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/VALIDATION/validate_deploy.sh",
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/VALIDATION/validate_runtime.sh"
+      ],
+      "safest_adapter": "Create or identify a reviewed GitHub workflow that pins source commit, target project, preview/staging environment, test evidence, artifact hash, rollback, and post-rollback tests.",
+      "baseline_tests": [
+        "source commit and upstream gate",
+        "dependency audit",
+        "application and security suites",
+        "preview migration and RLS",
+        "staging E2E",
+        "protected consumer smokes",
+        "rollback and reapply",
+        "post-deploy monitoring"
+      ],
+      "current_state": "NO_I1Q_WORKFLOW_OR_DEPLOYMENT_DISCOVERED"
+    }
+  ],
+  "edges": [
+    {
+      "from": "mmos_boot_authority",
+      "to": "i1q_internal_app",
+      "kind": "governs",
+      "write_authority": "root_only"
+    },
+    {
+      "from": "wordpress_identity",
+      "to": "hq_railway_session",
+      "kind": "signed_identity_handoff",
+      "write_authority": "shared_auth_owner_only"
+    },
+    {
+      "from": "hq_railway_session",
+      "to": "ranklistiq_supabase",
+      "kind": "supabase_auth_bootstrap",
+      "write_authority": "hq_server_only"
+    },
+    {
+      "from": "hq_railway_session",
+      "to": "i1q_internal_app",
+      "kind": "proposed_canonical_identity_adapter",
+      "write_authority": "not_implemented"
+    },
+    {
+      "from": "i1q_internal_app",
+      "to": "i1q_schema",
+      "kind": "proposed_transactional_repository",
+      "write_authority": "not_implemented"
+    },
+    {
+      "from": "i1q_schema",
+      "to": "ranklistiq_supabase",
+      "kind": "authorized_additive_schema",
+      "write_authority": "root_migration_only"
+    },
+    {
+      "from": "arena",
+      "to": "hq_railway_session",
+      "kind": "auth_exchange_and_bootstrap",
+      "write_authority": "existing"
+    },
+    {
+      "from": "arena",
+      "to": "stat",
+      "kind": "route",
+      "route": "/stat"
+    },
+    {
+      "from": "arena",
+      "to": "daily_rounds",
+      "kind": "route",
+      "route": "/drills?entry=daily_rounds"
+    },
+    {
+      "from": "stat",
+      "to": "ranklistiq_supabase",
+      "kind": "authenticated_rpc_and_dataset_read",
+      "write_authority": "rpc_only"
+    },
+    {
+      "from": "i1q_internal_app",
+      "to": "stat",
+      "kind": "future_release_projection",
+      "contract": "exact_nine_field_server_dataset",
+      "feature_flag": "off"
+    },
+    {
+      "from": "mmvs_drill_registry_api",
+      "to": "drills",
+      "kind": "registry_read",
+      "write_authority": "none_for_i1q"
+    },
+    {
+      "from": "mmvs_drill_registry_api",
+      "to": "daily_rounds",
+      "kind": "registry_read",
+      "write_authority": "none_for_i1q"
+    },
+    {
+      "from": "daily_rounds",
+      "to": "ranklistiq_supabase",
+      "kind": "drill_control_read",
+      "object": "public.drill_registry_control"
+    },
+    {
+      "from": "daily_rounds",
+      "to": "drills",
+      "kind": "launch_payload",
+      "route": "/drills?video_id=<id>"
+    },
+    {
+      "from": "stream_r2_cdn",
+      "to": "arena",
+      "kind": "runtime_html_delivery"
+    },
+    {
+      "from": "stream_r2_cdn",
+      "to": "stat",
+      "kind": "runtime_html_delivery"
+    },
+    {
+      "from": "stream_r2_cdn",
+      "to": "drills",
+      "kind": "runtime_and_media_delivery"
+    },
+    {
+      "from": "stream_r2_cdn",
+      "to": "daily_rounds",
+      "kind": "runtime_and_media_delivery"
+    },
+    {
+      "from": "transcript_vtt_nodes",
+      "to": "i1q_internal_app",
+      "kind": "restricted_read_only_source",
+      "gate": "privacy_safe_working_transcript_required"
+    },
+    {
+      "from": "media_engine_cie",
+      "to": "i1q_internal_app",
+      "kind": "optional_read_only_metadata_adapter",
+      "gate": "auth_and_owner_approval"
+    },
+    {
+      "from": "missionmed_drive_sources",
+      "to": "i1q_internal_app",
+      "kind": "optional_read_only_source",
+      "gate": "explicit_file_authorization"
+    },
+    {
+      "from": "legacy_v4_and_historical_joins",
+      "to": "i1q_internal_app",
+      "kind": "read_only_reconciliation"
+    },
+    {
+      "from": "i1q_internal_app",
+      "to": "drills",
+      "kind": "future_read_only_sidecar_projection",
+      "feature_flag": "off"
+    },
+    {
+      "from": "matrix_runtime",
+      "to": "i1q_internal_app",
+      "kind": "shared_estate_only",
+      "direct_integration": false
+    },
+    {
+      "from": "github_delivery",
+      "to": "i1q_internal_app",
+      "kind": "future_preview_staging_internal_production",
+      "current_state": "not_implemented"
+    },
+    {
+      "from": "github_delivery",
+      "to": "ranklistiq_supabase",
+      "kind": "future_forward_migration",
+      "current_state": "route_not_discovered"
+    }
+  ],
+  "proposed_file_ownership": [
+    {
+      "owner": "Ecosystem Mapper",
+      "paths": [
+        "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/ecosystem_mapper/**"
+      ],
+      "scope": "read-only findings and maps only"
+    },
+    {
+      "owner": "Adapter and Identity Implementer",
+      "paths": [
+        "i1q-question-platform/src/contracts.mjs",
+        "i1q-question-platform/src/exports.mjs",
+        "i1q-question-platform/src/adapters/**",
+        "i1q-question-platform/tests/adapters-security.test.mjs"
+      ],
+      "scope": "I1Q-owned projections and adapters; no shared consumer edits"
+    },
+    {
+      "owner": "Auth and Release Security Implementer",
+      "paths": [
+        "i1q-question-platform/src/auth.mjs",
+        "i1q-question-platform/src/server.mjs",
+        "i1q-question-platform/src/platform.mjs",
+        "i1q-question-platform/tests/security-regressions.test.mjs"
+      ],
+      "scope": "I1Q-owned auth boundary and release security only"
+    },
+    {
+      "owner": "Privacy Normalization Implementer",
+      "paths": [
+        "i1q-question-platform/src/privacy.mjs",
+        "i1q-question-platform/src/pipeline.mjs",
+        "i1q-question-platform/tests/privacy-regressions.test.mjs"
+      ],
+      "scope": "privacy-safe normalization; no raw corpus persistence"
+    },
+    {
+      "owner": "Evidence Validator Implementer",
+      "paths": [
+        "i1q-question-platform/src/validate-evidence.mjs",
+        "i1q-question-platform/tests/evidence-validator.test.mjs",
+        "new validator-only fixtures"
+      ],
+      "scope": "reproducible evidence validation"
+    },
+    {
+      "owner": "Architecture and Data with Root promotion",
+      "paths": [
+        "new I1Q-owned repository adapter files",
+        "new correctly named RANKLISTIQ migration candidate outside the Growth Engine migration route",
+        "new migration and RLS tests"
+      ],
+      "scope": "design by Architecture and Data; canonical path selection, application, and promotion by Root"
+    },
+    {
+      "owner": "Root Supervisor only",
+      "paths": [
+        "/Users/brianb/MissionMed_OS/**",
+        "missionmed-hq/server.mjs",
+        "wp-content/mu-plugins/missionmed-hq-*.php",
+        "LIVE/arena.html",
+        "LIVE/stat.html",
+        "LIVE/drills.html",
+        "LIVE/daily.html",
+        "wp-content/mu-plugins/*route-proxy.php",
+        "supabase/migrations/**",
+        "railway.json",
+        "_SYSTEM/deploy.sh",
+        "_SYSTEM/DEPLOY_MANIFEST.json",
+        ".github/workflows/**",
+        "shared environment and feature flags"
+      ],
+      "scope": "shared-system decisions, consumer-owner coordination, integration, migration, deployment, rollback, and monitoring"
+    }
+  ],
+  "blockers": [
+    "Current security veto against the 1006 application candidate.",
+    "Current UX and accessibility veto against the 1006 application candidate.",
+    "Canonical I1Q identity resolver and role mapping are absent.",
+    "HQ encrypted-session expiry and configured-secret checks require shared-auth repair and independent verification.",
+    "Transactional RANKLISTIQ repository and trusted transaction-local identity context are absent.",
+    "Candidate SQL is not a canonical MR-078A migration and has never run in preview Postgres.",
+    "The separate canonical GitHub migration and deployment route for RANKLISTIQ/I1Q was not found in this worktree.",
+    "STAT Canon, deployed RPC shape, client normalization, and Data Flow hash language conflict and require an owner ruling before shared changes.",
+    "Existing question_metadata uses question_id as the sole primary key; DR-006 requires composite dataset_version plus question_id semantics.",
+    "The 5ae58b0 I1Q Drills artifact lacked explicit availability. Commit 4724a24 adds a direct-tested adapter, but it has not been integrated, certified by Drills/Daily owners, or activated.",
+    "All 97 real sources remain extraction-blocked until speaker-aware privacy normalization; 96 may enter a future exact-match allowlist after gates, while one remains zero-retention.",
+    "No preview, staging, rollback/reapply, monitoring, or protected-consumer E2E evidence exists for I1Q.",
+    "Four root dependency advisories remain repository-wide release risk.",
+    "The package evidence validator target is missing.",
+    "Medical governance lead is unassigned; this blocks medical approval and student publication, not bounded internal engineering."
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "report_id": "i1q_1006_phase0_audit_summary",
+  "mission_id": "I1Q-1006",
+  "generated_at": "2026-07-14T00:59:55.497Z",
+  "overall_status": "pass",
+  "classification": "SYNTHETIC_NOT_MEDICAL",
+  "production_status": "BLOCKED",
+  "execution_scope": {
+    "persistent_writes": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/audit/**",
+    "official_1005_execution": "isolated temporary copy with exact validator bytes",
+    "network": false,
+    "production_reads": false,
+    "production_writes": false
+  },
+  "exact_tests": {
+    "official_validators": 20,
+    "official_leak_tests": 6,
+    "official_negative_cases": 30,
+    "new_adversarial_cases": 50,
+    "privacy_contract_tests": 5,
+    "total_assertions": 111
+  },
+  "component_status": {
+    "official_1005": "pass",
+    "source_estate_unchanged": "pass",
+    "source_privacy_finding": "pass",
+    "adversarial_baseline": "pass",
+    "adversarial_mutations": "pass",
+    "privacy_contract": "pass"
+  },
+  "result_files": [
+    "results/official_1005_suite.json",
+    "results/adversarial_audit_report.json",
+    "results/audit_summary.json"
+  ],
+  "executions": [
+    {
+      "script": "run_official_1005_isolated.mjs",
+      "exit_code": 0,
+      "signal": null,
+      "stdout": "{\n  \"status\": \"pass\",\n  \"validator_exact_byte_match\": true,\n  \"source_estate_unchanged\": true,\n  \"validators_passed\": 20,\n  \"leak_tests_passed\": 6,\n  \"negative_cases_passed\": 30,\n  \"report_path\": \"_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/audit/results/official_1005_suite.json\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "script": "run_adversarial_audit.mjs",
+      "exit_code": 0,
+      "signal": null,
+      "stdout": "{\n  \"overall_status\": \"pass\",\n  \"source_privacy_finding_status\": \"pass\",\n  \"baseline_status\": \"pass\",\n  \"mutation_cases_passed\": 50,\n  \"mutation_cases_total\": 50,\n  \"privacy_contract_tests_passed\": 5,\n  \"privacy_contract_tests_total\": 5,\n  \"report_path\": \"_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/audit/results/adversarial_audit_report.json\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

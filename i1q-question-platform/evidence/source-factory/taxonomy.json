@@ -1,0 +1,339 @@
+{
+  "schema_version": "missionmed.i1q.taxonomy_artifact.v1",
+  "taxonomy": {
+    "version": "i1q.taxonomy.v2",
+    "status": "INTERNAL_DRAFT_NOT_MEDICALLY_RATIFIED",
+    "primary_specialties": [
+      "foundations",
+      "cardiology",
+      "dermatology",
+      "emergency_medicine",
+      "endocrinology",
+      "gastroenterology",
+      "hematology_oncology",
+      "infectious_disease",
+      "nephrology",
+      "neurology",
+      "obstetrics_gynecology",
+      "pediatrics",
+      "preventive_medicine",
+      "psychiatry",
+      "pulmonology",
+      "rheumatology",
+      "surgery",
+      "toxicology"
+    ],
+    "dimensions": [
+      "primary_specialty",
+      "organ_system",
+      "topic",
+      "subtopic",
+      "primary_concept_id",
+      "clinical_task",
+      "reasoning_pattern",
+      "difficulty_tier",
+      "interview_competency",
+      "question_mode"
+    ],
+    "registries": {
+      "classification_profile_fields": [
+        "primary_specialty",
+        "organ_system",
+        "topic",
+        "subtopic",
+        "primary_concept_id"
+      ],
+      "classification_profiles": [
+        {
+          "primary_specialty": "emergency_medicine",
+          "organ_system": "allergy_immunology",
+          "topic": "anaphylaxis",
+          "subtopic": "initial_pharmacologic_management",
+          "primary_concept_id": "concept.emergency.medicine.intramuscular.epinephrine.first"
+        },
+        {
+          "primary_specialty": "cardiology",
+          "organ_system": "cardiovascular",
+          "topic": "atrial_fibrillation",
+          "subtopic": "hemodynamic_instability",
+          "primary_concept_id": "concept.cardiology.synchronized.cardioversion.for.unstable.af"
+        },
+        {
+          "primary_specialty": "toxicology",
+          "organ_system": "environmental_exposure",
+          "topic": "carbon_monoxide_poisoning",
+          "subtopic": "diagnostic_confirmation",
+          "primary_concept_id": "concept.toxicology.carbon.monoxide.specific.assay"
+        },
+        {
+          "primary_specialty": "neurology",
+          "organ_system": "central_nervous_system",
+          "topic": "convulsive_status_epilepticus",
+          "subtopic": "initial_antiseizure_therapy",
+          "primary_concept_id": "concept.neurology.benzodiazepine.first.phase"
+        },
+        {
+          "primary_specialty": "obstetrics_gynecology",
+          "organ_system": "maternal_fetal_infectious_disease",
+          "topic": "syphilis_in_pregnancy",
+          "subtopic": "penicillin_allergy",
+          "primary_concept_id": "concept.obstetrics.gynecology.desensitize.then.treat.with.penicillin"
+        },
+        {
+          "primary_specialty": "infectious_disease",
+          "organ_system": "central_nervous_system",
+          "topic": "acute_bacterial_meningitis",
+          "subtopic": "empiric_treatment_timing",
+          "primary_concept_id": "concept.infectious.disease.treat.before.delayed.imaging.or.lp"
+        },
+        {
+          "primary_specialty": "gastroenterology",
+          "organ_system": "hepatobiliary",
+          "topic": "ascites",
+          "subtopic": "initial_diagnostic_evaluation",
+          "primary_concept_id": "concept.gastroenterology.diagnostic.paracentesis.for.new.ascites"
+        },
+        {
+          "primary_specialty": "hematology_oncology",
+          "organ_system": "hematologic",
+          "topic": "immune_thrombotic_thrombocytopenic_purpura",
+          "subtopic": "emergency_initial_management",
+          "primary_concept_id": "concept.hematology.oncology.start.tpe.and.corticosteroids.before.adamts13.result"
+        },
+        {
+          "primary_specialty": "emergency_medicine",
+          "organ_system": "preventive_infectious_disease",
+          "topic": "tetanus_prevention",
+          "subtopic": "dirty_wound_unknown_immunization",
+          "primary_concept_id": "concept.emergency.medicine.vaccine.plus.tetanus.immune.globulin"
+        },
+        {
+          "primary_specialty": "endocrinology",
+          "organ_system": "metabolic",
+          "topic": "diabetic_ketoacidosis",
+          "subtopic": "potassium_management",
+          "primary_concept_id": "concept.endocrinology.replace.low.potassium.before.insulin"
+        },
+        {
+          "primary_specialty": "hematology_oncology",
+          "organ_system": "spine",
+          "topic": "metastatic_spinal_cord_compression",
+          "subtopic": "urgent_imaging",
+          "primary_concept_id": "concept.hematology.oncology.urgent.whole.spine.mri"
+        },
+        {
+          "primary_specialty": "nephrology",
+          "organ_system": "cardiorenal",
+          "topic": "severe_hyperkalemia",
+          "subtopic": "cardiac_membrane_protection",
+          "primary_concept_id": "concept.nephrology.intravenous.calcium.for.ecg.toxicity"
+        },
+        {
+          "primary_specialty": "obstetrics_gynecology",
+          "organ_system": "maternal_fetal",
+          "topic": "hypertensive_disorders_of_pregnancy",
+          "subtopic": "preeclampsia_recognition",
+          "primary_concept_id": "concept.obstetrics.gynecology.preeclampsia.diagnostic.pattern"
+        },
+        {
+          "primary_specialty": "pediatrics",
+          "organ_system": "infectious_exanthem",
+          "topic": "measles",
+          "subtopic": "clinical_recognition",
+          "primary_concept_id": "concept.pediatrics.classic.measles.sequence"
+        },
+        {
+          "primary_specialty": "obstetrics_gynecology",
+          "organ_system": "reproductive",
+          "topic": "ectopic_pregnancy",
+          "subtopic": "ultrasound_diagnosis",
+          "primary_concept_id": "concept.obstetrics.gynecology.extrauterine.gestational.sac"
+        },
+        {
+          "primary_specialty": "pediatrics",
+          "organ_system": "respiratory_infectious_disease",
+          "topic": "pertussis",
+          "subtopic": "paroxysmal_stage",
+          "primary_concept_id": "concept.pediatrics.classic.pertussis.cough.pattern"
+        },
+        {
+          "primary_specialty": "neurology",
+          "organ_system": "cerebrovascular",
+          "topic": "acute_stroke",
+          "subtopic": "syndrome_recognition",
+          "primary_concept_id": "concept.neurology.sudden.focal.neurologic.deficit"
+        },
+        {
+          "primary_specialty": "psychiatry",
+          "organ_system": "mental_health",
+          "topic": "bipolar_disorder",
+          "subtopic": "manic_episode",
+          "primary_concept_id": "concept.psychiatry.mania.severity.pattern"
+        },
+        {
+          "primary_specialty": "toxicology",
+          "organ_system": "environmental_exposure",
+          "topic": "carbon_monoxide_poisoning",
+          "subtopic": "exposure_pattern_recognition",
+          "primary_concept_id": "concept.toxicology.carbon.monoxide.exposure.cluster"
+        },
+        {
+          "primary_specialty": "surgery",
+          "organ_system": "gastrointestinal",
+          "topic": "acute_appendicitis",
+          "subtopic": "classic_presentation",
+          "primary_concept_id": "concept.surgery.migratory.appendicitis.pain.pattern"
+        },
+        {
+          "primary_specialty": "dermatology",
+          "organ_system": "integumentary",
+          "topic": "melanoma",
+          "subtopic": "suspicious_lesion_recognition",
+          "primary_concept_id": "concept.dermatology.abcde.warning.features"
+        },
+        {
+          "primary_specialty": "preventive_medicine",
+          "organ_system": "cardiovascular",
+          "topic": "hypertension_screening",
+          "subtopic": "diagnostic_confirmation",
+          "primary_concept_id": "concept.preventive.medicine.out.of.office.bp.confirmation"
+        },
+        {
+          "primary_specialty": "nephrology",
+          "organ_system": "renal",
+          "topic": "glomerular_syndromes",
+          "subtopic": "nephrotic_pattern",
+          "primary_concept_id": "concept.nephrology.nephrotic.syndrome.definition"
+        },
+        {
+          "primary_specialty": "rheumatology",
+          "organ_system": "vascular_inflammatory",
+          "topic": "giant_cell_arteritis",
+          "subtopic": "high_risk_recognition",
+          "primary_concept_id": "concept.rheumatology.giant.cell.arteritis.pattern"
+        }
+      ],
+      "organ_systems": [
+        "allergy_immunology",
+        "cardiorenal",
+        "cardiovascular",
+        "central_nervous_system",
+        "cerebrovascular",
+        "environmental_exposure",
+        "gastrointestinal",
+        "hematologic",
+        "hepatobiliary",
+        "infectious_exanthem",
+        "integumentary",
+        "maternal_fetal",
+        "maternal_fetal_infectious_disease",
+        "mental_health",
+        "metabolic",
+        "preventive_infectious_disease",
+        "renal",
+        "reproductive",
+        "respiratory_infectious_disease",
+        "spine",
+        "vascular_inflammatory"
+      ],
+      "clinical_tasks": [
+        "identify_the_most_likely_diagnosis",
+        "select_the_best_diagnostic_test",
+        "select_the_best_imaging_study",
+        "select_the_best_next_diagnostic_step",
+        "select_the_best_next_step"
+      ],
+      "reasoning_patterns": [
+        "integrate_discriminating_clinical_features",
+        "recognize_critical_pattern_then_prioritize_action",
+        "recognize_misleading_pulse_oximetry_then_select_specific_assay"
+      ],
+      "difficulty_tiers": [
+        "editorial_uncalibrated"
+      ],
+      "interview_competencies": [
+        "pattern_recognition_with_explicit_differential_reasoning",
+        "safe_clinical_prioritization_with_concise_rationale"
+      ],
+      "question_modes": [
+        "clinical_scenario",
+        "fact_recall"
+      ]
+    }
+  },
+  "misconception_vocabulary": {
+    "version": "i1q.misconceptions.v2",
+    "status": "INTERNAL_DRAFT_NOT_MEDICALLY_RATIFIED",
+    "categories": [
+      "diagnostic_sequence_error",
+      "epidemiology_substitution",
+      "finding_disease_mismatch",
+      "mechanism_confusion",
+      "management_escalation_error",
+      "management_indication_error",
+      "near_neighbor_diagnosis",
+      "screening_diagnostic_confusion",
+      "severity_threshold_error",
+      "temporal_pattern_error",
+      "treatment_diagnosis_confusion"
+    ],
+    "entries": [
+      {
+        "misconception_id": "misconception.diagnostic_sequence_error",
+        "category": "diagnostic_sequence_error",
+        "definition": "Selects a plausible diagnostic action in the wrong order."
+      },
+      {
+        "misconception_id": "misconception.epidemiology_substitution",
+        "category": "epidemiology_substitution",
+        "definition": "Substitutes an exposure or population pattern that does not fit the case."
+      },
+      {
+        "misconception_id": "misconception.finding_disease_mismatch",
+        "category": "finding_disease_mismatch",
+        "definition": "Maps a finding to a disease that does not account for the full pattern."
+      },
+      {
+        "misconception_id": "misconception.mechanism_confusion",
+        "category": "mechanism_confusion",
+        "definition": "Uses an incorrect causal or physiologic mechanism."
+      },
+      {
+        "misconception_id": "misconception.management_escalation_error",
+        "category": "management_escalation_error",
+        "definition": "Escalates, delays, or sequences management inappropriately."
+      },
+      {
+        "misconception_id": "misconception.management_indication_error",
+        "category": "management_indication_error",
+        "definition": "Applies a treatment or intervention without the required indication."
+      },
+      {
+        "misconception_id": "misconception.near_neighbor_diagnosis",
+        "category": "near_neighbor_diagnosis",
+        "definition": "Chooses a clinically adjacent diagnosis while missing a discriminating feature."
+      },
+      {
+        "misconception_id": "misconception.screening_diagnostic_confusion",
+        "category": "screening_diagnostic_confusion",
+        "definition": "Confuses screening, confirmation, and definitive diagnostic testing."
+      },
+      {
+        "misconception_id": "misconception.severity_threshold_error",
+        "category": "severity_threshold_error",
+        "definition": "Misapplies a severity, duration, or treatment threshold."
+      },
+      {
+        "misconception_id": "misconception.temporal_pattern_error",
+        "category": "temporal_pattern_error",
+        "definition": "Misreads onset, duration, sequence, or timing."
+      },
+      {
+        "misconception_id": "misconception.treatment_diagnosis_confusion",
+        "category": "treatment_diagnosis_confusion",
+        "definition": "Substitutes a treatment concept for the diagnosis or vice versa."
+      }
+    ]
+  },
+  "content_hash": "18d64cb7adaa14a616988891844cf2bfe2ebe7037a5f71643d530fd0cff793d2"
+}

@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-07-14T01:17:48.747Z",
+  "status": "pass_local_candidate_with_production_blockers",
+  "passed": [
+    "deny_by_default_without_identity_adapter",
+    "role_checks",
+    "immutable_revision_history",
+    "immutable_audit_chain",
+    "answer_alias_scanning",
+    "pre_answer_artifact_has_no_answer_fields",
+    "post_answer_requires_finalization",
+    "request_body_limit",
+    "path_traversal_rejection",
+    "malformed_json_rejection",
+    "security_headers",
+    "bounded_pagination",
+    "idempotency",
+    "workflow_managed_resource_bypass_rejection",
+    "private_source_reference_redaction",
+    "claim_currency_release_gate",
+    "rights_release_gate",
+    "student_release_flag_defaults_off"
+  ],
+  "blocked_or_not_executed": [
+    "canonical_auth_session_penetration_test",
+    "postgres_rls_live_test",
+    "production_idor_test",
+    "production_csrf_test",
+    "production_rate_limit_test",
+    "external_dependency_scan"
+  ],
+  "critical_open_defects": 0,
+  "high_open_defects": 0
+}

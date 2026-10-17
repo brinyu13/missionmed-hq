@@ -1,0 +1,105 @@
+{
+  "generated_at": "2026-07-15T12:00:00.000Z",
+  "classification": "SYNTHETIC_NOT_MEDICAL",
+  "handoff_sources": {
+    "audit/README.md": "# Synthetic Audit\n\nAggregate-only validator fixture.\n",
+    "source-a.md": "# Synthetic Source\n\nNo corpus content is present.\n"
+  },
+  "foundation_exact_tests": {
+    "official_validators": 20,
+    "official_leak_tests": 6,
+    "official_negative_cases": 30,
+    "new_adversarial_cases": 50,
+    "privacy_contract_tests": 5,
+    "total_assertions": 111
+  },
+  "privacy_classes": {
+    "address_like": {
+      "required": true,
+      "explicitly_evaluated": true,
+      "missing_required_class": false,
+      "gold_count": 1,
+      "detection_count": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "denominator_zero": {
+        "precision": false,
+        "recall": false
+      }
+    },
+    "email": {
+      "required": true,
+      "explicitly_evaluated": true,
+      "missing_required_class": false,
+      "gold_count": 1,
+      "detection_count": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "denominator_zero": {
+        "precision": false,
+        "recall": false
+      }
+    },
+    "patient_identifier": {
+      "required": true,
+      "explicitly_evaluated": true,
+      "missing_required_class": false,
+      "gold_count": 1,
+      "detection_count": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "denominator_zero": {
+        "precision": false,
+        "recall": false
+      }
+    },
+    "student_name": {
+      "required": true,
+      "explicitly_evaluated": true,
+      "missing_required_class": false,
+      "gold_count": 1,
+      "detection_count": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "denominator_zero": {
+        "precision": false,
+        "recall": false
+      }
+    },
+    "third_party_name": {
+      "required": true,
+      "explicitly_evaluated": true,
+      "missing_required_class": false,
+      "gold_count": 1,
+      "detection_count": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1,
+      "recall": 1,
+      "denominator_zero": {
+        "precision": false,
+        "recall": false
+      }
+    }
+  },
+  "privacy_contract_test_ids": [
+    "PA-001-required-classes-explicit",
+    "PA-002-patient-recall-numeric",
+    "PA-003-missing-required-class-fails",
+    "PA-004-zero-prediction-denominator-explicit",
+    "PA-005-empty-corpus-denominators-explicit"
+  ]
+}
