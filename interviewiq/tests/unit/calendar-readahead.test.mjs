@@ -30,3 +30,13 @@ test('visible cohort finishes before optional details; entry stays immediate and
  assert.deepEqual(calls,['/bootstrap?view=calendar','cohort','entry']);if(change)vm.runInContext(change,c);finish();await Promise.resolve();assert.equal(calls.includes('details'),!change);
  }
 });
+
+const shell=readFileSync(new URL('../../public/source/shell.js',import.meta.url),'utf8');
+test('actual render initialization cannot bypass cohort completion or duplicate its request',async()=>{
+ for(const stale of [false,true]){
+ const init=shell.split('\n').find(x=>x.includes("if(calendarV2()&&S.ui.calendarScope==='all'&&!cohortPage)"));let finish;const pending=new Promise(resolve=>finish=resolve),calls=[];
+ const c=vm.createContext({Promise,queueMicrotask,document:{getElementById:()=>({innerHTML:''})},location:{search:''},actor:{id:'own'},sessionEpoch:0,bootSequence:0,cohortPage:null,S:{ui:{calendarScope:'all'}},calendarV2:()=>true,parseInterviewIQEntry:()=>null,renderPublicCalendarShell:()=>'',fitCalendarViewport:()=>{},apiFetch:async()=>({}),applyBootstrap:()=>{},applyInterviewIQEntry:()=>{},completeWorkspace:()=>calls.push('details'),lockWorkspace:e=>{throw Error(e)}});
+ c.loadCohort=()=>{calls.push('cohort');c.cohortPage={loading:true};return pending;};vm.runInContext(actions.split('\n').find(x=>x.startsWith('function warmCalendar()')),c);vm.runInContext(`globalThis.render=()=>{${init}}`,c);vm.runInContext(runtime.slice(runtime.indexOf('async function boot(){'),runtime.indexOf('const MRX_COMMANDS')),c);
+ await vm.runInContext('boot()',c);assert.deepEqual(calls,['cohort']);if(stale)c.sessionEpoch++;finish();await Promise.resolve();assert.deepEqual(calls,stale?['cohort']:['cohort','details']);
+ }
+});

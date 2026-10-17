@@ -295,8 +295,8 @@ async function boot(){
   const entry=parseInterviewIQEntry(location.search);
   try{
     let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
-    if(sequence!==bootSequence)return;applyBootstrap(b);render();const identity=actor.id,epoch=sessionEpoch;
-    const calendarRead=warmCalendar();applyInterviewIQEntry(entry,identity,epoch);
+    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar();render();const identity=actor.id,epoch=sessionEpoch;
+    applyInterviewIQEntry(entry,identity,epoch);
     // Complete optional workspace details after the visible cohort read, not in competition with it.
     void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace();});
   }catch(error){if(sequence===bootSequence)lockWorkspace(error.message);}
