@@ -1,0 +1,11 @@
+{
+  "schema": "missionmed.ivprep.analytics.compact-vision-fixture.v1",
+  "frameMs": 125,
+  "cases": [
+    { "id": "single-face-neutral", "faceCount": 1, "frames": 16, "expectedPersonSpecific": true },
+    { "id": "multiple-face-stop", "faceCount": 2, "frames": 8, "expectedPersonSpecific": false, "expectedMultipleFaces": true },
+    { "id": "detector-unavailable", "faceCount": null, "frames": 8, "expectedPersonSpecific": false },
+    { "id": "short-lean-not-episode", "faceCount": 1, "frames": 1, "leanDeg": 20, "expectedLeanEpisodes": 0 },
+    { "id": "sustained-lean", "faceCount": 1, "frames": 8, "leanDeg": 20, "expectedLeanEpisodes": 1 }
+  ]
+}

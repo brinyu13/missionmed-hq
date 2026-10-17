@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="data:,">
+  <title>MMC Partner Demo / Synthetic Data</title>
+  <style>
+    *{box-sizing:border-box}
+    :root{
+      --navy:#071524;
+      --navy-2:#0b1d33;
+      --navy-3:#102743;
+      --panel:rgba(18,40,71,.72);
+      --panel-2:rgba(10,26,45,.86);
+      --line:rgba(255,255,255,.09);
+      --line-strong:rgba(0,212,255,.22);
+      --text:#f8fbff;
+      --muted:rgba(248,251,255,.67);
+      --dim:rgba(248,251,255,.42);
+      --gold:#e8a41c;
+      --gold-soft:rgba(232,164,28,.14);
+      --cyan:#00d4ff;
+      --cyan-soft:rgba(0,212,255,.12);
+      --green:#2ecc71;
+      --green-soft:rgba(46,204,113,.12);
+      --orange:#e67e22;
+      --orange-soft:rgba(230,126,34,.14);
+      --red:#e74c3c;
+      --red-soft:rgba(231,76,60,.14);
+      --violet:#a55eea;
+      --violet-soft:rgba(165,94,234,.14);
+      --radius:8px;
+      --shadow:0 24px 80px rgba(0,0,0,.32);
+    }
+    html,body{height:100%;margin:0}
+    body{
+      min-width:1160px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 16% 12%,rgba(0,212,255,.09),transparent 32%),
+        linear-gradient(135deg,#06111f 0%,#0b1d33 48%,#071524 100%);
+      color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    }
+    button,input,textarea{font:inherit}
+    button{border:0;background:transparent;color:inherit;cursor:pointer}
+    .app{height:100vh;display:grid;grid-template-columns:252px minmax(0,1fr)}
+    .sidebar{
+      background:linear-gradient(180deg,rgba(11,29,51,.98),rgba(7,21,36,.98));
+      border-right:1px solid var(--line);
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+    }
+    .brand{padding:18px 18px 15px;border-bottom:1px solid var(--line)}
+    .brand-kicker{font-size:10px;color:var(--cyan);font-weight:800;letter-spacing:.8px}
+    .brand-title{margin-top:4px;font-size:17px;font-weight:800;letter-spacing:.4px;color:var(--text)}
+    .brand-sub{margin-top:4px;font-size:11px;line-height:1.45;color:var(--muted)}
+    .nav{padding:12px 12px 10px;overflow:auto}
+    .nav-label{font-size:10px;color:var(--dim);font-weight:800;text-transform:uppercase;letter-spacing:.7px;padding:10px 8px 6px}
+    .nav-btn{
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 10px;
+      border-radius:6px;
+      color:var(--muted);
+      font-size:13px;
+      text-align:left;
+      transition:background .18s,color .18s,border .18s;
+      border:1px solid transparent;
+    }
+    .nav-btn:hover{background:rgba(255,255,255,.05);color:var(--text)}
+    .nav-btn.active{background:var(--cyan-soft);border-color:rgba(0,212,255,.24);color:var(--cyan)}
+    .nav-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor}
+    .sidebar-footer{margin-top:auto;padding:14px 18px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px}
+    .mini-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--cyan));color:#071524;font-weight:900;display:grid;place-items:center;font-size:12px}
+    .footer-meta strong{display:block;font-size:12px}
+    .footer-meta span{display:block;font-size:10px;color:var(--dim);margin-top:2px}
+    .main{min-width:0;min-height:0;display:grid;grid-template-rows:64px minmax(0,1fr)}
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:0 24px;
+      border-bottom:1px solid var(--line);
+      background:rgba(7,21,36,.78);
+      backdrop-filter:blur(14px);
+    }
+    .page-title{font-size:15px;font-weight:800}
+    .page-sub{font-size:12px;color:var(--muted);margin-top:3px}
+    .top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .status-pill,.badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 9px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:750;
+      white-space:nowrap;
+      border:1px solid transparent;
+    }
+    .status-pill{color:var(--green);background:var(--green-soft);border-color:rgba(46,204,113,.22)}
+    .badge.gold{color:var(--gold);background:var(--gold-soft);border-color:rgba(232,164,28,.24)}
+    .badge.cyan{color:var(--cyan);background:var(--cyan-soft);border-color:rgba(0,212,255,.24)}
+    .badge.green{color:var(--green);background:var(--green-soft);border-color:rgba(46,204,113,.22)}
+    .badge.orange{color:var(--orange);background:var(--orange-soft);border-color:rgba(230,126,34,.22)}
+    .badge.red{color:var(--red);background:var(--red-soft);border-color:rgba(231,76,60,.22)}
+    .badge.violet{color:var(--violet);background:var(--violet-soft);border-color:rgba(165,94,234,.22)}
+    .btn{
+      padding:8px 12px;
+      border-radius:7px;
+      border:1px solid var(--line-strong);
+      background:var(--cyan-soft);
+      color:var(--cyan);
+      font-size:12px;
+      font-weight:750;
+    }
+    .btn.gold{border-color:rgba(232,164,28,.28);background:var(--gold-soft);color:var(--gold)}
+    .btn.ghost{background:rgba(255,255,255,.035);border-color:var(--line);color:var(--muted)}
+    .content{overflow:auto;padding:22px 24px 28px}
+    .screen{display:none}
+    .screen.active{display:block}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .card{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+      padding:16px;
+    }
+    .card.accent{border-color:rgba(232,164,28,.28);background:linear-gradient(135deg,rgba(18,40,71,.82),rgba(7,21,36,.76))}
+    .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .card-title{font-size:13px;font-weight:850;letter-spacing:.2px}
+    .card-sub{font-size:11px;color:var(--dim);margin-top:3px;line-height:1.45}
+    .stat{font-size:26px;font-weight:900;line-height:1;color:var(--text)}
+    .stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);font-weight:800;margin-top:8px}
+    .stat-note{font-size:11px;color:var(--muted);line-height:1.45;margin-top:8px}
+    .student-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}
+    .student-card{
+      display:grid;
+      grid-template-columns:42px minmax(0,1fr);
+      gap:10px;
+      align-items:center;
+      padding:11px;
+      border-radius:8px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.035);
+      text-align:left;
+    }
+    .student-card.active{border-color:rgba(0,212,255,.35);background:var(--cyan-soft)}
+    .avatar{
+      width:42px;
+      height:42px;
+      border-radius:11px;
+      display:grid;
+      place-items:center;
+      font-size:13px;
+      font-weight:900;
+      color:#06111f;
+      background:linear-gradient(135deg,var(--gold),var(--cyan));
+      box-shadow:0 0 0 1px rgba(255,255,255,.16) inset;
+      flex:none;
+    }
+    .avatar.large{width:116px;height:116px;border-radius:18px;font-size:36px}
+    .avatar.small{width:30px;height:30px;border-radius:9px;font-size:10px}
+    .student-name{font-size:12px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .student-meta{font-size:10px;color:var(--muted);line-height:1.35;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .briefing-layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:14px;align-items:stretch}
+    .photo-panel{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+    .photo-meta{border-top:1px solid var(--line);padding-top:10px;width:100%;font-size:10px;line-height:1.45;color:var(--dim);text-align:left}
+    .photo-meta strong{color:var(--muted)}
+    .hero-panels{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-bottom:12px}
+    .hero-panel{padding:14px;border:1px solid rgba(0,212,255,.18);border-radius:8px;background:rgba(0,212,255,.045);min-height:132px}
+    .hero-panel.gold{border-color:rgba(232,164,28,.28);background:rgba(232,164,28,.07)}
+    .kicker{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;font-weight:900;margin-bottom:7px}
+    .lead{font-size:18px;font-weight:900;line-height:1.32}
+    .body-copy{font-size:12px;color:var(--muted);line-height:1.6}
+    .panel-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .intel-panel{min-height:128px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.033);padding:12px;overflow:hidden}
+    .intel-panel.span-2{grid-column:span 2}
+    .row-list{display:flex;flex-direction:column;gap:7px}
+    .compact-row{
+      display:flex;
+      justify-content:space-between;
+      gap:9px;
+      padding:8px 9px;
+      border-radius:7px;
+      background:rgba(255,255,255,.045);
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.35;
+    }
+    .compact-row strong{color:var(--cyan);font-size:10px;white-space:nowrap}
+    .compact-row.danger{background:var(--red-soft)}
+    .compact-row.danger strong{color:var(--red)}
+    .table{width:100%;border-collapse:separate;border-spacing:0}
+    .table th{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--dim);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+    .table td{font-size:12px;color:var(--muted);padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+    .table tr.clickable{cursor:pointer}
+    .table tr.clickable:hover td{background:rgba(0,212,255,.055)}
+    .two-col{display:grid;grid-template-columns:1.05fr .95fr;gap:14px}
+    .timeline{display:flex;flex-direction:column;gap:0}
+    .timeline-item{display:grid;grid-template-columns:14px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+    .timeline-dot{width:10px;height:10px;border-radius:50%;margin-top:5px;border:2px solid var(--cyan);background:var(--cyan-soft)}
+    .timeline-dot.gold{border-color:var(--gold);background:var(--gold-soft)}
+    .timeline-dot.green{border-color:var(--green);background:var(--green-soft)}
+    .timeline-dot.red{border-color:var(--red);background:var(--red-soft)}
+    .timeline-title{font-size:12px;font-weight:850}
+    .timeline-meta{font-size:10px;color:var(--dim);margin-top:3px}
+    .action-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:9px;align-items:start;padding:10px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.033)}
+    .action-check{width:16px;height:16px;accent-color:var(--gold);margin-top:2px}
+    .action-title{font-size:12px;font-weight:800}
+    .action-meta{font-size:10px;color:var(--dim);margin-top:4px}
+    .action-row.done{opacity:.55}
+    .action-row.done .action-title{text-decoration:line-through}
+    .session-shell{display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px}
+    .script-box{min-height:320px;border:1px solid var(--line);border-radius:8px;background:rgba(0,0,0,.16);padding:14px}
+    .note-area{
+      width:100%;
+      min-height:270px;
+      resize:vertical;
+      border-radius:8px;
+      border:1px solid var(--line);
+      outline:0;
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      padding:13px;
+      font-size:12px;
+      line-height:1.6;
+    }
+    .note-area:focus{border-color:rgba(0,212,255,.35);box-shadow:0 0 0 2px rgba(0,212,255,.1)}
+    .capture-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .empty-note{font-size:11px;color:var(--dim);line-height:1.5}
+    .demo-toast{
+      position:fixed;
+      right:22px;
+      bottom:22px;
+      padding:11px 14px;
+      border-radius:8px;
+      color:var(--green);
+      background:var(--green-soft);
+      border:1px solid rgba(46,204,113,.24);
+      box-shadow:var(--shadow);
+      font-size:12px;
+      font-weight:850;
+      display:none;
+      z-index:10;
+    }
+    .demo-toast.show{display:block}
+    @media (max-width:1260px){
+      body{min-width:980px}
+      .student-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .panel-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .briefing-layout,.session-shell{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" data-demo="partner-synthetic-static">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-kicker">Partner Demo / Synthetic Data</div>
+        <div class="brand-title">Matrix Mentor Console</div>
+        <div class="brand-sub">Public preview of MMC's mentor operating system. Static demo data only.</div>
+      </div>
+      <nav class="nav" aria-label="MMC demo navigation">
+        <div class="nav-label">Command</div>
+        <button class="nav-btn active" data-screen-link="today"><span class="nav-dot"></span>Today</button>
+        <button class="nav-btn" data-screen-link="directory"><span class="nav-dot"></span>Student Directory</button>
+        <button class="nav-btn" data-screen-link="profile"><span class="nav-dot"></span>Student Profile</button>
+        <button class="nav-btn" data-screen-link="actions"><span class="nav-dot"></span>Actions</button>
+        <div class="nav-label">Intelligence</div>
+        <button class="nav-btn" data-screen-link="meeting"><span class="nav-dot"></span>Meeting Intelligence</button>
+        <button class="nav-btn" data-screen-link="memory"><span class="nav-dot"></span>Mentor Memory</button>
+        <button class="nav-btn" data-screen-link="goals"><span class="nav-dot"></span>Goals</button>
+        <button class="nav-btn" data-screen-link="timeline"><span class="nav-dot"></span>Timeline</button>
+        <div class="nav-label">Session Loop</div>
+        <button class="nav-btn" data-screen-link="session"><span class="nav-dot"></span>Session Command</button>
+        <button class="nav-btn" data-screen-link="post"><span class="nav-dot"></span>Post Session</button>
+        <button class="nav-btn" data-screen-link="studentview"><span class="nav-dot"></span>Student View Preview</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="mini-avatar">BB</div>
+        <div class="footer-meta">
+          <strong>Dr Brian</strong>
+          <span>Partner review workspace</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="page-title" id="page-title">Today</div>
+          <div class="page-sub" id="page-sub">Public partner preview, synthetic cohort, no production connections</div>
+        </div>
+        <div class="top-actions">
+          <span class="status-pill">Static Demo</span>
+          <span class="badge gold">Synthetic Data</span>
+          <span class="badge cyan">No Login</span>
+          <button class="btn gold" id="start-session-btn">Start Demo Session</button>
+          <button class="btn" id="quick-brief-btn">Open Briefing</button>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="student-strip" id="student-strip"></div>
+
+        <section class="screen active" id="screen-today" data-screen="today">
+          <div class="grid-4" style="margin-bottom:14px">
+            <div class="card">
+              <div class="stat" style="color:var(--cyan)">5</div>
+              <div class="stat-label">Demo Students</div>
+              <div class="stat-note">Synthetic review cohort with realistic advising signals.</div>
+            </div>
+            <div class="card">
+              <div class="stat" style="color:var(--gold)">17</div>
+              <div class="stat-label">Open Loops</div>
+              <div class="stat-note">Promises, follow-ups, delayed decisions, and repeated coaching topics.</div>
+            </div>
+            <div class="card">
+              <div class="stat" style="color:var(--orange)">6</div>
+              <div class="stat-label">Risk Flags</div>
+              <div class="stat-note">Deadline, confidence, narrative, and execution risks.</div>
+            </div>
+            <div class="card">
+              <div class="stat" style="color:var(--green)">0</div>
+              <div class="stat-label">Production Calls</div>
+              <div class="stat-note">This page uses one static HTML document and browser-only interactions.</div>
+            </div>
+          </div>
+          <div class="card accent" style="margin-bottom:14px">
+            <div class="card-head">
+              <div>
+                <div class="card-title">Partner Demo Safety Boundary</div>
+                <div class="card-sub">This page is public, synthetic, and isolated from the secured MMC private route.</div>
+              </div>
+              <span class="badge green">Demo Safe</span>
+            </div>
+            <div class="grid-4">
+              <div><div class="kicker">Data</div><div class="body-copy">Synthetic names, signals, meetings, promises, memory, and outcomes.</div></div>
+              <div><div class="kicker">Connections</div><div class="body-copy">No production hydration, no network calls, and no persistence writes.</div></div>
+              <div><div class="kicker">Route</div><div class="body-copy">Runs at /mmc-partner-demo/ as an isolated public static page.</div></div>
+              <div><div class="kicker">Private MMC</div><div class="body-copy">Does not touch /mmc-private/ guard logic, assets, or runtime behavior.</div></div>
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head">
+                <div><div class="card-title">Today Operating Loop</div><div class="card-sub">Click any row to focus the student and prep the call.</div></div>
+                <span class="badge gold">5 Calls</span>
+              </div>
+              <div id="today-list" class="row-list"></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div><div class="card-title">Selected Student Brief</div><div class="card-sub">Executive summary first, details remain below.</div></div>
+                <span class="badge cyan" id="today-risk-badge">Risk</span>
+              </div>
+              <div class="hero-panel gold">
+                <div class="kicker">Next Best Move</div>
+                <div class="lead" id="today-next-move">Select a student.</div>
+                <div class="body-copy" id="today-next-reason" style="margin-top:8px"></div>
+              </div>
+              <div id="today-open-loops" class="row-list" style="margin-top:12px"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-directory" data-screen="directory">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Student Directory</div><div class="card-sub">Synthetic partner-demo cohort. Row click opens the Student Profile.</div></div>
+              <span class="badge cyan">5 Synthetic Profiles</span>
+            </div>
+            <table class="table">
+              <thead><tr><th>Student</th><th>Program</th><th>Specialty</th><th>Status</th><th>Risk</th><th>Next Move</th></tr></thead>
+              <tbody id="directory-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-profile" data-screen="profile">
+          <div class="card accent" style="margin-bottom:14px">
+            <div class="briefing-layout">
+              <div class="photo-panel">
+                <div class="avatar large" id="profile-avatar">AO</div>
+                <div>
+                  <div class="lead" id="profile-name">Amara Okafor</div>
+                  <div class="body-copy" id="profile-title">Internal Medicine applicant</div>
+                </div>
+                <div class="photo-meta">
+                  <div><strong>Source:</strong> synthetic partner demo avatar</div>
+                  <div><strong>Visibility:</strong> public demo only</div>
+                  <div><strong>Production storage:</strong> none in this route</div>
+                </div>
+              </div>
+              <div>
+                <div class="hero-panels">
+                  <div class="hero-panel">
+                    <div class="kicker">Who is this person?</div>
+                    <div class="lead" id="brief-who"></div>
+                    <div class="body-copy" id="brief-context" style="margin-top:9px"></div>
+                  </div>
+                  <div class="hero-panel gold">
+                    <div class="kicker">What should happen next?</div>
+                    <div class="lead" id="brief-next"></div>
+                    <div class="body-copy" id="brief-why" style="margin-top:9px"></div>
+                  </div>
+                </div>
+                <div class="panel-grid">
+                  <div class="intel-panel"><div class="kicker">Personal Context</div><div class="body-copy" id="brief-personal"></div></div>
+                  <div class="intel-panel"><div class="kicker">Professional Context</div><div class="body-copy" id="brief-professional"></div></div>
+                  <div class="intel-panel"><div class="kicker">Last Meeting</div><div class="body-copy" id="brief-last-meeting"></div></div>
+                  <div class="intel-panel"><div class="kicker">Risk</div><div id="brief-risk"></div></div>
+                  <div class="intel-panel span-2"><div class="kicker">Promises</div><div id="brief-promises" class="row-list"></div></div>
+                  <div class="intel-panel span-2"><div class="kicker">Open Loops</div><div id="brief-loops" class="row-list"></div></div>
+                  <div class="intel-panel span-2"><div class="kicker">Relationship Context</div><div class="body-copy" id="brief-relationship"></div></div>
+                  <div class="intel-panel span-2"><div class="kicker">Timeline Summary</div><div class="body-copy" id="brief-timeline"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="card"><div class="card-title">Profile Snapshot</div><div id="profile-snapshot" class="row-list" style="margin-top:12px"></div></div>
+            <div class="card"><div class="card-title">Readiness Inputs</div><div id="profile-readiness" class="row-list" style="margin-top:12px"></div></div>
+            <div class="card"><div class="card-title">Student View Preview</div><div class="body-copy" id="profile-student-view" style="margin-top:12px"></div></div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-actions" data-screen="actions">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Action Queue</div><div class="card-sub">Demo-only toggles update the current browser page and are not persisted.</div></div>
+              <span class="badge orange" id="actions-count">0 Open</span>
+            </div>
+            <div id="actions-list" class="row-list"></div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-meeting" data-screen="meeting">
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Meeting Intelligence</div><div class="card-sub">What mattered in the last session.</div></div><span class="badge cyan" id="meeting-date"></span></div>
+              <div id="meeting-summary" class="body-copy"></div>
+              <div class="row-list" id="meeting-signals" style="margin-top:12px"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Advice History</div><div class="card-sub">Recent, repeated, and not acted upon.</div></div><span class="badge gold">Owned Intelligence</span></div>
+              <div id="advice-history" class="row-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-memory" data-screen="memory">
+          <div class="two-col">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Mentor Memory</div><div class="card-sub">Private coaching context for the selected synthetic student.</div></div><span class="badge violet">Mentor Only</span></div>
+              <div id="memory-list" class="row-list"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Memory Search</div><div class="card-sub">Demo projection of what MMC remembers.</div></div><span class="badge cyan">Briefing Input</span></div>
+              <div id="memory-search" class="row-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-goals" data-screen="goals">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Goals and Milestones</div><div class="card-sub">The coaching plan stays visible across the operating loop.</div></div>
+              <span class="badge green">Velocity Tracking</span>
+            </div>
+            <div id="goals-list" class="grid-3"></div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-timeline" data-screen="timeline">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title">Timeline</div><div class="card-sub">Major moments, recent sessions, milestones, and open changes.</div></div>
+              <span class="badge cyan">Student Journey</span>
+            </div>
+            <div id="timeline-list" class="timeline"></div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-session" data-screen="session">
+          <div class="session-shell">
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Session Command</div><div class="card-sub">Live mentor cockpit for this selected student.</div></div><span class="badge gold">Demo Run</span></div>
+              <div id="session-command" class="row-list"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><div class="card-title">Live Notes</div><div class="card-sub">In-memory demo notes only. Nothing is saved outside this browser page.</div></div><button class="btn gold" id="end-session-btn">End Session</button></div>
+              <textarea class="note-area" id="session-notes"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-post" data-screen="post">
+          <div class="card accent">
+            <div class="card-head">
+              <div><div class="card-title">Post Session Capture</div><div class="card-sub">Shows how MMC turns a call into memory, goals, tasks, promises, and next move.</div></div>
+              <button class="btn gold" id="save-post-btn">Save Demo Capture</button>
+            </div>
+            <div class="capture-grid">
+              <div>
+                <div class="kicker">Summary</div>
+                <textarea class="note-area" id="post-summary" style="min-height:180px"></textarea>
+              </div>
+              <div>
+                <div class="kicker">Promises and Actions</div>
+                <textarea class="note-area" id="post-actions" style="min-height:180px"></textarea>
+              </div>
+              <div>
+                <div class="kicker">Private Mentor Note</div>
+                <textarea class="note-area" id="post-private" style="min-height:180px"></textarea>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-studentview" data-screen="studentview">
+          <div class="card accent">
+            <div class="card-head">
+              <div><div class="card-title">Student View Preview</div><div class="card-sub">Public-demo projection of what could be shared back to a student. Sensitive memory remains mentor-only.</div></div>
+              <span class="badge violet">Preview Only</span>
+            </div>
+            <div id="student-preview"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="demo-toast" id="toast">Demo state updated in memory only.</div>
+
+  <script>
+    (function(){
+      "use strict";
+
+      const students = [
+        {
+          id:"amara", initials:"AO", name:"Amara Okafor", program:"USCE Navigator", specialty:"Internal Medicine", status:"USCE strategy sprint", risk:"High", riskTone:"red", lastMeeting:"Jun 22, 2026", nextCall:"10:00 Today",
+          who:"Nigerian IMG building a USCE plan while rewriting a personal statement that still hides her strongest patient story.",
+          context:"High drive, high stakes, and too many moving parts. She needs structure, quick wins, and visible follow-through from her mentor.",
+          personal:"Lagos roots. Staying with a cousin in Brooklyn. Morning calls work best. Responds well to direct but warm structure.",
+          professional:"Aiming for academic Internal Medicine. Needs USCE momentum, LOR strategy, and narrative clarity before application season.",
+          nextMove:"Turn the call into three deadlines.",
+          why:"Confirm the coordinator intro, narrow her USCE outreach list, and make the personal statement rewrite concrete.",
+          relationship:"Trust is strong, but she becomes quiet when finances or family stress surface. Ask permission before going there.",
+          timelineSummary:"USCE outreach became urgent after a delayed coordinator response. The last two sessions centered on LOR sequencing and statement narrative.",
+          studentPreview:"Your next step is to rewrite the opening paragraph around one patient moment and send your LOR request list before Friday.",
+          profile:["Medical school: University of Lagos","Country: Nigeria","Program stage: USCE placement plus Match prep","Preferred coaching style: direct checklist with warm check-in"],
+          readiness:["USCE rotations: 2 of 4 targeted","Personal statement: rewrite required","LOR plan: attendings identified","Application readiness: needs acceleration"],
+          promises:[
+            ["Mentor intro to Mount Sinai IM coordinator","Overdue","danger"],
+            ["Student rewrites personal statement opening","Jun 25",""],
+            ["Student drafts LOR request list","Jun 28",""]
+          ],
+          loops:[
+            ["USCE coordinator introduction","Needs mentor follow-through"],
+            ["Personal statement opening","Repeated twice"],
+            ["LOR request confidence","Unfinished"],
+            ["Financial resource planning","Sensitive"]
+          ],
+          actions:[
+            ["mentor","Send Mount Sinai coordinator intro","Overdue","critical"],
+            ["student","Rewrite personal statement opening","Jun 25","high"],
+            ["student","Draft LOR request list","Jun 28","medium"]
+          ],
+          goals:[
+            ["Match into academic Internal Medicine","Two USCE rotations secured before application window",58,"Needs acceleration"],
+            ["Finish personal statement rewrite","Opening paragraph built around one patient moment",42,"At risk"],
+            ["Convert faculty relationships into LORs","Three attending requests queued",52,"Watch"]
+          ],
+          memory:[
+            ["Personal Details","Lagos roots; living with cousin in Brooklyn; prefers morning calls."],
+            ["Sensitive Context","Father has been unwell. Let her lead if she wants to discuss it."],
+            ["Last Advice","Use warm introductions, rewrite with Why / What / So What, and start LOR requests early."],
+            ["Next Best Coaching Move","Start with a personal check-in, then make the call a deadline-setting session."]
+          ],
+          meeting:{
+            date:"Jun 22",
+            summary:"Reviewed USCE outreach, personal statement rewrite, and LOR preparation. Amara left with clear tasks, but the mentor intro remains open.",
+            signals:["She is motivated but overloaded.","The intro promise is now the biggest trust risk.","Narrative work is improving when examples are concrete."]
+          },
+          advice:[
+            ["Latest advice","Lead with one vivid patient story, not a chronological explanation."],
+            ["Repeated advice","Ask for warm introductions before cold outreach."],
+            ["Not acted upon","LOR request list has been mentioned twice but not finalized."]
+          ],
+          timeline:[
+            ["Jun 22","USCE Strategy Review","Coordinator intro promised; statement rewrite assigned.","gold"],
+            ["Jun 15","Statement Framework","Why / What / So What framework introduced.","cyan"],
+            ["Jun 08","LOR Planning","Three attending targets identified.","green"],
+            ["May 30","Risk Flag","Delayed outreach became an application risk.","red"]
+          ]
+        },
+        {
+          id:"raj", initials:"RP", name:"Raj Patel", program:"Match Ready", specialty:"Family Medicine", status:"Narrative rebuild", risk:"Medium", riskTone:"orange", lastMeeting:"Jun 20, 2026", nextCall:"14:00 Today",
+          who:"Canadian IMG with strong clinical exposure whose personal statement reads competent but emotionally flat.",
+          context:"He over-explains timelines and underuses the patient story that makes him memorable.",
+          personal:"Calm, analytical, and often self-edits before the real point appears. Works best with examples and constraints.",
+          professional:"Family Medicine applicant with broad community clinic experience and a strong prevention-focused theme.",
+          nextMove:"Force a single patient story into the opening.",
+          why:"The rest of the application is credible; the statement needs warmth and a human hook.",
+          relationship:"He trusts structured critique. Avoid abstract encouragement; show before and after versions.",
+          timelineSummary:"Two sessions have circled around the same issue: the facts are present, but the reader does not feel why Family Medicine matters.",
+          studentPreview:"Your next revision should open with one patient moment and remove the first two timeline paragraphs.",
+          profile:["Medical school: synthetic Canadian IMG profile","Country: Canada","Program stage: Personal statement and ERAS polish","Preferred coaching style: examples, constraints, decisive edits"],
+          readiness:["Personal statement: draft exists","CV: strong clinical continuity","Interview stories: underdeveloped","Application readiness: on track if narrative improves"],
+          promises:[
+            ["Mentor reviews opening paragraph","Due today",""],
+            ["Student removes timeline preamble","Jun 26",""],
+            ["Mentor sends two model openings","Done",""]
+          ],
+          loops:[
+            ["Opening paragraph still flat","Repeated advice"],
+            ["Patient story selection","Unfinished"],
+            ["Interview answer bank","Queued"]
+          ],
+          actions:[
+            ["mentor","Review personal statement opening paragraph","Due today","high"],
+            ["student","Cut timeline explanation from draft","Jun 26","medium"],
+            ["student","Draft three patient-story bullets","Jun 27","medium"]
+          ],
+          goals:[
+            ["Finalize personal statement narrative","Opening paragraph reviewed and tightened",72,"On track"],
+            ["Build Family Medicine answer bank","Six stories tagged by competency",35,"Needs start"],
+            ["Clarify geographic program list","Top 25 programs scored",66,"Steady"]
+          ],
+          memory:[
+            ["Writing Pattern","Starts chronological, then becomes more compelling once discussing patients."],
+            ["Last Advice","Open with the clinic patient who changed how he thinks about prevention."],
+            ["Sensitive Context","He worries his path seems too ordinary; needs confidence in specificity."],
+            ["Next Best Coaching Move","Edit live for ten minutes so he can feel the difference."]
+          ],
+          meeting:{
+            date:"Jun 20",
+            summary:"Focused on personal statement structure. Raj agreed to replace timeline exposition with one patient-centered opening.",
+            signals:["He accepts critique quickly.","Draft quality rises with live editing.","Needs guardrails against over-explaining."]
+          },
+          advice:[
+            ["Latest advice","Lead with the prevention clinic patient."],
+            ["Repeated advice","Specificity beats comprehensive chronology."],
+            ["Not acted upon","Interview story bank still not started."]
+          ],
+          timeline:[
+            ["Jun 20","Statement Workshop","Opening structure rebuilt around patient story.","gold"],
+            ["Jun 12","CV Review","Continuity clinic theme identified.","green"],
+            ["Jun 04","Program Strategy","Family Medicine list narrowed.","cyan"]
+          ]
+        },
+        {
+          id:"mei", initials:"MC", name:"Mei-Ling Chen", program:"Interview Forge", specialty:"Pediatrics", status:"Mock recovery", risk:"High", riskTone:"red", lastMeeting:"Jun 18, 2026", nextCall:"16:30 Today",
+          who:"Pediatrics applicant with strong empathy whose mock interview confidence collapsed after vague feedback.",
+          context:"She has the substance, but needs feedback translated into concrete answer structure and repetition.",
+          personal:"Very receptive but shuts down when feedback feels abstract. Confidence improves after she repeats an answer out loud.",
+          professional:"Pediatrics target with meaningful volunteer work and a clear child advocacy theme.",
+          nextMove:"Run a short repair mock with exact answer scaffolds.",
+          why:"Confidence is the risk, not content. Make the next session concrete, brief, and winnable.",
+          relationship:"High trust when feedback is example-based. Avoid stacking too many corrections at once.",
+          timelineSummary:"The previous mock generated useful evidence but hurt confidence. Next step is a tightly scoped rebuild.",
+          studentPreview:"Your next mock will focus on two Pediatrics questions using a simple answer structure and immediate repetition.",
+          profile:["Medical school: synthetic East Asia profile","Country: Taiwan","Program stage: Mock interview repair","Preferred coaching style: example, repeat, affirm, then refine"],
+          readiness:["Clinical stories: strong","Answer structure: inconsistent","Confidence: fragile after mock","Application readiness: at risk without repair"],
+          promises:[
+            ["Mentor sends two Pediatrics answer templates","Tomorrow",""],
+            ["Student records one practice answer","Jun 25",""],
+            ["Mentor reviews confidence plan","Queued",""]
+          ],
+          loops:[
+            ["Feedback felt too abstract","Sensitive"],
+            ["Pediatrics why answer","Repeated"],
+            ["Mock cadence","Needs decision"]
+          ],
+          actions:[
+            ["mentor","Send Pediatrics answer templates","Tomorrow","medium"],
+            ["student","Record one two-minute practice answer","Jun 25","high"],
+            ["mentor","Schedule short repair mock","This week","high"]
+          ],
+          goals:[
+            ["Stabilize interview performance","Two high-pressure Pediatrics mocks completed",44,"At risk"],
+            ["Build advocacy story bank","Four stories mapped to competencies",50,"Watch"],
+            ["Improve answer closure","Every answer ends with patient impact",38,"Needs reps"]
+          ],
+          memory:[
+            ["Confidence Flag","Feedback must be concrete. Ask her to repeat the improved answer immediately."],
+            ["Last Advice","Use context, action, reflection, impact. Do not memorize full scripts."],
+            ["Personal Context","Prefers written examples before verbal drills."],
+            ["Next Best Coaching Move","Start with a win: one easy question, one improvement, one repeat."]
+          ],
+          meeting:{
+            date:"Jun 18",
+            summary:"Mock debrief showed strong substance and weak structure. Confidence dropped when feedback became abstract.",
+            signals:["She needs wins early.","Answer endings are the most fixable gap.","Avoid long debrief monologues."]
+          },
+          advice:[
+            ["Latest advice","Use context, action, reflection, impact."],
+            ["Repeated advice","End with what changed for the patient or team."],
+            ["Not acted upon","Practice recording has not happened yet."]
+          ],
+          timeline:[
+            ["Jun 18","Mock Interview Debrief","Confidence risk identified.","red"],
+            ["Jun 10","Pediatrics Story Bank","Advocacy theme selected.","green"],
+            ["Jun 01","Interview Baseline","Structure gap first surfaced.","gold"]
+          ]
+        },
+        {
+          id:"diego", initials:"DM", name:"Diego Martinez", program:"Interview Forge", specialty:"General Surgery", status:"Cadence planning", risk:"Medium", riskTone:"orange", lastMeeting:"Jun 19, 2026", nextCall:"Tomorrow",
+          who:"Surgery applicant with high energy who improves rapidly when practice cadence is consistent.",
+          context:"His main risk is drift. Without a weekly structure, he switches tactics and loses momentum.",
+          personal:"Competitive, upbeat, and motivated by clear scorecards. Gets restless with open-ended reflection.",
+          professional:"General Surgery target. Needs procedural story discipline and sharper complication reflection.",
+          nextMove:"Approve a weekly mock cadence with scorecard.",
+          why:"He will use the structure if the mentor makes it measurable and recurring.",
+          relationship:"Direct challenge works well. He likes benchmarks and does not mind tough feedback.",
+          timelineSummary:"Recent sessions improved structure but did not lock the cadence. The plan needs one owner and one recurring rhythm.",
+          studentPreview:"Your next week should include one mock, one scorecard review, and one complication-reflection drill.",
+          profile:["Medical school: synthetic Latin America profile","Country: Mexico","Program stage: Surgery mock cycle","Preferred coaching style: direct challenge with measurable scorecard"],
+          readiness:["Case bank: good start","Reflection depth: inconsistent","Mock cadence: undecided","Application readiness: steady with structure"],
+          promises:[
+            ["Mentor approves weekly cadence","This week",""],
+            ["Student brings two complication stories","Jun 27",""],
+            ["Mentor builds scorecard","Queued",""]
+          ],
+          loops:[
+            ["Mock cadence not locked","Repeated"],
+            ["Complication reflection","Needs depth"],
+            ["Program list rationale","Queued"]
+          ],
+          actions:[
+            ["mentor","Approve Diego mock cadence","This week","medium"],
+            ["student","Prepare two complication stories","Jun 27","medium"],
+            ["mentor","Add surgery scorecard prompts","Queued","medium"]
+          ],
+          goals:[
+            ["Lock surgery interview cadence","Weekly mock cycle approved",63,"Steady"],
+            ["Deepen complication reflection","Three stories revised",48,"Watch"],
+            ["Sharpen program fit answers","Top ten programs mapped",40,"Needs work"]
+          ],
+          memory:[
+            ["Coaching Preference","Does best with recurring drills and visible benchmarks."],
+            ["Last Advice","Stop changing the plan every session. Build reps around the same scorecard."],
+            ["Sensitive Context","He can treat uncertainty as failure. Reframe cadence as training, not remediation."],
+            ["Next Best Coaching Move","Make the next two weeks a measurable training block."]
+          ],
+          meeting:{
+            date:"Jun 19",
+            summary:"Discussed mock cadence and surgery answer quality. Diego agreed structure would help, but no recurring plan was finalized.",
+            signals:["Momentum is high.","Plan drift is the main risk.","Scorecard could become a strong motivator."]
+          },
+          advice:[
+            ["Latest advice","Use one scorecard for two weeks before changing tactics."],
+            ["Repeated advice","Complication stories need reflection, not just action."],
+            ["Not acted upon","Weekly cadence not scheduled."]
+          ],
+          timeline:[
+            ["Jun 19","Cadence Planning","Mock structure discussed but not locked.","gold"],
+            ["Jun 11","Surgery Story Review","Case bank accepted.","green"],
+            ["Jun 02","Interview Baseline","Reflection gap identified.","orange"]
+          ]
+        },
+        {
+          id:"fatima", initials:"FH", name:"Fatima Hassan", program:"Match Ready", specialty:"Psychiatry", status:"Readiness consolidation", risk:"Low", riskTone:"green", lastMeeting:"Jun 21, 2026", nextCall:"Friday",
+          who:"Psychiatry applicant with a coherent story who needs final polish and confidence in program fit.",
+          context:"She is the highest readiness profile in the demo cohort, but still benefits from disciplined follow-up.",
+          personal:"Reflective, prepared, and occasionally too cautious. Appreciates nuanced feedback and written summaries.",
+          professional:"Psychiatry target with strong continuity narrative and thoughtful advocacy experience.",
+          nextMove:"Move from remediation to polish.",
+          why:"The fundamentals are stable; coaching should now focus on program fit, confidence, and interview precision.",
+          relationship:"High trust and low volatility. Mentor can push for sharper answers without destabilizing confidence.",
+          timelineSummary:"Fatima has moved from broad planning into polish. The remaining work is narrower and higher leverage.",
+          studentPreview:"Your next step is to tighten program fit answers and practice concise closing lines.",
+          profile:["Medical school: synthetic Middle East profile","Country: Jordan","Program stage: Final polish","Preferred coaching style: nuanced feedback plus written summary"],
+          readiness:["Statement: strong","Interview stories: stable","Program fit: needs sharper examples","Application readiness: high"],
+          promises:[
+            ["Mentor reviews program fit notes","Friday",""],
+            ["Student shortens closing answer","Jun 29",""],
+            ["Mentor sends final polish checklist","Done",""]
+          ],
+          loops:[
+            ["Program fit specificity","Open"],
+            ["Closing answer length","Watch"],
+            ["Confidence before mock","Stable"]
+          ],
+          actions:[
+            ["mentor","Review program fit notes","Friday","medium"],
+            ["student","Shorten closing answer","Jun 29","medium"],
+            ["student","Select top five fit examples","Jun 30","low"]
+          ],
+          goals:[
+            ["Finalize Psychiatry readiness","Program fit examples polished",84,"Strong"],
+            ["Increase answer precision","Closing lines under 45 seconds",68,"Steady"],
+            ["Prepare final mock","Full mock scheduled",76,"On track"]
+          ],
+          memory:[
+            ["Strength","Strong self-awareness and a coherent Psychiatry theme."],
+            ["Last Advice","Polish program fit with one local detail and one personal reason."],
+            ["Personal Context","Prefers summary notes after sessions."],
+            ["Next Best Coaching Move","Affirm readiness, then refine fit and closing answers."]
+          ],
+          meeting:{
+            date:"Jun 21",
+            summary:"Reviewed Psychiatry readiness. Fatima's story is coherent; next step is program fit precision.",
+            signals:["Readiness is high.","Feedback can be more surgical now.","Confidence benefits from written summaries."]
+          },
+          advice:[
+            ["Latest advice","For every program, connect one local feature to one personal value."],
+            ["Repeated advice","Shorten closing answers."],
+            ["Not acted upon","Top five fit examples are not finalized."]
+          ],
+          timeline:[
+            ["Jun 21","Readiness Review","Moved into polish phase.","green"],
+            ["Jun 14","Psychiatry Narrative","Core story accepted.","green"],
+            ["Jun 05","Program Fit","Specificity gap identified.","gold"]
+          ]
+        }
+      ];
+
+      let selectedId = "amara";
+      const completedActions = new Set();
+      const state = { demoCaptures:0 };
+
+      const $ = (id) => document.getElementById(id);
+      const qsa = (selector) => Array.from(document.querySelectorAll(selector));
+      const student = () => students.find((item) => item.id === selectedId) || students[0];
+      const escapeHtml = (value) => String(value || "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[char]));
+      const badgeForRisk = (risk) => risk === "High" ? "red" : risk === "Medium" ? "orange" : "green";
+
+      function row(text, meta, tone){
+        const danger = tone === "danger" ? " danger" : "";
+        return `<div class="compact-row${danger}"><span>${escapeHtml(text)}</span><strong>${escapeHtml(meta)}</strong></div>`;
+      }
+
+      function showToast(message){
+        const toast = $("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        setTimeout(() => toast.classList.remove("show"), 1800);
+      }
+
+      function setScreen(screen){
+        qsa(".screen").forEach((el) => el.classList.toggle("active", el.dataset.screen === screen));
+        qsa("[data-screen-link]").forEach((el) => el.classList.toggle("active", el.dataset.screenLink === screen));
+        const titles = {
+          today:["Today","Public partner preview, synthetic cohort, no production connections"],
+          directory:["Student Directory","Synthetic demo cohort and partner-safe student rows"],
+          profile:["Student Profile","Briefing first, full detail below"],
+          actions:["Actions","Open commitments across the synthetic cohort"],
+          meeting:["Meeting Intelligence","Session summary, advice history, and signals"],
+          memory:["Mentor Memory","Private context and relationship intelligence"],
+          goals:["Goals","Milestones, readiness inputs, and velocity"],
+          timeline:["Timeline","Major events and student journey"],
+          session:["Session Command","Live advising cockpit for the selected demo student"],
+          post:["Post Session","Capture memory, promises, and actions after a call"],
+          studentview:["Student View Preview","What can be shared without exposing mentor-only memory"]
+        };
+        const pair = titles[screen] || titles.today;
+        $("page-title").textContent = pair[0];
+        $("page-sub").textContent = pair[1];
+        if (screen === "post") fillPostSession();
+      }
+
+      function selectStudent(id, screen){
+        selectedId = id;
+        renderAll();
+        if (screen) setScreen(screen);
+      }
+
+      function renderStudentStrip(){
+        $("student-strip").innerHTML = students.map((item) => `
+          <button class="student-card ${item.id === selectedId ? "active" : ""}" data-student-card="${escapeHtml(item.id)}">
+            <div class="avatar">${escapeHtml(item.initials)}</div>
+            <div>
+              <div class="student-name">${escapeHtml(item.name)}</div>
+              <div class="student-meta">${escapeHtml(item.specialty)} / ${escapeHtml(item.risk)} risk</div>
+            </div>
+          </button>
+        `).join("");
+      }
+
+      function renderToday(){
+        $("today-list").innerHTML = students.map((item) => `
+          <button class="compact-row" data-today-student="${escapeHtml(item.id)}" style="width:100%;text-align:left">
+            <span><strong style="color:var(--text);font-size:12px">${escapeHtml(item.nextCall)}</strong><br>${escapeHtml(item.name)} - ${escapeHtml(item.status)}</span>
+            <strong>${escapeHtml(item.risk)}</strong>
+          </button>
+        `).join("");
+        const s = student();
+        $("today-risk-badge").textContent = `${s.risk} Risk`;
+        $("today-risk-badge").className = `badge ${badgeForRisk(s.risk)}`;
+        $("today-next-move").textContent = s.nextMove;
+        $("today-next-reason").textContent = s.why;
+        $("today-open-loops").innerHTML = s.loops.slice(0,4).map((item) => row(item[0], item[1], item[1] === "Sensitive" ? "danger" : "")).join("");
+      }
+
+      function renderDirectory(){
+        $("directory-body").innerHTML = students.map((item) => `
+          <tr class="clickable" data-directory-student="${escapeHtml(item.id)}">
+            <td><div style="display:flex;align-items:center;gap:9px"><div class="avatar small">${escapeHtml(item.initials)}</div><div><strong style="color:var(--text)">${escapeHtml(item.name)}</strong><div class="student-meta">${escapeHtml(item.lastMeeting)}</div></div></div></td>
+            <td>${escapeHtml(item.program)}</td>
+            <td>${escapeHtml(item.specialty)}</td>
+            <td>${escapeHtml(item.status)}</td>
+            <td><span class="badge ${badgeForRisk(item.risk)}">${escapeHtml(item.risk)}</span></td>
+            <td>${escapeHtml(item.nextMove)}</td>
+          </tr>
+        `).join("");
+      }
+
+      function renderProfile(){
+        const s = student();
+        $("profile-avatar").textContent = s.initials;
+        $("profile-name").textContent = s.name;
+        $("profile-title").textContent = `${s.specialty} / ${s.program}`;
+        $("brief-who").textContent = s.who;
+        $("brief-context").textContent = s.context;
+        $("brief-next").textContent = s.nextMove;
+        $("brief-why").textContent = s.why;
+        $("brief-personal").textContent = s.personal;
+        $("brief-professional").textContent = s.professional;
+        $("brief-last-meeting").textContent = `${s.lastMeeting}: ${s.meeting.summary}`;
+        $("brief-risk").innerHTML = `<span class="badge ${badgeForRisk(s.risk)}">${escapeHtml(s.risk)} Risk</span><div class="body-copy" style="margin-top:9px">${escapeHtml(s.context)}</div>`;
+        $("brief-promises").innerHTML = s.promises.map((item) => row(item[0], item[1], item[2])).join("");
+        $("brief-loops").innerHTML = s.loops.map((item) => row(item[0], item[1], item[1] === "Sensitive" ? "danger" : "")).join("");
+        $("brief-relationship").textContent = s.relationship;
+        $("brief-timeline").textContent = s.timelineSummary;
+        $("profile-snapshot").innerHTML = s.profile.map((item) => row(item, "Profile", "")).join("");
+        $("profile-readiness").innerHTML = s.readiness.map((item) => row(item, "Input", "")).join("");
+        $("profile-student-view").textContent = s.studentPreview;
+      }
+
+      function renderActions(){
+        const allActions = students.flatMap((s) => s.actions.map((action, index) => ({ student:s, action, key:`${s.id}-${index}` })));
+        const openCount = allActions.filter((item) => !completedActions.has(item.key)).length;
+        $("actions-count").textContent = `${openCount} Open`;
+        $("actions-list").innerHTML = allActions.map(({ student:s, action, key }) => {
+          const done = completedActions.has(key);
+          return `
+            <label class="action-row ${done ? "done" : ""}">
+              <input class="action-check" type="checkbox" data-action-key="${escapeHtml(key)}" ${done ? "checked" : ""}>
+              <span>
+                <span class="action-title">${escapeHtml(action[1])}</span>
+                <span class="action-meta">${escapeHtml(s.name)} / ${escapeHtml(action[0])} / ${escapeHtml(action[2])}</span>
+              </span>
+              <span class="badge ${action[3] === "critical" ? "red" : action[3] === "high" ? "orange" : "cyan"}">${escapeHtml(action[3])}</span>
+            </label>
+          `;
+        }).join("");
+      }
+
+      function renderMeeting(){
+        const s = student();
+        $("meeting-date").textContent = s.meeting.date;
+        $("meeting-summary").textContent = s.meeting.summary;
+        $("meeting-signals").innerHTML = s.meeting.signals.map((item) => row(item, "Signal", "")).join("");
+        $("advice-history").innerHTML = s.advice.map((item) => row(item[1], item[0], item[0] === "Not acted upon" ? "danger" : "")).join("");
+      }
+
+      function renderMemory(){
+        const s = student();
+        $("memory-list").innerHTML = s.memory.map((item) => row(item[1], item[0], item[0] === "Sensitive Context" ? "danger" : "")).join("");
+        $("memory-search").innerHTML = [
+          row(`Find "${s.name.split(" ")[0]}" promises`, `${s.promises.length} results`, ""),
+          row(`Find "${s.specialty}" readiness`, `${s.goals.length} goals`, ""),
+          row(`Find sensitive mentor context`, "Mentor only", "danger"),
+          row(`Find next best move`, s.nextMove, "")
+        ].join("");
+      }
+
+      function renderGoals(){
+        const s = student();
+        $("goals-list").innerHTML = s.goals.map((goal) => `
+          <div class="card" style="background:rgba(255,255,255,.035)">
+            <div class="card-title">${escapeHtml(goal[0])}</div>
+            <div class="body-copy" style="margin-top:8px">${escapeHtml(goal[1])}</div>
+            <div style="height:7px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:13px">
+              <div style="height:100%;width:${Number(goal[2])}%;background:linear-gradient(90deg,var(--gold),var(--cyan));border-radius:999px"></div>
+            </div>
+            <div class="compact-row" style="margin-top:10px"><span>${Number(goal[2])}% progress</span><strong>${escapeHtml(goal[3])}</strong></div>
+          </div>
+        `).join("");
+      }
+
+      function renderTimeline(){
+        const s = student();
+        $("timeline-list").innerHTML = s.timeline.map((item) => `
+          <div class="timeline-item">
+            <div class="timeline-dot ${escapeHtml(item[3])}"></div>
+            <div>
+              <div class="timeline-title">${escapeHtml(item[1])}</div>
+              <div class="timeline-meta">${escapeHtml(item[0])}</div>
+              <div class="body-copy" style="margin-top:5px">${escapeHtml(item[2])}</div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      function renderSession(){
+        const s = student();
+        $("session-command").innerHTML = [
+          row("Open with", s.personal, ""),
+          row("Main focus", s.nextMove, ""),
+          row("Risk to check", s.risk === "High" ? "Do not let the call end without one concrete deadline." : "Keep momentum visible.", s.risk === "High" ? "danger" : ""),
+          row("Promise check", s.promises[0][0], s.promises[0][2]),
+          row("Student action", s.actions.find((item) => item[0] === "student")?.[1] || "Confirm next action", "")
+        ].join("");
+        $("session-notes").value = `${s.name} demo session plan:\n\n1. Check the open loop: ${s.loops[0][0]}.\n2. Coach the next move: ${s.nextMove}.\n3. Close with one promise, one student action, and one follow-up date.`;
+      }
+
+      function fillPostSession(){
+        const s = student();
+        $("post-summary").value = `${s.name}: reviewed ${s.status.toLowerCase()} and converted the conversation into a focused next step.`;
+        $("post-actions").value = `Mentor promise: ${s.promises[0][0]}.\nStudent action: ${s.actions.find((item) => item[0] === "student")?.[1] || "Confirm next step"}.\nFollow-up: review before next session.`;
+        $("post-private").value = `Private note: ${s.relationship}`;
+      }
+
+      function renderStudentPreview(){
+        const s = student();
+        $("student-preview").innerHTML = `
+          <div class="hero-panels">
+            <div class="hero-panel">
+              <div class="kicker">Student-facing next step</div>
+              <div class="lead">${escapeHtml(s.studentPreview)}</div>
+              <div class="body-copy" style="margin-top:9px">This preview intentionally excludes private mentor memory and sensitive context.</div>
+            </div>
+            <div class="hero-panel gold">
+              <div class="kicker">Shared goals</div>
+              <div class="row-list">${s.goals.slice(0,2).map((goal) => row(goal[0], `${goal[2]}%`, "")).join("")}</div>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="card"><div class="card-title">Shared Actions</div><div class="row-list" style="margin-top:12px">${s.actions.filter((item) => item[0] === "student").map((item) => row(item[1], item[2], "")).join("")}</div></div>
+            <div class="card"><div class="card-title">Upcoming Focus</div><div class="body-copy" style="margin-top:12px">${escapeHtml(s.nextMove)}</div></div>
+            <div class="card"><div class="card-title">Mentor-only Excluded</div><div class="body-copy" style="margin-top:12px">Sensitive context, private notes, and relationship guidance remain hidden from student preview.</div></div>
+          </div>
+        `;
+      }
+
+      function renderAll(){
+        renderStudentStrip();
+        renderToday();
+        renderDirectory();
+        renderProfile();
+        renderActions();
+        renderMeeting();
+        renderMemory();
+        renderGoals();
+        renderTimeline();
+        renderSession();
+        renderStudentPreview();
+      }
+
+      document.addEventListener("click", (event) => {
+        const nav = event.target.closest("[data-screen-link]");
+        if (nav) setScreen(nav.dataset.screenLink);
+        const card = event.target.closest("[data-student-card]");
+        if (card) selectStudent(card.dataset.studentCard);
+        const today = event.target.closest("[data-today-student]");
+        if (today) selectStudent(today.dataset.todayStudent, "profile");
+        const rowEl = event.target.closest("[data-directory-student]");
+        if (rowEl) selectStudent(rowEl.dataset.directoryStudent, "profile");
+      });
+
+      document.addEventListener("change", (event) => {
+        const action = event.target.closest("[data-action-key]");
+        if (!action) return;
+        if (action.checked) completedActions.add(action.dataset.actionKey);
+        else completedActions.delete(action.dataset.actionKey);
+        renderActions();
+        showToast("Action updated in memory only.");
+      });
+
+      $("start-session-btn").addEventListener("click", () => setScreen("session"));
+      $("quick-brief-btn").addEventListener("click", () => setScreen("profile"));
+      $("end-session-btn").addEventListener("click", () => setScreen("post"));
+      $("save-post-btn").addEventListener("click", () => {
+        state.demoCaptures += 1;
+        showToast("Demo post-session capture saved in memory only.");
+        setScreen("today");
+      });
+
+      window.MMC_PARTNER_DEMO = Object.freeze({
+        status:"PARTNER_DEMO_STATIC_READY",
+        data:"synthetic-only",
+        route:"/mmc-partner-demo/",
+        productionHydration:false,
+        persistenceWrites:false,
+        externalCalls:false,
+        privateRouteChanged:false,
+        source:"MMC-MEGARUN-100 plus MMC-016 private MMC product direction",
+        validate:function(){
+          const required = [
+            "Partner Demo / Synthetic Data",
+            "Student Directory",
+            "Student Profile",
+            "Meeting Intelligence",
+            "Mentor Memory",
+            "Actions",
+            "Goals",
+            "Timeline",
+            "Session Command",
+            "Post Session"
+          ];
+          const text = document.body.innerText;
+          return {
+            status:"PASS",
+            syntheticStudents:students.length,
+            selectedStudent:selectedId,
+            requiredTextPresent:required.every((item) => text.includes(item)),
+            screenCount:document.querySelectorAll(".screen").length,
+            productionHydration:false,
+            persistenceWrites:false,
+            externalCalls:false
+          };
+        }
+      });
+
+      renderAll();
+    })();
+  </script>
+</body>
+</html>

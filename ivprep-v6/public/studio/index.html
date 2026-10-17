@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en" data-app="ivprep-performance-studio">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IV Prep On-Call · MissionMed Performance Studio</title>
+<link rel="stylesheet" href="/iv-prep-on-call/assets/studio/studio.css">
+<link rel="stylesheet" href="/iv-prep-on-call/assets/analytics/analytics.css">
+</head>
+<body>
+<!--
+  Y1-Y2-CAM-V6-3506 — approved 3492 Performance Studio shell.
+
+  This shell REPLACES the pre-Fable 3440 AAA shell as the product surface, but it
+  deliberately reuses the proven runtime rather than reimplementing it. The surface ids
+  below (founder-student-video / -stage, founder-room-stage, founder-room-wrapper,
+  playback, communication-analytics-test-root) are the exact ids
+  public/analytics/ui.mjs binds to, so the working camera, face mesh, head, hand and
+  audio telemetry keep running unchanged underneath the new cockpit.
+
+  Screens use data-view-panel because the analytics cockpit resolves its owning view
+  from that attribute (see ownsActiveView in ui.mjs).
+-->
+<div class="studio">
+  <aside class="rail" id="rail" aria-label="Performance Studio navigation">
+    <div class="brand">MissionMed<br><span>IV Prep On-Call</span></div>
+    <div class="brand-sub microcap">Performance Studio</div>
+
+    <button class="new-session btn-new-session" type="button" data-goto="newsession">
+      <span>+ New session</span>
+    </button>
+
+    <nav class="nav-group" aria-label="Studio">
+      <span class="microcap">Studio</span>
+      <button class="nav-item" type="button" data-nav="home"><i class="ico">⌂</i>Home</button>
+      <button class="nav-item" type="button" data-nav="newsession"><i class="ico">＋</i>New session</button>
+      <button class="nav-item" type="button" data-nav="devicecheck"><i class="ico">◉</i>Device check</button>
+      <button class="nav-item" type="button" data-nav="training"><i class="ico">⌁</i>Delivery training</button>
+      <button class="nav-item" type="button" data-nav="simulation"><i class="ico">▣</i>Simulation</button>
+      <button class="nav-item" type="button" data-nav="postanswer"><i class="ico">✓</i>Post-answer</button>
+    </nav>
+
+    <nav class="nav-group" aria-label="Review">
+      <span class="microcap">Review</span>
+      <button class="nav-item" type="button" data-nav="filmroom"><i class="ico">▥</i>Film room</button>
+      <button class="nav-item" type="button" data-nav="compare"><i class="ico">⇄</i>Compare</button>
+      <button class="nav-item" type="button" data-nav="lab"><i class="ico">⌖</i>Analytics lab</button>
+      <button class="nav-item" type="button" data-nav="mentor"><i class="ico">◇</i>Mentor review</button>
+    </nav>
+
+    <nav class="nav-group" aria-label="Progression">
+      <span class="microcap">Progression</span>
+      <button class="nav-item" type="button" data-nav="progress"><i class="ico">▲</i>Progress</button>
+      <button class="nav-item" type="button" data-nav="fingerprint"><i class="ico">◈</i>Fingerprint</button>
+      <button class="nav-item" type="button" data-nav="vault"><i class="ico">▤</i>Results / Vault</button>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="role-switch" role="group" aria-label="Role view">
+        <button type="button" data-role="student" aria-pressed="true">Student</button>
+        <button type="button" data-role="mentor" aria-pressed="false">Mentor</button>
+        <button type="button" data-role="admin" aria-pressed="false">Admin</button>
+      </div>
+      <a class="matrix-return" href="/member-dashboard/">← Back to Matrix</a>
+      <div class="identity">
+        <div class="identity-mark" id="identity-initials"><span>—</span></div>
+        <div class="identity-text">
+          <strong id="identity-name">Loading…</strong>
+          <span class="microcap" id="identity-sub">Session</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="nav-toggle" type="button" id="nav-toggle" aria-label="Open navigation">☰</button>
+      <span class="crumb" id="crumb">Home</span>
+      <div class="law-chips">
+        <span class="law-chip">Observable cues only</span>
+        <span class="law-chip">Semitones, never Hz targets</span>
+        <span class="law-chip">Fail closed</span>
+      </div>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <div class="debug-banner" id="debug-banner" hidden>Founder / Admin debug instrumentation enabled — engineering diagnostics, dense mesh and raw timelines are visible. Students never see this.</div>
+
+      <!-- HOME -->
+      <section class="screen" data-view-panel="home" data-active="true">
+        <div class="microcap hero-kick">Your next rep</div>
+        <h1 class="hero">Walk in <em>ready.</em></h1>
+        <p class="lede">Practice the pressure, timing and follow-ups of a real residency interview, with delivery evidence you can replay.</p>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="button" data-goto="newsession"><span>Start a rep ▸</span></button>
+          <button class="btn btn-secondary" type="button" data-goto="devicecheck"><span>Device check</span></button>
+          <button class="btn btn-quiet" type="button" data-goto="filmroom"><span>Film room</span></button>
+        </div>
+
+        <div class="grid grid-3" style="margin-top:26px">
+          <div class="housing">
+            <div class="housing-title">Question library</div>
+            <div class="recess">
+              <div class="microcap">Canonical corpus</div>
+              <div style="font-family:var(--font-num);font-size:26px;font-weight:600" id="home-corpus-count">—</div>
+              <div class="microcap" id="home-corpus-breakdown">Loading…</div>
+            </div>
+          </div>
+          <div class="housing">
+            <div class="housing-title">Personal best</div>
+            <div class="recess"><div class="empty-state"><strong>No attempts yet</strong>Record an answer and your best rep per question appears here.</div></div>
+          </div>
+          <div class="housing">
+            <div class="housing-title">Progress</div>
+            <div class="recess"><div class="empty-state"><strong>No progression data</strong>XP, rank and mastery hydrate once the progression engine is connected.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- NEW SESSION -->
+      <section class="screen" data-view-panel="newsession">
+        <div class="microcap hero-kick">New session</div>
+        <h1 class="hero">Build the <em>rep.</em></h1>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn btn-primary" type="button" id="mode-wizard" aria-pressed="true"><span>Quick wizard</span></button>
+          <button class="btn btn-quiet" type="button" id="mode-loadout" aria-pressed="false"><span>Pro loadout ↗</span></button>
+        </div>
+
+        <!-- QUICK WIZARD -->
+        <div id="wizard" style="margin-top:20px">
+          <div class="housing">
+            <div class="housing-title">Quick wizard</div>
+            <div class="recess" id="wizard-body"></div>
+          </div>
+        </div>
+
+        <!-- PRO LOADOUT -->
+        <div id="loadout" hidden style="margin-top:20px">
+          <div class="grid grid-2">
+            <div class="housing">
+              <div class="housing-title">Question library</div>
+              <div class="recess">
+                <div class="q-toolbar">
+                  <input class="q-search" id="q-search" type="search" placeholder="Search 193 canonical questions…" aria-label="Search questions">
+                  <span class="q-count" id="q-count">—</span>
+                </div>
+                <div class="q-toolbar" id="q-collections" role="group" aria-label="Collections"></div>
+                <div class="q-list" id="q-list"></div>
+              </div>
+            </div>
+            <div class="housing">
+              <div class="housing-title">Interview set</div>
+              <div class="recess">
+                <div class="set-list" id="set-list"></div>
+                <div class="btn-row">
+                  <button class="btn btn-primary" type="button" data-goto="devicecheck"><span>Continue ▸</span></button>
+                  <button class="btn btn-quiet" type="button" id="set-clear"><span>Clear</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="housing" style="margin-top:16px">
+            <div class="housing-title">Session configuration</div>
+            <div class="recess grid grid-3" id="loadout-config"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DEVICE CHECK -->
+      <section class="screen" data-view-panel="devicecheck">
+        <div class="microcap hero-kick">Device check</div>
+        <h1 class="hero">Get <em>camera-ready.</em></h1>
+        <div class="grid grid-2" style="margin-top:18px">
+          <div class="housing">
+            <div class="housing-title">Devices</div>
+            <div class="recess grid grid-2" data-device-selectors></div>
+            <div class="recess">
+              <div class="microcap">Microphone level — speak to test</div>
+              <div class="mic-meter"><div class="mic-meter-fill" id="mic-level-fill"></div></div>
+              <div class="microcap" id="mic-level-readout">Connect to measure</div>
+              <div class="microcap" id="device-switch-status" style="margin-top:6px"></div>
+            </div>
+            <div class="housing-title" style="margin-top:14px">Readiness</div>
+            <div class="recess" id="device-checklist"></div>
+            <div class="btn-row">
+              <button class="btn btn-primary" type="button" id="device-connect"><span>Connect camera + mic</span></button>
+              <button class="btn btn-secondary" type="button" data-goto="training"><span>Delivery training ▸</span></button>
+            </div>
+          </div>
+          <div class="housing">
+            <div class="housing-title">Preview</div>
+            <div class="recess" style="padding:0">
+              <div class="stage" id="devicecheck-stage">
+                <div class="stage-tag"><span>You</span></div>
+              </div>
+            </div>
+            <p class="microcap" style="margin-top:10px">Nothing is measured while idle. Raw frames never leave your browser.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- DELIVERY TRAINING — hosts the real analytics cockpit -->
+      <section class="screen" data-view-panel="training">
+        <div class="microcap hero-kick">Delivery training</div>
+        <h1 class="hero">One thing at a <em>time.</em></h1>
+        <p class="lede">Live coaching shows a single active correction. Every other enabled metric stays visible as compact status; the detail lives in Film Room and Analytics Lab.</p>
+        <details class="housing" style="margin:14px 0">
+          <summary class="housing-title" style="cursor:pointer">⚙ Devices — switch camera or microphone without leaving the session</summary>
+          <div class="recess grid grid-2" data-device-selectors></div>
+        </details>
+
+        <!-- STUDENT COCKPIT. One large active correction plus a compact status rail.
+             The engineering cockpit that the analytics module renders into this same
+             screen is hidden for students by role CSS, never unsubscribed. -->
+        <div class="cockpit" data-student-cockpit>
+          <div class="cockpit-stage">
+            <div class="stage" id="cockpit-stage">
+              <video id="cockpit-video" autoplay muted playsinline></video>
+              <div class="stage-tag"><span id="cockpit-question">No question selected</span></div>
+            </div>
+            <div class="overlay-toggles" id="cockpit-overlays" role="group" aria-label="Overlay layers"></div>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="btn btn-primary" type="button" id="cockpit-connect"><span>Connect camera + mic</span></button>
+              <button class="btn btn-secondary" type="button" id="cockpit-start"><span>Start rep ▸</span></button>
+              <button class="btn btn-quiet" type="button" id="cockpit-finish"><span>Finish</span></button>
+            </div>
+          </div>
+
+          <div class="cockpit-side">
+            <!-- ONE dominant correction, ever. -->
+            <div class="correction-plate" id="cockpit-correction" data-state="idle">
+              <div>
+                <div class="microcap" id="correction-metric">Ready</div>
+                <div class="correction-verdict" id="correction-verdict">Start speaking</div>
+              </div>
+            </div>
+            <div class="primary-instrument" id="cockpit-primary"></div>
+            <div class="status-rail" id="cockpit-rail"></div>
+            <div class="microcap" id="cockpit-session">Session idle</div>
+          </div>
+        </div>
+        <!-- Engineering cockpit host. The analytics module owns this element and calls
+             replaceChildren() on it, which is why it must be its own container rather
+             than the whole screen. Marked founder-only: hidden for students by role
+             CSS, never unsubscribed. -->
+        <!-- Founder/Admin only. Hidden from students by role CSS. -->
+        <div class="housing" data-founder-only style="margin-top:16px">
+          <div class="housing-title">Audio chain diagnostics (Founder / Admin)</div>
+          <div class="recess" id="audio-debug"></div>
+          <p class="microcap" style="margin-top:8px">Read live from the MediaStreamTrack, AudioContext and analyser. PCM frames and F0 input frames must increase while you speak.</p>
+        </div>
+        <div id="communication-analytics-test-root" data-founder-only></div>
+      </section>
+
+      <!-- SIMULATION -->
+      <section class="screen" data-view-panel="simulation" id="founder-room-wrapper">
+        <div class="microcap hero-kick">Simulation</div>
+        <h1 class="hero">No <em>HUD.</em> Just the room.</h1>
+        <div class="grid grid-2" style="margin-top:18px">
+          <div class="housing">
+            <div class="housing-title">Student</div>
+            <div class="recess" style="padding:0">
+              <div class="stage" id="founder-room-stage">
+                <div class="stage" id="founder-student-stage" style="border:0">
+                  <video id="founder-student-video" autoplay muted playsinline></video>
+                  <div class="stage-tag"><span><i class="rec-dot"></i>You</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="housing">
+            <div class="housing-title">Interviewer</div>
+            <div class="recess" style="padding:0">
+              <div class="stage">
+                <video id="founder-avatar-video" autoplay muted playsinline aria-label="Interviewer video"></video>
+                <div class="stage-tag"><span id="sim-provider-state">Provider unavailable</span></div>
+              </div>
+            </div>
+            <div class="recess">
+              <div class="microcap">Interviewer state</div>
+              <p class="unavailable" id="sim-provider-note">LEMONSLICE STREAM MOUNTS HERE — NO PROVIDER SESSION AUTHORIZED</p>
+              <p class="microcap" style="margin-top:8px">Structured practice runs without a live avatar. Delivery Intelligence continues regardless of provider state.</p>
+            </div>
+          </div>
+        </div>
+        <div class="housing" style="margin-top:16px">
+          <div class="housing-title">Question progression</div>
+          <div class="recess" id="sim-progression"></div>
+        </div>
+      </section>
+
+      <!-- POST-ANSWER -->
+      <section class="screen" data-view-panel="postanswer">
+        <div class="microcap hero-kick">Post-answer</div>
+        <h1 class="hero">What <em>worked.</em></h1>
+        <div class="grid grid-2" style="margin-top:18px">
+          <div class="housing"><div class="housing-title">What worked</div><div class="recess" id="post-worked"></div></div>
+          <div class="housing"><div class="housing-title">One thing to fix</div><div class="recess" id="post-fix"></div></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" type="button" data-goto="filmroom"><span>Open film room</span></button>
+          <button class="btn btn-quiet" type="button" data-goto="compare"><span>Compare attempts</span></button>
+          <button class="btn btn-primary" type="button" data-goto="training"><span>Next question ▸</span></button>
+        </div>
+      </section>
+
+      <!-- FILM ROOM -->
+      <section class="screen" data-view-panel="filmroom">
+        <div class="microcap hero-kick">Film room</div>
+        <h1 class="hero">Every claim is <em>evidence.</em></h1>
+        <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Playback</div>
+          <div class="recess" style="padding:0">
+            <div class="stage"><video id="playback" controls playsinline></video></div>
+          </div>
+        </div>
+        <div class="housing" style="margin-top:16px">
+          <div class="housing-title">Tracks</div>
+          <div id="filmroom-groups"></div>
+        </div>
+      </section>
+
+      <!-- COMPARE -->
+      <section class="screen" data-view-panel="compare">
+        <div class="microcap hero-kick">Compare</div>
+        <h1 class="hero">Attempt <em>versus</em> attempt.</h1>
+        <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Pair selector</div>
+          <div class="recess"><div class="empty-state"><strong>Needs two saved attempts</strong>Durable answer persistence is not active yet, so there is nothing to compare. This surface is wired for synced playback, phase lanes and metric deltas once AnswerRecords persist.</div></div>
+        </div>
+      </section>
+
+      <!-- ANALYTICS LAB -->
+      <section class="screen" data-view-panel="lab">
+        <div class="microcap hero-kick">Analytics lab</div>
+        <h1 class="hero">Deep <em>inspection.</em></h1>
+        <p class="lede">Full instrumentation with numerics and coverage. Composite cue profiles show their contributors and denominators; a weak contributor is never averaged out of sight.</p>
+        <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Instrument library</div>
+          <div class="recess inst-grid" id="lab-instruments"></div>
+        </div>
+        <div class="housing" style="margin-top:16px">
+          <div class="housing-title">Live signal groups</div>
+          <div id="lab-groups"></div>
+        </div>
+        <div class="housing" style="margin-top:16px">
+          <div class="housing-title">Composite cue profiles</div>
+          <div class="recess"><div class="empty-state"><strong>Composites not yet wired</strong>Warmth, competence, credibility/authority, charisma balance and delivery congruence remain unavailable until their contributors pass the 3472 evidence law.</div></div>
+        </div>
+      </section>
+
+      <!-- MENTOR REVIEW -->
+      <section class="screen" data-view-panel="mentor">
+        <div class="microcap hero-kick">Mentor review</div>
+        <h1 class="hero">Async <em>review.</em></h1>
+        <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Unreviewed answers</div>
+          <div class="recess"><div class="empty-state"><strong>No answers awaiting review</strong>Mentor marks (PERFECT · REMEMBER THIS · NEEDS WORK · REVIEWED) and private mentor notes attach to AnswerRecords once durable persistence is active. Private mentor intelligence never renders in the student view.</div></div>
+        </div>
+      </section>
+
+      <!-- PROGRESS -->
+      <section class="screen" data-view-panel="progress">
+        <div class="microcap hero-kick">Progress</div>
+        <h1 class="hero">Earned, not <em>farmed.</em></h1>
+        <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Progression</div>
+          <div class="recess"><div class="empty-state"><strong>No XP, rank or badges yet</strong>Deliberately empty rather than seeded with sample numbers. The progression engine rewards completion, improvement, breadth, consistency, personal best and mastery — never raw repetition.</div></div>
+        </div>
+      </section>
+
+      <!-- FINGERPRINT -->
+      <section class="screen" data-view-panel="fingerprint">
+        <div class="microcap hero-kick">Fingerprint</div>
+        <h1 class="hero">Talk like <em>yourself</em> at your best.</h1>
+        <p class="lede">Compares your relaxed conversational delivery against your interview delivery, so the target is your own natural range rather than a population norm.</p>
+        <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Natural conversation baseline</div>
+          <div class="recess"><div class="empty-state"><strong>Baseline not captured</strong>No baseline data is invented. Once a casual storytelling baseline is recorded, gesture territory, hand range, smile events, facial motion range, gaze pattern, camera dwell, volume variation, pitch variation and cadence compare against it.</div></div>
+        </div>
+      </section>
+
+      <!-- RESULTS / VAULT -->
+      <section class="screen" data-view-panel="vault">
+        <div class="microcap hero-kick">Results / Vault</div>
+        <h1 class="hero">Your answer <em>library.</em></h1>
+        <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Saved answers</div>
+          <div class="recess" id="vault-body"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script type="module" src="/iv-prep-on-call/assets/studio/studio.mjs"></script>
+</body>
+</html>

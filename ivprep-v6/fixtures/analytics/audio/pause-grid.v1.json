@@ -1,0 +1,13 @@
+{
+  "schema": "missionmed.ivprep.analytics.pause-fixture.v1",
+  "frameMs": 50,
+  "speechRms": 0.1,
+  "silenceRms": 0.0001,
+  "cases": [
+    { "id": "999ms-not-pause", "leadSpeechMs": 1000, "silenceMs": 950, "tailSpeechMs": 1000, "expectedPauseCount": 0 },
+    { "id": "1200ms-pause", "leadSpeechMs": 1000, "silenceMs": 1200, "tailSpeechMs": 1000, "expectedPauseCount": 1 },
+    { "id": "4000ms-pause", "leadSpeechMs": 1000, "silenceMs": 4000, "tailSpeechMs": 1000, "expectedPauseCount": 1 },
+    { "id": "trailing-silence-not-midanswer", "leadSpeechMs": 1000, "silenceMs": 5000, "tailSpeechMs": 0, "expectedPauseCount": 0 },
+    { "id": "immediate-speech", "leadSpeechMs": 2000, "silenceMs": 0, "tailSpeechMs": 0, "expectedSpeech": true }
+  ]
+}

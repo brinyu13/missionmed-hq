@@ -1,0 +1,58 @@
+{
+  "schema": "missionmed.ivprep.3441r.t1.r5_evidence.v1",
+  "status": "ZERO_PROVIDER_IMPLEMENTATION_READY_PHYSICAL_TEST_1_PENDING",
+  "founder_packet_sha256": "837d18a6b55cd7da4a09672001d6a04d6460089e62aa20b39a7b8984bc293f73",
+  "authority_commit": "6b33d7c38cfa5b6e18988ab0e29f0f65da7f73c1",
+  "product_parent": "da3e5fec176b6d07ea0d7f01445a2297f5a156a6",
+  "writer": {
+    "scope": "GLOBAL",
+    "lease_id": "80fa9e8d-09b4-4666-9a70-57597af9e2f8",
+    "fencing_epoch": 40,
+    "binding_sha256": "abfdae9ef90e8e3af10fd4379c18ff76137ef6fd232d0ac0621c35e48d397e22",
+    "nonce_sha256": "f3058dfa40abf41e83697d2fe86542f8bbf7276d13d65df3be2263673b3b658b",
+    "raw_nonce_persisted": false
+  },
+  "root_cause": "FOUR_APPROVED_PRIVATE_FILE_BINDINGS_WERE_NOT_LOADED_BEFORE_PROCESS_ENV_VALIDATION",
+  "startup_before": {
+    "exit_code": 1,
+    "fixed_reason": "PROVIDER_BINDINGS_UNAVAILABLE",
+    "provider_calls": 0,
+    "url_emitted": false
+  },
+  "startup_after": {
+    "exit_before_manual_stop": false,
+    "fixed_reason": null,
+    "url_shape": "http://127.0.0.1:<CURRENT_PORT>/iv-prep-on-call/#room",
+    "observed_port": 53842,
+    "http_status": 200,
+    "chrome_visible": true,
+    "provider_calls_at_startup": 0
+  },
+  "source_sha256": {
+    "ivprep-v6/server/agents/start-profile-b-worker.mjs": "a437415672ee1aad61db0d99874d78eaa20a0f20b534a3bb105f6371c545ec0f",
+    "ivprep-v6/server/providers/provider-session-controller.mjs": "4362ae8507bd70dc0fee7a98d0d02a5bc6b72587c95c2f5b673f7821e3bf2060",
+    "ivprep-v6/scripts/3441r/start-founder-proof-harness.mjs": "17e07eb5fce959ef76670bf546de0cccdffde4d63f6686e0b6d0116b52d3507c",
+    "ivprep-v6/public/aaa/app.mjs": "d2dcce9fdf28b043079def04a74f0ae68a59b8046fe982a0536c2ffcc2260d40"
+  },
+  "test_sha256": {
+    "ivprep-v6/test/3440/provider-lifecycle.test.mjs": "d584a422af2847810065b43410c339da21809ca99d250688b5a7e06c4e4db4b9",
+    "ivprep-v6/test/3440/provider-sdk-contracts.test.mjs": "1c71284cf18f39a117e93cdd5b051cccc9199f5dec23231d858d417596d5cff1",
+    "ivprep-v6/test/3441r/founder-proof-runtime.test.mjs": "56ea56bcf3f07a9d8bc28217233b9a32c502f3f6523b7400e76bb6e506d99604",
+    "ivprep-v6/test/3441r/founder-proof-ui.test.mjs": "884f274d19572d34ff80773630d3396be223d2ebffc222d3d33b9e9d2c2f7081"
+  },
+  "tests": {
+    "focused": { "total": 43, "pass": 43, "fail": 0 },
+    "bounded_repository": { "total": 305, "pass": 305, "fail": 0 },
+    "npm_run_check": "PASS",
+    "repository_npm_test": "NOT_CLAIMED_GREEN_UNCHANGED_KEEPER_TEST_HANG"
+  },
+  "paid_state": {
+    "test_1_authorization": "UNCONSUMED_AVAILABLE_EXACTLY_ONCE",
+    "test_2_authorization": "NONE",
+    "provider_sessions_created": 0,
+    "lemonslice_sessions_created": 0,
+    "openai_realtime_sessions_created": 0,
+    "livekit_rooms_created": 0,
+    "lemonslice_credits_consumed": 0
+  }
+}

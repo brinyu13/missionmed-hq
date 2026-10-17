@@ -1,0 +1,11 @@
+{
+  "schema": "missionmed.ivprep.analytics.audio-fixture.v1",
+  "sampleRate": 48000,
+  "cases": [
+    { "id": "silence", "kind": "constant", "amplitude": 0, "expectedPeak": 0, "expectedClipped": false },
+    { "id": "minus-20-dbfs-sine", "kind": "sine", "frequencyHz": 440, "amplitude": 0.1414213562, "expectedRms": 0.1, "expectedDbfs": -20, "expectedClipped": false },
+    { "id": "near-clip", "kind": "constant", "amplitude": 0.989, "expectedClipped": false },
+    { "id": "three-sample-clip", "kind": "prefix", "samples": [1, 1, 1, 0, 0, 0], "expectedClipped": true },
+    { "id": "one-percent-clip", "kind": "ratio", "sampleCount": 1000, "clippedSamples": 10, "expectedClipped": true }
+  ]
+}

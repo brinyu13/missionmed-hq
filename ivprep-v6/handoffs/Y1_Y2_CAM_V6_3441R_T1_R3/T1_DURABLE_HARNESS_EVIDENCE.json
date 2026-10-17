@@ -1,0 +1,89 @@
+{
+  "authority": {
+    "decision": "DR-098/099",
+    "mission_med_os_commit": "3f5c48f40b1e645bd25977bc76f333d6d99a747e",
+    "product_base": "008f7f60d7a2b2c70e25a0794f5bfb9398ebf33a"
+  },
+  "candidate_state": "READY_SUBJECT_TO_COMMIT_PUSH_POST_PUSH_VERIFICATION_AND_LEASE_RELEASE",
+  "credentials": {
+    "values_inspected_or_persisted": false
+  },
+  "external_activity": {
+    "lemonslice_credits_consumed": 0,
+    "paid_test_authorization_consumed": false,
+    "provider_sessions_created": 0
+  },
+  "generated_at": "2026-08-14T18:59:45Z",
+  "implementation": {
+    "api_client_sha256": "de2bf3b42f641642367eba6ea024ce3758336ad92a0ef1953fdbd569dc3e805e",
+    "browser_app_sha256": "58a7d2431af46a3e7a692a1f8749ed1df99db06e83b69d8b7a585ca229602c3b",
+    "css_sha256": "e8f6d32c11c45f6a4733272146b1b7336e4bbeebe2060ff2dc820602c4992d90",
+    "harness_sha256": "52437f9526c87625bc0113fd3b14bdfe994ba9d6779699c39393496f7e546b4c",
+    "html_sha256": "1dd77466688e69c8e0838eadc8e704c05c4a9993e2ced63ea1c85f65da53ade9",
+    "keeper_sha256": "2e47a8bc164f88da75db447da4776e0fd5cda4e7f5144df73114d7e4fa366d44",
+    "keeper_test_sha256": "b44ce0d2054e479c0d66d7a24561d069aed910c432336e2b3222d79a89cc15d6",
+    "runtime_test_sha256": "977008e8308e4a818936bed72a754109f14f7181cc419dd1cd36b504436b1209",
+    "ui_test_sha256": "9ec3ddb4616f179494f5ac7ed51092fdef89985766b337282a6909f8304ed5a0"
+  },
+  "lease": {
+    "build_lease": {
+      "binding_sha256": "d751c9c5aa372824ccd9212a9def0cff41eea3b04af188cdfb38c1e27c447c96",
+      "fencing_epoch": 27,
+      "lease_id": "b72ea90b-f5ba-4cc7-ad5e-3eba9822040e",
+      "released": true
+    },
+    "heartbeat_interval_seconds": 5,
+    "publication_lease": {
+      "binding_sha256": "d9b1eb4c8b90c35897af5ca0359ba488e31deed8a4d037623b46ca984e23b7b9",
+      "fencing_epoch": 28,
+      "lease_id": "9afef4ed-383b-4c04-8bde-76e2e42b5bb2",
+      "nonce_sha256": "6214c71193eb13f0d09c9e4931cb227047dc6160abac8baab2e0c20283672645",
+      "release_required_after_post_push": true,
+      "state_at_freeze": "READY"
+    },
+    "ready_after_heartbeats": 6,
+    "ready_after_seconds": 30,
+    "scope": "PRODUCT:IV-PREP-ON-CALL",
+    "write_path_count": 14
+  },
+  "provider_contract": {
+    "automatic_reacquire": false,
+    "exact_agent_id": "agent_9bdfc50ec0086043",
+    "maximum_paid_test_seconds": 45,
+    "provider_capability_in_keeper": false,
+    "provider_controls_enabled_before_ready": false
+  },
+  "tests": {
+    "chrome_synthetic_qa": {
+      "authorize_enabled_only_at_ready": true,
+      "keeper_explicitly_started": true,
+      "provider_actions_clicked": 0,
+      "start_enabled_without_authorization": false
+    },
+    "disposable_full": {
+      "failed": 0,
+      "passed": 296,
+      "skipped": 0,
+      "total": 296
+    },
+    "focused_r3": {
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0,
+      "total": 19
+    },
+    "repository_context": {
+      "dependency_only_failures": 7,
+      "failed": 7,
+      "passed": 255,
+      "skipped": 8,
+      "total": 270
+    },
+    "stability": {
+      "heartbeat_cycles_at_minimum_observation": 30,
+      "minimum_observed_seconds": 153,
+      "state": "READY"
+    },
+    "static_check": "PASS"
+  }
+}

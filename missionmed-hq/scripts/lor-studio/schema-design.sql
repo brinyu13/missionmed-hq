@@ -1,0 +1,110 @@
+-- F2-LOR-1009 DESIGN ONLY. THIS FILE IS NOT A MIGRATION.
+-- No LOR database project, environment, schema, migration ledger, backup,
+-- restore, or rollback target has been ratified. Root supabase/migrations
+-- belongs to Growth Engine and is outside this tranche.
+--
+-- The only executable statement is a deliberate hard stop. All proposed DDL
+-- below is commented so this file cannot create, alter, or delete data.
+
+DO $$
+BEGIN
+  RAISE EXCEPTION 'F2-LOR-1009 schema design is non-executable until an additive authority decision names the exact target and migration ledger';
+END
+$$;
+
+-- PROPOSED, NON-EXECUTABLE MODEL
+--
+-- create schema lor_studio;
+--
+-- create table lor_studio.recommendation_cases (
+--   id uuid primary key,
+--   student_auth_subject uuid not null,
+--   status text not null,
+--   revision bigint not null default 0,
+--   created_at timestamptz not null,
+--   updated_at timestamptz not null,
+--   closed_at timestamptz,
+--   unique (id, student_auth_subject)
+-- );
+--
+-- create table lor_studio.case_revisions (
+--   case_id uuid not null references lor_studio.recommendation_cases(id),
+--   revision bigint not null,
+--   event_type text not null,
+--   actor_auth_subject uuid not null,
+--   changed_fields text[] not null,
+--   change_hash text not null,
+--   occurred_at timestamptz not null,
+--   primary key (case_id, revision)
+-- );
+--
+-- create table lor_studio.builder_sessions (
+--   id uuid primary key,
+--   case_id uuid not null unique references lor_studio.recommendation_cases(id),
+--   current_step_id text,
+--   completed_step_ids text[] not null,
+--   step_data jsonb not null,
+--   autosaved_at timestamptz,
+--   revision bigint not null
+-- );
+--
+-- create table lor_studio.evidence_links (
+--   id uuid primary key,
+--   case_id uuid not null references lor_studio.recommendation_cases(id),
+--   source_product text not null,
+--   source_reference text not null,
+--   permission_receipt_hash text not null,
+--   immutable_input_hash text not null,
+--   created_at timestamptz not null
+-- );
+--
+-- create table lor_studio.letter_variants (
+--   id uuid primary key,
+--   case_id uuid not null references lor_studio.recommendation_cases(id),
+--   variant_key text not null,
+--   state text not null,
+--   content_private_storage_key text,
+--   evidence_claims jsonb not null,
+--   provider_configuration_hash text,
+--   human_accepted_at timestamptz,
+--   faculty_finalized_at timestamptz,
+--   unique (case_id, variant_key)
+-- );
+--
+-- create table lor_studio.consent_receipts (... append_only_fields ...);
+-- create table lor_studio.waiver_receipts (... append_only_fields ...);
+-- create table lor_studio.faculty_invitations (... token_hash_not_token, recipient_email_hash, expires_at, consumed_at, revoked_at ...);
+-- create table lor_studio.faculty_private_content (... private_storage_reference_only ...);
+-- create table lor_studio.writer_depot_artifacts (... sha256, mime_type, privacy_class, private_object_key, storage_version_id ...);
+-- create table lor_studio.idempotency_records (... actor_subject, operation, idempotency_key_hash, request_hash, response_reference ...);
+-- create table lor_studio.audit_events (... pseudonymous_refs_and_allowlisted_metadata_only ...);
+-- create table lor_studio.deletion_intents (... legal_hold, due_by, verified_deletion_receipts ...);
+--
+-- REQUIRED RLS / AUTHORIZATION CONTRACT
+-- * auth.uid() must come from the selected Supabase Auth session created by
+--   the WordPress-to-Railway bootstrap; service-role identity is never a user
+--   authorization boundary.
+-- * Student SELECT uses a security-definer projection that omits waived
+--   letter text, faculty_private_content, private artifacts, raw invitation
+--   material, and protected administrator fields at the database boundary.
+-- * Student writes require student_auth_subject = auth.uid(), current case
+--   revision, matching idempotency request hash, active server-verified 360
+--   entitlement, explicit LOR enablement, and any active canary requirement.
+-- * Faculty SELECT/UPDATE requires a consumed, recipient-bound, unexpired,
+--   unrevoked invitation mapped to auth.uid() for that exact case.
+-- * Administrator protected reads require a short-lived case-bound privacy
+--   grant; ordinary administrator status is insufficient.
+-- * Audit INSERT accepts allowlisted metadata only; audit UPDATE/DELETE is
+--   denied except through ratified retention/deletion procedures.
+-- * Private storage uses signed, short-lived, actor-authorized downloads and
+--   never exposes a public bucket URL.
+--
+-- REQUIRED MIGRATION / RELEASE PROOF BEFORE EXECUTION
+-- * exact project reference, region, environment, schema, ledger and owner;
+-- * before/after schema digest and migration dry run;
+-- * RLS negative matrix for student, faculty, administrator and service;
+-- * fresh backup identifier and verified restore rehearsal;
+-- * reversible rollback SQL or forward-repair decision with exact thresholds;
+-- * staging persistence across reload/session boundaries;
+-- * secret presence checks without printing values;
+-- * independent security and data reviewer PASS.

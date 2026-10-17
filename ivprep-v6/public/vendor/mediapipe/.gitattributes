@@ -1,0 +1,2 @@
+# Preserve authenticated upstream distribution bytes, including whitespace.
+tasks-vision/** -whitespace
