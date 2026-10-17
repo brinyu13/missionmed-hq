@@ -263,4 +263,35 @@ function mmiiqg_handle() {
     if ($method !== 'HEAD') { readfile($asset['path']); }
     exit;
 }
+
+/** Public executable code only: exit before ordinary plugins on immutable asset requests.
+ * HTML, unversioned files and every identity/data endpoint retain the private handler.
+ */
+function mmiiqg_immutable_asset_target($uri, $method) {
+    if (!in_array($method, array('GET', 'HEAD'), true) || !is_string($uri) || strpos($uri, '?') !== false) { return null; }
+    $path = mmiiqg_path($uri);
+    if (!is_string($path) || !preg_match('#^/interviewiq/releases/([a-f0-9]{64})/(app|styles|app\.js|styles\.css)$#D', $path, $m)) { return null; }
+    return array('release_id' => $m[1], 'relative' => mmiiqg_versioned_asset_relative($m[2]));
+}
+function mmiiqg_immutable_assets() {
+    $target = mmiiqg_immutable_asset_target($_SERVER['REQUEST_URI'] ?? '', $_SERVER['REQUEST_METHOD'] ?? '');
+    if (!$target) { return; }
+    if (!mmiiq_enabled() || !mmiiq_secrets_ready() || mmiiq_wp_origin() === '') { mmiiqg_error(503, 'interviewiq_disabled_or_unconfigured'); }
+    $release = mmiiqg_read_release(null, $target['release_id']);
+    $asset = mmiiqg_asset($release, $target['relative']);
+    if (!$asset) { mmiiqg_error(503, 'release_unavailable'); }
+    // These verified files contain code and styling only, never personalized bootstrap data.
+    status_header(200);
+    header('Content-Type: ' . $asset['type']);
+    header('Cache-Control: public, max-age=31536000, immutable');
+    header('X-Content-Type-Options: nosniff');
+    header('Cross-Origin-Resource-Policy: same-origin');
+    header('Referrer-Policy: no-referrer');
+    header('X-InterviewIQ-Release: ' . $release['manifest']['release_id']);
+    header('Content-Length: ' . filesize($asset['path']));
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'HEAD') { readfile($asset['path']); }
+    exit;
+}
+add_action('muplugins_loaded', 'mmiiqg_immutable_assets', -1000);
+
 add_action('parse_request', 'mmiiqg_handle', -1000);

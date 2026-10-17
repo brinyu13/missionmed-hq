@@ -354,13 +354,13 @@ async function apiFetch(path,options={},retried=false){
   const callEpoch=sessionEpoch;
   if(studentPreview())throw previewError();
   if(coreOnly()&&!(calendarV2()&&(path.startsWith('/calendar/')||/^\/interviews\/[a-f0-9-]{36}\/itinerary/.test(path)))&&!['/bootstrap','/bootstrap?view=calendar'].includes(path)&&!((deepResearch()||loiCanonicalLookup()||intakeEnabled()||mrxUI())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
-  if(!session||session.expiresAt<Date.now()+5000){try{await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
+  if(!session||session.expiresAt<Date.now()+15000){try{await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const sentSession=session,requestEpoch=sessionEpoch;
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
   if(options.method&&options.method!=='GET')headers.set('X-IIQ-Nonce',session.nonce);
   const response=await fetch(session.apiBase+path,{...options,headers,credentials:'same-origin',cache:'no-store'});
   if(requestEpoch!==sessionEpoch)throw Error('Your workspace changed while this request was loading.');
-  if(response.status===401&&!retried){if(session===sentSession)session=null;try{if(!session||session.expiresAt<Date.now()+5000)await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}return apiFetch(path,options,true);}
+  if(response.status===401&&!retried){if(session===sentSession)session=null;try{if(!session||session.expiresAt<Date.now()+15000)await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}return apiFetch(path,options,true);}
   if(response.status===401&&session===sentSession){lockWorkspace('Your session ended. Sign in through MissionMed and reopen your workspace.');}
   if(options.binaryDownload===true){if(!response.ok)return readJSON(response);if(response.headers.get('content-type')!=='application/octet-stream'||!/^attachment; filename="itinerary-(?:[1-9]|10)\.(?:pdf|png|jpg)"$/.test(response.headers.get('content-disposition')||''))throw Error('The private attachment response was invalid.');const blob=await response.blob();if(blob.size<1||blob.size>5242880)throw Error('The attachment exceeded its allowed size.');return {blob,fileName:response.headers.get('content-disposition').split('"')[1]};}
   return readJSON(response);
