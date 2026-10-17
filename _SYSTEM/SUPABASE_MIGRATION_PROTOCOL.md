@@ -1,8 +1,8 @@
 # SUPABASE MIGRATION PROTOCOL -- PERMANENT HARDENING
 
 **Authority:** MR-078A
-**Version:** 1.0
-**Date:** 2026-04-24
+**Version:** 1.1
+**Date:** 2026-10-17
 **Risk Level:** HIGH
 **Status:** LOCKED -- NON-NEGOTIABLE
 
@@ -440,6 +440,22 @@ This protocol is LOCKED under MR-078A authority. Changes require:
 3. Updated version number and date in this document
 
 Any migration action that violates this protocol produces STATUS = INVALID.
+
+---
+
+## 7. EXACT IVOC G2 EXECUTOR ADAPTER - MR-IVOC-8200-G2-MIGRATION-PROTOCOL
+
+This narrowly scoped amendment applies only to IVOC-CONVERGE-8001 and the already committed file `supabase/migrations/20261015174803_ivoc_native_voice_admission_ledger.sql`, SHA-256 `972213128023be285ab2202040f4667977828aaf6c9debff20e6ddb4c24ed442`, from source commit `40b1c62dc2951cc19380baa874ced58d994aa049`. It changes no other migration rule or project authority. Its exact canonical decision, independent review, production executor, tested recovery and native custody must be filed before application. This document alone grants no production execution.
+
+Root cause: this source-only safeguards migration was committed without the section2.4 header/explicit transaction block; correcting it in place would violate section6.2. The exposed Management API does not bind a caller-selected migration version or document body/history atomicity. A blind explicit COMMIT wrapper can separate migration body from the CLI's appended history insertion. Rewriting earlier history or source filenames is not an acceptable repair.
+
+For this exact file only, preserve its committed bytes and filename. Satisfy header provenance through a separately immutable execution manifest containing filename, this MR ticket and canonical decision, date, verified actual predecessor history, description, and `Idempotent: NO`. Satisfy transactional execution through the pinned official Supabase CLI v2.75.0 implementation (upstream commit `e07c7ea15b842e9bb45c79518a5f20cea84fc753`): its migration ExecBatch sends the body and filename-derived history insertion in one implicit transaction. Do not add BEGIN, COMMIT, ROLLBACK or an alternative SQL body.
+
+Use a private external execution workspace containing the actual complete remote migration history reconstructed by official migration fetch, plus only this unchanged file as the sole pending migration. Verify actual statement content and complete history equality, not placeholder files; current expected prior history is18 rows, latest20261009001803. Any changed/incomplete history, unexpected pending file, existing candidate history/object, different source/executor, credential or fence uncertainty stops before application. No --include-all, broad push, source rename, manual history writes, repair or automatic retry.
+
+The CLI's history-table bootstrap prelude is permitted only when independently verified existing schema/table/columns make every IF NOT EXISTS/ADD COLUMN IF NOT EXISTS operation structurally inert; empty vault and no-seed settings are mandatory. Exact installed binary/config/cache/workspace/target, memory-only credentials, bounded timeouts and owned-process cleanup, current native database fencing, at most one candidate application attempt, tested recovery and independent pre/post catalog/history checks require a dedicated canonical production grant. This amendment is not that grant and does not arm any provider grant or permit a paid session.
+
+All other sections, prohibitions, predeploy checks and unrelated project requirements remain in force. Eligibility remains blocked while independent gates are missing. This exception expires when its single admitted application reaches a confirmed terminal outcome or on Founder revocation; any material drift stops the affected operation for renewed review. An uncertain outcome is preserved for read-only diagnosis; it supplies no retry permission.
 
 ---
 
