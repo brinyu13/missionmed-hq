@@ -1,0 +1,2475 @@
+{
+  "report_id": "i1q_1006_phase0_adversarial_audit",
+  "mission_id": "I1Q-1006",
+  "phase": "Phase 0",
+  "classification": "SYNTHETIC_NOT_MEDICAL",
+  "generated_at": "2026-07-14T00:59:55.492Z",
+  "protected_systems": {
+    "production_reads": false,
+    "production_writes": false,
+    "network": false,
+    "package_install": false,
+    "migrations": false,
+    "runtime_changes": false,
+    "student_data": false,
+    "publication": false
+  },
+  "input_integrity": [
+    {
+      "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1005_FOUNDATION_SLICE/fixtures/positive/foundation_world.json",
+      "sha256": "09fa07dea4d63d0b0bc53e7d02c4aa643e7e06992ef58ee54fa5ac0b1d12ba2b"
+    },
+    {
+      "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1005_FOUNDATION_SLICE/artifacts/stat/dataset_questions.json",
+      "sha256": "4b8587cb509fb63e1f41d5db599a24caf3216e40eb2fbef2792a7e110df8daac"
+    },
+    {
+      "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1005_FOUNDATION_SLICE/artifacts/stat/stat_runtime_json.pre_answer.json",
+      "sha256": "5fa5b0f45a11169f7ea4148e16ea0e7a69e0be2bc241d7f1d25f26d8467e0520"
+    },
+    {
+      "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1005_FOUNDATION_SLICE/artifacts/stat/stat_post_answer_debrief.post_answer.json",
+      "sha256": "3db3f7436c6cc57b05eca01af879a75f9fcca54f5f2f0bf2a08cccb31fabffe9"
+    },
+    {
+      "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1005_FOUNDATION_SLICE/artifacts/question_metadata/question_metadata.internal.json",
+      "sha256": "355387f9cb14394b6af7dd8fb1d09658cd95ef8f740296f4bebbe1ea0b0573b9"
+    },
+    {
+      "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1005_FOUNDATION_SLICE/artifacts/drills/drills.pre_answer.json",
+      "sha256": "6bbc13ae97f53b2d19eab9113b6cfdc5801d053ce682e81412f366662b366067"
+    },
+    {
+      "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1005_FOUNDATION_SLICE/artifacts/drills/drills.post_answer.json",
+      "sha256": "f6ec13acec1a7e29e54d2d1d4f9e3a995bbbd15955fbc7d6e5d3d8f4b0e033ad"
+    }
+  ],
+  "source_foundation_privacy_assessment": {
+    "assertion_status": "pass",
+    "expected_finding": "The 1005 source corpus labels FAKE-PAT-0001 as student_name, leaving required patient_identifier gold absent.",
+    "source_modified": false,
+    "privacy_aggregate": {
+      "evaluator_id": "i1q_1006_superseding_privacy_aggregate_v1",
+      "supersedes": "i1q_1005_scoreRedaction_aggregate_semantics",
+      "status": "fail",
+      "synthetic_only": true,
+      "required_classes": [
+        "address_like",
+        "email",
+        "patient_identifier",
+        "student_name",
+        "third_party_name"
+      ],
+      "required_classes_explicit": true,
+      "denominator_policy": {
+        "class_precision_zero_predictions_with_gold": 0,
+        "class_precision_zero_predictions_and_zero_gold": 1,
+        "class_recall_zero_gold_required_class": 0,
+        "aggregate_precision_zero_predictions": 1,
+        "aggregate_recall_zero_gold": 0,
+        "missing_required_class": "fail"
+      },
+      "by_class": {
+        "address_like": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        },
+        "email": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        },
+        "patient_identifier": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": true,
+          "gold_count": 0,
+          "detection_count": 0,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 0,
+          "denominator_zero": {
+            "precision": true,
+            "recall": true
+          },
+          "denominator_resolution": {
+            "precision": "no_gold_and_no_predictions_returns_1",
+            "recall": "required_class_with_no_gold_returns_0_and_fails"
+          }
+        },
+        "student_name": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 2,
+          "detection_count": 2,
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        },
+        "third_party_name": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        }
+      },
+      "aggregate": {
+        "tp": 5,
+        "predicted_count": 5,
+        "gold_count": 5,
+        "precision": 1,
+        "recall": 1,
+        "denominator_zero": {
+          "precision": false,
+          "recall": false
+        }
+      },
+      "am12_mapping": {
+        "redaction_precision_all_classes": 1,
+        "redaction_recall_patient_identifying_info": 0,
+        "redaction_recall_student_names": 1
+      },
+      "unexpected_classes": [],
+      "errors": [
+        {
+          "code": "P_MISSING_REQUIRED_CLASS",
+          "path": "by_class.patient_identifier",
+          "message": "Required privacy class has no gold examples."
+        }
+      ]
+    }
+  },
+  "baseline": {
+    "status": "pass",
+    "fixture_kind": "in-memory synthetic audit control",
+    "correction": "Relabel FAKE-PAT-0001 and its synthetic detection as patient_identifier; make required redaction classes explicit.",
+    "source_modified": false,
+    "error_count": 0,
+    "errors": [],
+    "privacy_aggregate": {
+      "evaluator_id": "i1q_1006_superseding_privacy_aggregate_v1",
+      "supersedes": "i1q_1005_scoreRedaction_aggregate_semantics",
+      "status": "pass",
+      "synthetic_only": true,
+      "required_classes": [
+        "address_like",
+        "email",
+        "patient_identifier",
+        "student_name",
+        "third_party_name"
+      ],
+      "required_classes_explicit": true,
+      "denominator_policy": {
+        "class_precision_zero_predictions_with_gold": 0,
+        "class_precision_zero_predictions_and_zero_gold": 1,
+        "class_recall_zero_gold_required_class": 0,
+        "aggregate_precision_zero_predictions": 1,
+        "aggregate_recall_zero_gold": 0,
+        "missing_required_class": "fail"
+      },
+      "by_class": {
+        "address_like": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        },
+        "email": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        },
+        "patient_identifier": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        },
+        "student_name": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        },
+        "third_party_name": {
+          "required": true,
+          "explicitly_evaluated": true,
+          "missing_required_class": false,
+          "gold_count": 1,
+          "detection_count": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1,
+          "recall": 1,
+          "denominator_zero": {
+            "precision": false,
+            "recall": false
+          },
+          "denominator_resolution": {
+            "precision": "ordinary_ratio",
+            "recall": "ordinary_ratio"
+          }
+        }
+      },
+      "aggregate": {
+        "tp": 5,
+        "predicted_count": 5,
+        "gold_count": 5,
+        "precision": 1,
+        "recall": 1,
+        "denominator_zero": {
+          "precision": false,
+          "recall": false
+        }
+      },
+      "am12_mapping": {
+        "redaction_precision_all_classes": 1,
+        "redaction_recall_patient_identifying_info": 1,
+        "redaction_recall_student_names": 1
+      },
+      "unexpected_classes": [],
+      "errors": []
+    }
+  },
+  "adversarial_catalog": {
+    "id_start": "N-031",
+    "id_end": "N-080",
+    "count": 50,
+    "status": "pass",
+    "category_summary": {
+      "unicode_normalization": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0
+      },
+      "duplicate_ids": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0
+      },
+      "malformed_references": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "review_governance": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "claim_lifecycle": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "answer_leakage": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "nested_privacy_debug": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0
+      },
+      "artifact_integrity": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0
+      },
+      "promotion_governance": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0
+      },
+      "privacy_aggregate": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0
+      },
+      "split_identifiers": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0
+      },
+      "student_speech": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0
+      }
+    },
+    "cases": [
+      {
+        "fixture_id": "N-031",
+        "category": "unicode_normalization",
+        "title": "NFD item identifier",
+        "expected_error_code": "A_IDENTIFIER_UNICODE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_IDENTIFIER_UNICODE",
+          "A_ID_PATTERN",
+          "A_MALFORMED_REFERENCE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "items[0].item_id",
+            "message": "Identifier must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "item_og_light_balanceé_sba"
+            }
+          },
+          {
+            "code": "A_ID_PATTERN",
+            "path": "items[0].item_id",
+            "message": "Identifier does not match its entity prefix pattern.",
+            "details": {
+              "value": "item_og_light_balanceé_sba"
+            }
+          },
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "world.items[0].item_id",
+            "message": "Identity or reference value must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "item_og_light_balanceé_sba"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "item_revisions[0].item_id",
+            "message": "Item reference does not resolve.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "review_assignments[0].item_id",
+            "message": "Assigned item reference does not resolve.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "review_assignments[1].item_id",
+            "message": "Assigned item reference does not resolve.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "review_events[0].item_id",
+            "message": "Reviewed item reference does not resolve.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "review_events[1].item_id",
+            "message": "Reviewed item reference does not resolve.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "release_snapshots[0].pinned_items[0].item_id",
+            "message": "Pinned item reference does not resolve.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "release_snapshots[1].pinned_items[0].item_id",
+            "message": "Pinned item reference does not resolve.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-032",
+        "category": "unicode_normalization",
+        "title": "Zero-width source reference",
+        "expected_error_code": "A_IDENTIFIER_UNICODE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_IDENTIFIER_UNICODE",
+          "A_MALFORMED_REFERENCE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "world.item_revisions[0].source_ids[0]",
+            "message": "Identity or reference value must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "src_og_transcript_​001"
+            }
+          },
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "item_revisions[0].source_ids[0]",
+            "message": "Source reference does not resolve.",
+            "details": {
+              "value": "src_og_transcript_​001"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-033",
+        "category": "unicode_normalization",
+        "title": "Fullwidth question identifier",
+        "expected_error_code": "A_IDENTIFIER_UNICODE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH",
+          "A_IDENTIFIER_UNICODE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "artifacts.artifacts/stat/stat_runtime_json.pre_answer.json[0].question_id",
+            "message": "Identity or reference value must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "ＯＧ-Q-0001"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "d1aafdc339c992a7303e0201c2c5b7ea0627135870278c833eadade81c14a737"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-034",
+        "category": "unicode_normalization",
+        "title": "NFC-equivalent duplicate source identifiers",
+        "expected_error_code": "A_DUPLICATE_NORMALIZED_ID",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_DUPLICATE_NORMALIZED_ID",
+          "A_IDENTIFIER_UNICODE",
+          "A_ID_PATTERN"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "source_records[3].src_id",
+            "message": "Identifier must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "src_café"
+            }
+          },
+          {
+            "code": "A_ID_PATTERN",
+            "path": "source_records[3].src_id",
+            "message": "Identifier does not match its entity prefix pattern.",
+            "details": {
+              "value": "src_café"
+            }
+          },
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "source_records[4].src_id",
+            "message": "Identifier must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "src_café"
+            }
+          },
+          {
+            "code": "A_ID_PATTERN",
+            "path": "source_records[4].src_id",
+            "message": "Identifier does not match its entity prefix pattern.",
+            "details": {
+              "value": "src_café"
+            }
+          },
+          {
+            "code": "A_DUPLICATE_NORMALIZED_ID",
+            "path": "source_records[4].src_id",
+            "message": "Distinct identifiers collapse after NFKC normalization.",
+            "details": {
+              "first": "src_café",
+              "second": "src_café",
+              "normalized": "src_café"
+            }
+          },
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "world.source_records[3].src_id",
+            "message": "Identity or reference value must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "src_café"
+            }
+          },
+          {
+            "code": "A_IDENTIFIER_UNICODE",
+            "path": "world.source_records[4].src_id",
+            "message": "Identity or reference value must be ASCII and NFKC-stable.",
+            "details": {
+              "value": "src_café"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-035",
+        "category": "duplicate_ids",
+        "title": "Exact duplicate item identifier",
+        "expected_error_code": "A_DUPLICATE_ID",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_DUPLICATE_ID"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_DUPLICATE_ID",
+            "path": "items[2].item_id",
+            "message": "Identifier is duplicated exactly.",
+            "details": {
+              "value": "item_og_light_balance_sba"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-036",
+        "category": "duplicate_ids",
+        "title": "Exact duplicate review event identifier",
+        "expected_error_code": "A_DUPLICATE_ID",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_DUPLICATE_ID"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_DUPLICATE_ID",
+            "path": "review_events[2].rev_id",
+            "message": "Identifier is duplicated exactly.",
+            "details": {
+              "value": "rev_og_editorial_001"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-037",
+        "category": "duplicate_ids",
+        "title": "Duplicate question identifier in one artifact",
+        "expected_error_code": "A_DUPLICATE_QUESTION_ID",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH",
+          "A_ARTIFACT_RECORD_COUNT",
+          "A_DUPLICATE_QUESTION_ID"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_DUPLICATE_QUESTION_ID",
+            "path": "artifacts/stat/dataset_questions.json[1].question_id",
+            "message": "Question identifier is duplicated within one artifact.",
+            "details": {
+              "value": "OG-Q-0001"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_001",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "de48959a71ac30aec60fdd2db0885e1819c2035c179a6dd62263a623b8d063ea",
+              "actual": "f874cc424b8d98eceda6c0f10efa0443f8cd366be457f66c6cc21fa2afaa97b8"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_RECORD_COUNT",
+            "path": "artifact_og_001",
+            "message": "Artifact included_record_count does not match content.",
+            "details": {
+              "declared": 1,
+              "actual": 2
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-038",
+        "category": "duplicate_ids",
+        "title": "Duplicate choice key",
+        "expected_error_code": "A_DUPLICATE_CHOICE_KEY",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CONTENT_HASH_MISMATCH",
+          "A_DUPLICATE_CHOICE_KEY"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_DUPLICATE_CHOICE_KEY",
+            "path": "item_revisions[0].content_sba.choices[1].choice_key",
+            "message": "Choice key is duplicated in one choice set.",
+            "details": {
+              "value": "A"
+            }
+          },
+          {
+            "code": "A_CONTENT_HASH_MISMATCH",
+            "path": "item_revisions[0].content_hash",
+            "message": "Revision content hash is stale.",
+            "details": {
+              "expected": "06f496af7ec693e13fa7de08cb2085c732085c856a73291907fcf5b669d88057",
+              "actual": "0133335c0c1a6bab43fd282bf5b76342fe465f91a95f774c54854437e89fb52c"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-039",
+        "category": "malformed_references",
+        "title": "Unknown taxonomy reference",
+        "expected_error_code": "A_MALFORMED_REFERENCE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_MALFORMED_REFERENCE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "concepts[0].taxv_id",
+            "message": "Taxonomy version reference does not resolve.",
+            "details": {
+              "value": "taxv_missing_fixture"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-040",
+        "category": "malformed_references",
+        "title": "Unknown source reference",
+        "expected_error_code": "A_MALFORMED_REFERENCE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_MALFORMED_REFERENCE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "item_revisions[0].source_ids[0]",
+            "message": "Source reference does not resolve.",
+            "details": {
+              "value": "src_missing_fixture"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-041",
+        "category": "malformed_references",
+        "title": "Assignment item and revision mismatch",
+        "expected_error_code": "A_REFERENCE_ENTITY_MISMATCH",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_REFERENCE_ENTITY_MISMATCH",
+          "A_REVIEW_ASSIGNMENT_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_REFERENCE_ENTITY_MISMATCH",
+            "path": "review_assignments[0]",
+            "message": "Assignment item_id and itemrev_id resolve to different items."
+          },
+          {
+            "code": "A_REVIEW_ASSIGNMENT_MISMATCH",
+            "path": "review_events[0]",
+            "message": "Review event does not match its assignment."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-042",
+        "category": "malformed_references",
+        "title": "Artifact references unknown security policy",
+        "expected_error_code": "A_MALFORMED_REFERENCE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_MALFORMED_REFERENCE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "channel_artifacts[0].csp_id",
+            "message": "Artifact security policy reference does not resolve.",
+            "details": {
+              "value": "csp_missing_fixture"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-043",
+        "category": "malformed_references",
+        "title": "Promotion references unknown release",
+        "expected_error_code": "A_MALFORMED_REFERENCE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_MALFORMED_REFERENCE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "release_promotion_records[0].release_id",
+            "message": "Promotion release reference does not resolve.",
+            "details": {
+              "value": "release_missing_fixture"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-044",
+        "category": "malformed_references",
+        "title": "Claim references unknown verifier",
+        "expected_error_code": "A_MALFORMED_REFERENCE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_VERIFIER_INVALID",
+          "A_MALFORMED_REFERENCE",
+          "A_RELEASED_CLAIM_CHANGED"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_MALFORMED_REFERENCE",
+            "path": "evidence_claims[0].verified_by",
+            "message": "Claim verifier reference does not resolve.",
+            "details": {
+              "value": "reviewer_missing_fixture"
+            }
+          },
+          {
+            "code": "A_CLAIM_VERIFIER_INVALID",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim requires an active physician reviewer with md/do credential."
+          },
+          {
+            "code": "A_RELEASED_CLAIM_CHANGED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim material changed without a new claim identity and release."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-045",
+        "category": "review_governance",
+        "title": "Physician reviewer has editorial credential",
+        "expected_error_code": "A_REVIEWER_CREDENTIAL",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_VERIFIER_INVALID",
+          "A_REVIEWER_CREDENTIAL"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_REVIEWER_CREDENTIAL",
+            "path": "reviewers[0].credential_type",
+            "message": "Reviewer credential is incompatible with the assigned role.",
+            "details": {
+              "role": "physician_reviewer",
+              "credential_type": "editorial"
+            }
+          },
+          {
+            "code": "A_CLAIM_VERIFIER_INVALID",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim requires an active physician reviewer with md/do credential."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-046",
+        "category": "review_governance",
+        "title": "Medical approval precedes editorial review",
+        "expected_error_code": "A_REVIEW_TIME_ORDER",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_REVIEW_TIME_ORDER"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_REVIEW_TIME_ORDER",
+            "path": "itemrev_og_light_balance_v1",
+            "message": "Editorial review must precede medical approval."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-047",
+        "category": "review_governance",
+        "title": "Same reviewer supplies editorial and medical transitions",
+        "expected_error_code": "A_REVIEW_SELF_REVIEW",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_MISSING_PHYSICIAN_REVIEW",
+          "A_REVIEW_ASSIGNMENT_MISMATCH",
+          "A_REVIEW_SELF_REVIEW"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_REVIEW_ASSIGNMENT_MISMATCH",
+            "path": "review_events[1]",
+            "message": "Review event does not match its assignment."
+          },
+          {
+            "code": "A_MISSING_PHYSICIAN_REVIEW",
+            "path": "itemrev_og_light_balance_v1",
+            "message": "Approved revision lacks a passing physician reviewer event."
+          },
+          {
+            "code": "A_REVIEW_SELF_REVIEW",
+            "path": "itemrev_og_light_balance_v1",
+            "message": "Editorial and medical transitions use the same reviewer."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-048",
+        "category": "review_governance",
+        "title": "Review event and assignment reviewer mismatch",
+        "expected_error_code": "A_REVIEW_ASSIGNMENT_MISMATCH",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_REVIEW_ASSIGNMENT_MISMATCH",
+          "A_REVIEW_ASSIGNMENT_ROLE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_REVIEW_ASSIGNMENT_MISMATCH",
+            "path": "review_events[1]",
+            "message": "Review event does not match its assignment."
+          },
+          {
+            "code": "A_REVIEW_ASSIGNMENT_ROLE",
+            "path": "review_assignments[1].required_role",
+            "message": "Assignment required_role does not match reviewer role."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-049",
+        "category": "review_governance",
+        "title": "Inactive physician reviewer approves revision",
+        "expected_error_code": "A_REVIEWER_INACTIVE",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_VERIFIER_INVALID",
+          "A_REVIEWER_INACTIVE"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_REVIEWER_INACTIVE",
+            "path": "reviewer_placeholder_physician_01",
+            "message": "Physician approval was recorded by an inactive reviewer."
+          },
+          {
+            "code": "A_CLAIM_VERIFIER_INVALID",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim requires an active physician reviewer with md/do credential."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-050",
+        "category": "review_governance",
+        "title": "Reviewer-authored source author performs medical review",
+        "expected_error_code": "A_AUTHOR_SELF_REVIEW",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_AUTHOR_SELF_REVIEW"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_AUTHOR_SELF_REVIEW",
+            "path": "itemrev_og_light_balance_v1",
+            "message": "The reviewer-authored source author also supplied medical approval."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-051",
+        "category": "claim_lifecycle",
+        "title": "Released claim status is expired",
+        "expected_error_code": "A_CLAIM_STATUS_BLOCKED",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_STATUS_BLOCKED",
+          "A_RELEASED_CLAIM_CHANGED"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_CLAIM_STATUS_BLOCKED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim status must remain verified.",
+            "details": {
+              "status": "expired"
+            }
+          },
+          {
+            "code": "A_RELEASED_CLAIM_CHANGED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim material changed without a new claim identity and release."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-052",
+        "category": "claim_lifecycle",
+        "title": "Released claim review-by date has elapsed",
+        "expected_error_code": "A_CLAIM_EXPIRED",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_DATE_ORDER",
+          "A_CLAIM_EXPIRED",
+          "A_RELEASED_CLAIM_CHANGED"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_CLAIM_EXPIRED",
+            "path": "claim_og_light_balance_001.review_by_date",
+            "message": "Released claim is past its review-by date."
+          },
+          {
+            "code": "A_CLAIM_DATE_ORDER",
+            "path": "claim_og_light_balance_001",
+            "message": "Claim evidence review date must not follow its review-by date."
+          },
+          {
+            "code": "A_RELEASED_CLAIM_CHANGED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim material changed without a new claim identity and release."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-053",
+        "category": "claim_lifecycle",
+        "title": "Released claim is retracted",
+        "expected_error_code": "A_CLAIM_STATUS_BLOCKED",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_STATUS_BLOCKED",
+          "A_RELEASED_CLAIM_CHANGED"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_CLAIM_STATUS_BLOCKED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim status must remain verified.",
+            "details": {
+              "status": "retracted"
+            }
+          },
+          {
+            "code": "A_RELEASED_CLAIM_CHANGED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim material changed without a new claim identity and release."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-054",
+        "category": "claim_lifecycle",
+        "title": "Released claim is superseded in place",
+        "expected_error_code": "A_CLAIM_STATUS_BLOCKED",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_STATUS_BLOCKED",
+          "A_RELEASED_CLAIM_CHANGED"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_CLAIM_STATUS_BLOCKED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim status must remain verified.",
+            "details": {
+              "status": "superseded"
+            }
+          },
+          {
+            "code": "A_RELEASED_CLAIM_CHANGED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim material changed without a new claim identity and release."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-055",
+        "category": "claim_lifecycle",
+        "title": "Released claim statement changes under same identity",
+        "expected_error_code": "A_RELEASED_CLAIM_CHANGED",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_RELEASED_CLAIM_CHANGED"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_RELEASED_CLAIM_CHANGED",
+            "path": "claim_og_light_balance_001",
+            "message": "Released claim material changed without a new claim identity and release."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-056",
+        "category": "claim_lifecycle",
+        "title": "Medical review omits explicit claim verification",
+        "expected_error_code": "A_CLAIM_NOT_VERIFIED_IN_REVIEW",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_CLAIM_NOT_VERIFIED_IN_REVIEW"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_CLAIM_NOT_VERIFIED_IN_REVIEW",
+            "path": "itemrev_og_light_balance_v1",
+            "message": "Medical approval event does not explicitly verify the primary claim."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-057",
+        "category": "answer_leakage",
+        "title": "Nested solution alias",
+        "expected_error_code": "A_ANSWER_ALIAS_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ANSWER_ALIAS_LEAK",
+          "A_ARTIFACT_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ANSWER_ALIAS_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].delivery.solution",
+            "message": "Pre-answer artifact contains an answer-secret alias.",
+            "details": {
+              "key": "solution"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "c05aaf22cb368369248da42d51d86872235284acf84180972e349255efa5a3a2"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-058",
+        "category": "answer_leakage",
+        "title": "Camel-case gold choice alias",
+        "expected_error_code": "A_ANSWER_ALIAS_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ANSWER_ALIAS_LEAK",
+          "A_ARTIFACT_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ANSWER_ALIAS_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].display.goldChoice",
+            "message": "Pre-answer artifact contains an answer-secret alias.",
+            "details": {
+              "key": "goldChoice"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "e7f7597733fb7e90d87867fec94d33ead067267253793e99e9fd5e94e7f994fb"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-059",
+        "category": "answer_leakage",
+        "title": "Question identifier encodes answer key",
+        "expected_error_code": "A_ANSWER_ID_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ANSWER_ID_LEAK",
+          "A_ARTIFACT_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ANSWER_ID_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].question_id",
+            "message": "Identifier encodes the server-side answer key.",
+            "details": {
+              "value": "OG-Q-0001-A"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "e0f9185d28d4d823a95a993ca741a62684b5113f4160f27f550512e133c25e16"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-060",
+        "category": "answer_leakage",
+        "title": "Correct answer index leaks ordering",
+        "expected_error_code": "A_ANSWER_ORDER_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ANSWER_ORDER_LEAK",
+          "A_ARTIFACT_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ANSWER_ORDER_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].ordering.correct_index",
+            "message": "Pre-answer artifact contains answer-correlated ordering metadata.",
+            "details": {
+              "key": "correct_index"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "f6ca47f2ecbb90d9b0fceca21b086f2de0c966c5c0505d84958a36fe9c0c34a4"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-061",
+        "category": "answer_leakage",
+        "title": "Correct choice has answer-correlated display rank",
+        "expected_error_code": "A_ANSWER_ORDER_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ANSWER_ORDER_LEAK",
+          "A_ARTIFACT_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ANSWER_ORDER_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].choices[0].display_rank",
+            "message": "Pre-answer artifact contains answer-correlated ordering metadata.",
+            "details": {
+              "key": "display_rank"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "a26ca4c454ddea4f9353eb3fb801d7b68480aed73920c78d59e8d5cea709fbfd"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-062",
+        "category": "answer_leakage",
+        "title": "Nested grading target alias",
+        "expected_error_code": "A_ANSWER_ALIAS_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ANSWER_ALIAS_LEAK",
+          "A_ARTIFACT_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ANSWER_ALIAS_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].grading.target",
+            "message": "Pre-answer artifact contains an answer-secret alias.",
+            "details": {
+              "key": "target"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "90d188e0da2f0a6ecff010f0084d517d05585e90a64d113184f8cd592fc8e6c7"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-063",
+        "category": "nested_privacy_debug",
+        "title": "Deep nested debug payload",
+        "expected_error_code": "A_DEBUG_FIELD_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH",
+          "A_DEBUG_FIELD_LEAK"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_DEBUG_FIELD_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].metadata.debug",
+            "message": "Student artifact contains nested debug or trace material.",
+            "details": {
+              "key": "debug"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "4aaa5e251b7031b2ce1872487c7b93a1b564918e9610ee6cf46fac98e6585b67"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-064",
+        "category": "nested_privacy_debug",
+        "title": "Nested student identifier leak",
+        "expected_error_code": "A_PRIVACY_IDENTIFIER_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH",
+          "A_PRIVACY_IDENTIFIER_LEAK"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_PRIVACY_IDENTIFIER_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].metadata.profile.label",
+            "message": "Student artifact contains a planted synthetic identifier.",
+            "details": {
+              "token_class": "student_name"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "35676300a62e9cfc784fb62441b7a97c6082b76b8da384a4c7e30056b7dc806d"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-065",
+        "category": "nested_privacy_debug",
+        "title": "Nested raw transcript leak",
+        "expected_error_code": "A_RAW_TRANSCRIPT_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH",
+          "A_PRIVACY_IDENTIFIER_LEAK",
+          "A_RAW_TRANSCRIPT_LEAK"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_RAW_TRANSCRIPT_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].payload.raw_transcript",
+            "message": "Student artifact contains raw or unscrubbed source material.",
+            "details": {
+              "key": "raw_transcript"
+            }
+          },
+          {
+            "code": "A_PRIVACY_IDENTIFIER_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json.[0].payload.raw_transcript",
+            "message": "Student artifact contains a planted synthetic identifier.",
+            "details": {
+              "token_class": "student_name"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "d91dbb3b3a5d9699de0d5c097c3deecc6932eb9f5da3568ff8a45022fc467d57"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-066",
+        "category": "nested_privacy_debug",
+        "title": "Nested diagnostics stack leak",
+        "expected_error_code": "A_DEBUG_FIELD_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH",
+          "A_DEBUG_FIELD_LEAK"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_DEBUG_FIELD_LEAK",
+            "path": "artifacts/drills/drills.post_answer.json.[0].metadata.diagnostics",
+            "message": "Student artifact contains nested debug or trace material.",
+            "details": {
+              "key": "diagnostics"
+            }
+          },
+          {
+            "code": "A_DEBUG_FIELD_LEAK",
+            "path": "artifacts/drills/drills.post_answer.json.[0].metadata.diagnostics.stack",
+            "message": "Student artifact contains nested debug or trace material.",
+            "details": {
+              "key": "stack"
+            }
+          },
+          {
+            "code": "A_DEBUG_FIELD_LEAK",
+            "path": "artifacts/drills/drills.post_answer.json.[0].metadata.diagnostics.stack[0]",
+            "message": "Student artifact contains nested debug or trace material.",
+            "details": {
+              "key": "stack"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_006",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "9199fa6f4a7f82f888c5648a7b208d76913fda335ef87ade737cd9cb8cae8ee7",
+              "actual": "10523854399e7a9745f770fd7a1268464655171ceb8bdc6aabc40f7a077dde6c"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-067",
+        "category": "artifact_integrity",
+        "title": "Artifact content changes with stale record hash",
+        "expected_error_code": "A_ARTIFACT_HASH_MISMATCH",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "1a0194039abd5dba265f94e0df5c812c79f5eebdc4f6daa1e6bb9d03f2330919"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-068",
+        "category": "artifact_integrity",
+        "title": "Release artifact hash disagrees with artifact record",
+        "expected_error_code": "A_RELEASE_ARTIFACT_HASH_MISMATCH",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_RELEASE_ARTIFACT_HASH_MISMATCH",
+          "A_RELEASE_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_RELEASE_ARTIFACT_HASH_MISMATCH",
+            "path": "release_snapshots[0].channel_artifact_hashes.artifact_og_001",
+            "message": "Release artifact hash does not match artifact record."
+          },
+          {
+            "code": "A_RELEASE_HASH_MISMATCH",
+            "path": "release_snapshots[0].release_hash",
+            "message": "Release hash does not match canonical release content.",
+            "details": {
+              "expected": "c2962ccb466df9c5e880e3ab6af6c88367f3de04c6b8371f7d8b58e453ebfddc",
+              "actual": "99d7298cb4be4f7bc5251bbdcbc159245e28d3969d4fd70fde3db0f505b7d499"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-069",
+        "category": "artifact_integrity",
+        "title": "Release artifact hash entry is missing",
+        "expected_error_code": "A_RELEASE_ARTIFACT_HASH_MISSING",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_RELEASE_ARTIFACT_HASH_MISSING",
+          "A_RELEASE_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_RELEASE_ARTIFACT_HASH_MISSING",
+            "path": "release_snapshots[0].channel_artifact_hashes",
+            "message": "Release artifact hash map omits a referenced artifact.",
+            "details": {
+              "artifact_id": "artifact_og_001"
+            }
+          },
+          {
+            "code": "A_RELEASE_HASH_MISMATCH",
+            "path": "release_snapshots[0].release_hash",
+            "message": "Release hash does not match canonical release content.",
+            "details": {
+              "expected": "c2962ccb466df9c5e880e3ab6af6c88367f3de04c6b8371f7d8b58e453ebfddc",
+              "actual": "feaf25a69b8a2c7507536046b45de659190ec75c1cbb00eabdaf74d09566b579"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-070",
+        "category": "artifact_integrity",
+        "title": "Artifact record count is false",
+        "expected_error_code": "A_ARTIFACT_RECORD_COUNT",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_RECORD_COUNT"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ARTIFACT_RECORD_COUNT",
+            "path": "artifact_og_001",
+            "message": "Artifact included_record_count does not match content.",
+            "details": {
+              "declared": 2,
+              "actual": 1
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-071",
+        "category": "artifact_integrity",
+        "title": "Release metadata changes with stale release hash",
+        "expected_error_code": "A_RELEASE_HASH_MISMATCH",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_RELEASE_HASH_MISMATCH"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_RELEASE_HASH_MISMATCH",
+            "path": "release_snapshots[0].release_hash",
+            "message": "Release hash does not match canonical release content.",
+            "details": {
+              "expected": "c2962ccb466df9c5e880e3ab6af6c88367f3de04c6b8371f7d8b58e453ebfddc",
+              "actual": "53d4ccb124c99ab621ed64ff3d1707060230908a042aa9e3919212270bf812aa"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-072",
+        "category": "promotion_governance",
+        "title": "Promotion skips validated state",
+        "expected_error_code": "A_ILLEGAL_PROMOTION_TRANSITION",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ILLEGAL_PROMOTION_TRANSITION",
+          "A_PROMOTION_STATE_ORDER",
+          "A_RATIFICATION_ACTOR"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_ILLEGAL_PROMOTION_TRANSITION",
+            "path": "release_promotion_records[0]",
+            "message": "Promotion transition is not legal.",
+            "details": {
+              "from": "assembled",
+              "to": "ratified"
+            }
+          },
+          {
+            "code": "A_RATIFICATION_ACTOR",
+            "path": "release_promotion_records[0].actor_type",
+            "message": "Ratification requires the explicit Brian gate actor."
+          },
+          {
+            "code": "A_PROMOTION_STATE_ORDER",
+            "path": "release_promotion_records[1]",
+            "message": "Promotion chain is not state-contiguous.",
+            "details": {
+              "release_id": "release_og_20260713_v1"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-073",
+        "category": "promotion_governance",
+        "title": "Reviewer actor attempts ratification",
+        "expected_error_code": "A_RATIFICATION_ACTOR",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_RATIFICATION_ACTOR"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_RATIFICATION_ACTOR",
+            "path": "release_promotion_records[1].actor_type",
+            "message": "Ratification requires the explicit Brian gate actor."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-074",
+        "category": "promotion_governance",
+        "title": "Promotion timestamps run backward",
+        "expected_error_code": "A_PROMOTION_TIME_ORDER",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_PROMOTION_TIME_ORDER"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_PROMOTION_TIME_ORDER",
+            "path": "release_promotion_records[4].created_at",
+            "message": "Promotion events must be strictly chronological in chain order.",
+            "details": {
+              "release_id": "release_og_20260713_corrective_v2"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-075",
+        "category": "promotion_governance",
+        "title": "Phase 0 release attempts publication",
+        "expected_error_code": "A_PHASE0_PUBLICATION_BLOCKED",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_PHASE0_PUBLICATION_BLOCKED"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_PHASE0_PUBLICATION_BLOCKED",
+            "path": "release_promotion_records[5]",
+            "message": "Publication transitions are blocked in this Phase 0 audit."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-076",
+        "category": "privacy_aggregate",
+        "title": "Required patient identifier class is absent",
+        "expected_error_code": "P_MISSING_REQUIRED_CLASS",
+        "status": "pass",
+        "observed_error_codes": [
+          "P_MISSING_REQUIRED_CLASS"
+        ],
+        "observed_errors": [
+          {
+            "code": "P_MISSING_REQUIRED_CLASS",
+            "path": "by_class.patient_identifier",
+            "message": "Required privacy class has no gold examples."
+          }
+        ],
+        "privacy_aggregate": {
+          "evaluator_id": "i1q_1006_superseding_privacy_aggregate_v1",
+          "supersedes": "i1q_1005_scoreRedaction_aggregate_semantics",
+          "status": "fail",
+          "synthetic_only": true,
+          "required_classes": [
+            "address_like",
+            "email",
+            "patient_identifier",
+            "student_name",
+            "third_party_name"
+          ],
+          "required_classes_explicit": true,
+          "denominator_policy": {
+            "class_precision_zero_predictions_with_gold": 0,
+            "class_precision_zero_predictions_and_zero_gold": 1,
+            "class_recall_zero_gold_required_class": 0,
+            "aggregate_precision_zero_predictions": 1,
+            "aggregate_recall_zero_gold": 0,
+            "missing_required_class": "fail"
+          },
+          "by_class": {
+            "address_like": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            },
+            "email": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            },
+            "patient_identifier": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": true,
+              "gold_count": 0,
+              "detection_count": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 0,
+              "denominator_zero": {
+                "precision": true,
+                "recall": true
+              },
+              "denominator_resolution": {
+                "precision": "no_gold_and_no_predictions_returns_1",
+                "recall": "required_class_with_no_gold_returns_0_and_fails"
+              }
+            },
+            "student_name": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            },
+            "third_party_name": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            }
+          },
+          "aggregate": {
+            "tp": 4,
+            "predicted_count": 4,
+            "gold_count": 4,
+            "precision": 1,
+            "recall": 1,
+            "denominator_zero": {
+              "precision": false,
+              "recall": false
+            }
+          },
+          "am12_mapping": {
+            "redaction_precision_all_classes": 1,
+            "redaction_recall_patient_identifying_info": 0,
+            "redaction_recall_student_names": 1
+          },
+          "unexpected_classes": [],
+          "errors": [
+            {
+              "code": "P_MISSING_REQUIRED_CLASS",
+              "path": "by_class.patient_identifier",
+              "message": "Required privacy class has no gold examples."
+            }
+          ]
+        }
+      },
+      {
+        "fixture_id": "N-077",
+        "category": "split_identifiers",
+        "title": "Patient identifier is split across nested scalar values",
+        "expected_error_code": "A_PRIVACY_SPLIT_IDENTIFIER_LEAK",
+        "status": "pass",
+        "observed_error_codes": [
+          "A_ARTIFACT_HASH_MISMATCH",
+          "A_PRIVACY_SPLIT_IDENTIFIER_LEAK"
+        ],
+        "observed_errors": [
+          {
+            "code": "A_PRIVACY_SPLIT_IDENTIFIER_LEAK",
+            "path": "artifacts/stat/stat_runtime_json.pre_answer.json",
+            "message": "Student artifact reconstructs a planted identifier across multiple scalar values.",
+            "details": {
+              "token_class": "patient_identifier"
+            }
+          },
+          {
+            "code": "A_ARTIFACT_HASH_MISMATCH",
+            "path": "artifact_og_002",
+            "message": "Artifact hash does not match canonical artifact content.",
+            "details": {
+              "expected": "af41b582ce392ed33f118bef6a89e9ed54d5adb36bba00fb1693c1f28d58ab60",
+              "actual": "b6b8500f74b0f4807c1c1400d8e3b07ad193be8d7872edc8a11cfbb405e5eef8"
+            }
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-078",
+        "category": "student_speech",
+        "title": "Student utterance is relabeled as instructor speech",
+        "expected_error_code": "P_STUDENT_SPEECH_MISLABELED",
+        "status": "pass",
+        "observed_error_codes": [
+          "P_INVALID_LABEL_SPAN",
+          "P_STUDENT_SPEECH_MISLABELED"
+        ],
+        "observed_errors": [
+          {
+            "code": "P_STUDENT_SPEECH_MISLABELED",
+            "path": "redaction_corpus.raw_transcript",
+            "message": "A baseline student utterance is attributed to a non-student speaker.",
+            "details": {
+              "expected_speaker": "Student Placeholder One",
+              "observed_speaker": "Instructor Placeholder Beta"
+            }
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "gold[0]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "gold[1]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "gold[2]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "gold[3]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "gold[4]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "detection[0]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "detection[1]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "detection[2]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "detection[3]",
+            "message": "Privacy span does not exactly address its declared text."
+          },
+          {
+            "code": "P_INVALID_LABEL_SPAN",
+            "path": "detection[4]",
+            "message": "Privacy span does not exactly address its declared text."
+          }
+        ]
+      },
+      {
+        "fixture_id": "N-079",
+        "category": "privacy_aggregate",
+        "title": "Patient identifier gold exists with zero detections",
+        "expected_error_code": "P_REQUIRED_CLASS_RECALL",
+        "status": "pass",
+        "observed_error_codes": [
+          "P_REQUIRED_CLASS_PRECISION",
+          "P_REQUIRED_CLASS_RECALL"
+        ],
+        "observed_errors": [
+          {
+            "code": "P_REQUIRED_CLASS_RECALL",
+            "path": "by_class.patient_identifier.recall",
+            "message": "Required privacy class recall is below 1."
+          },
+          {
+            "code": "P_REQUIRED_CLASS_PRECISION",
+            "path": "by_class.patient_identifier.precision",
+            "message": "Required privacy class precision is below 1."
+          }
+        ],
+        "privacy_aggregate": {
+          "evaluator_id": "i1q_1006_superseding_privacy_aggregate_v1",
+          "supersedes": "i1q_1005_scoreRedaction_aggregate_semantics",
+          "status": "fail",
+          "synthetic_only": true,
+          "required_classes": [
+            "address_like",
+            "email",
+            "patient_identifier",
+            "student_name",
+            "third_party_name"
+          ],
+          "required_classes_explicit": true,
+          "denominator_policy": {
+            "class_precision_zero_predictions_with_gold": 0,
+            "class_precision_zero_predictions_and_zero_gold": 1,
+            "class_recall_zero_gold_required_class": 0,
+            "aggregate_precision_zero_predictions": 1,
+            "aggregate_recall_zero_gold": 0,
+            "missing_required_class": "fail"
+          },
+          "by_class": {
+            "address_like": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            },
+            "email": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            },
+            "patient_identifier": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 1,
+              "precision": 0,
+              "recall": 0,
+              "denominator_zero": {
+                "precision": true,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "gold_present_and_no_predictions_returns_0",
+                "recall": "ordinary_ratio"
+              }
+            },
+            "student_name": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            },
+            "third_party_name": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": false,
+              "gold_count": 1,
+              "detection_count": 1,
+              "tp": 1,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 1,
+              "denominator_zero": {
+                "precision": false,
+                "recall": false
+              },
+              "denominator_resolution": {
+                "precision": "ordinary_ratio",
+                "recall": "ordinary_ratio"
+              }
+            }
+          },
+          "aggregate": {
+            "tp": 4,
+            "predicted_count": 4,
+            "gold_count": 5,
+            "precision": 1,
+            "recall": 0.8,
+            "denominator_zero": {
+              "precision": false,
+              "recall": false
+            }
+          },
+          "am12_mapping": {
+            "redaction_precision_all_classes": 1,
+            "redaction_recall_patient_identifying_info": 0,
+            "redaction_recall_student_names": 1
+          },
+          "unexpected_classes": [],
+          "errors": [
+            {
+              "code": "P_REQUIRED_CLASS_RECALL",
+              "path": "by_class.patient_identifier.recall",
+              "message": "Required privacy class recall is below 1."
+            },
+            {
+              "code": "P_REQUIRED_CLASS_PRECISION",
+              "path": "by_class.patient_identifier.precision",
+              "message": "Required privacy class precision is below 1."
+            }
+          ]
+        }
+      },
+      {
+        "fixture_id": "N-080",
+        "category": "privacy_aggregate",
+        "title": "All required privacy class denominators are zero",
+        "expected_error_code": "P_MISSING_REQUIRED_CLASS",
+        "status": "pass",
+        "observed_error_codes": [
+          "P_MISSING_REQUIRED_CLASS",
+          "P_STUDENT_SPEECH_MISLABELED"
+        ],
+        "observed_errors": [
+          {
+            "code": "P_STUDENT_SPEECH_MISLABELED",
+            "path": "redaction_corpus.labels",
+            "message": "Student speaker is not explicitly labeled as student_name.",
+            "details": {
+              "speaker": "Student Placeholder One"
+            }
+          },
+          {
+            "code": "P_MISSING_REQUIRED_CLASS",
+            "path": "by_class.address_like",
+            "message": "Required privacy class has no gold examples."
+          },
+          {
+            "code": "P_MISSING_REQUIRED_CLASS",
+            "path": "by_class.email",
+            "message": "Required privacy class has no gold examples."
+          },
+          {
+            "code": "P_MISSING_REQUIRED_CLASS",
+            "path": "by_class.patient_identifier",
+            "message": "Required privacy class has no gold examples."
+          },
+          {
+            "code": "P_MISSING_REQUIRED_CLASS",
+            "path": "by_class.student_name",
+            "message": "Required privacy class has no gold examples."
+          },
+          {
+            "code": "P_MISSING_REQUIRED_CLASS",
+            "path": "by_class.third_party_name",
+            "message": "Required privacy class has no gold examples."
+          }
+        ],
+        "privacy_aggregate": {
+          "evaluator_id": "i1q_1006_superseding_privacy_aggregate_v1",
+          "supersedes": "i1q_1005_scoreRedaction_aggregate_semantics",
+          "status": "fail",
+          "synthetic_only": true,
+          "required_classes": [
+            "address_like",
+            "email",
+            "patient_identifier",
+            "student_name",
+            "third_party_name"
+          ],
+          "required_classes_explicit": true,
+          "denominator_policy": {
+            "class_precision_zero_predictions_with_gold": 0,
+            "class_precision_zero_predictions_and_zero_gold": 1,
+            "class_recall_zero_gold_required_class": 0,
+            "aggregate_precision_zero_predictions": 1,
+            "aggregate_recall_zero_gold": 0,
+            "missing_required_class": "fail"
+          },
+          "by_class": {
+            "address_like": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": true,
+              "gold_count": 0,
+              "detection_count": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 0,
+              "denominator_zero": {
+                "precision": true,
+                "recall": true
+              },
+              "denominator_resolution": {
+                "precision": "no_gold_and_no_predictions_returns_1",
+                "recall": "required_class_with_no_gold_returns_0_and_fails"
+              }
+            },
+            "email": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": true,
+              "gold_count": 0,
+              "detection_count": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 0,
+              "denominator_zero": {
+                "precision": true,
+                "recall": true
+              },
+              "denominator_resolution": {
+                "precision": "no_gold_and_no_predictions_returns_1",
+                "recall": "required_class_with_no_gold_returns_0_and_fails"
+              }
+            },
+            "patient_identifier": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": true,
+              "gold_count": 0,
+              "detection_count": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 0,
+              "denominator_zero": {
+                "precision": true,
+                "recall": true
+              },
+              "denominator_resolution": {
+                "precision": "no_gold_and_no_predictions_returns_1",
+                "recall": "required_class_with_no_gold_returns_0_and_fails"
+              }
+            },
+            "student_name": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": true,
+              "gold_count": 0,
+              "detection_count": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 0,
+              "denominator_zero": {
+                "precision": true,
+                "recall": true
+              },
+              "denominator_resolution": {
+                "precision": "no_gold_and_no_predictions_returns_1",
+                "recall": "required_class_with_no_gold_returns_0_and_fails"
+              }
+            },
+            "third_party_name": {
+              "required": true,
+              "explicitly_evaluated": true,
+              "missing_required_class": true,
+              "gold_count": 0,
+              "detection_count": 0,
+              "tp": 0,
+              "fp": 0,
+              "fn": 0,
+              "precision": 1,
+              "recall": 0,
+              "denominator_zero": {
+                "precision": true,
+                "recall": true
+              },
+              "denominator_resolution": {
+                "precision": "no_gold_and_no_predictions_returns_1",
+                "recall": "required_class_with_no_gold_returns_0_and_fails"
+              }
+            }
+          },
+          "aggregate": {
+            "tp": 0,
+            "predicted_count": 0,
+            "gold_count": 0,
+            "precision": 1,
+            "recall": 0,
+            "denominator_zero": {
+              "precision": true,
+              "recall": true
+            }
+          },
+          "am12_mapping": {
+            "redaction_precision_all_classes": 1,
+            "redaction_recall_patient_identifying_info": 0,
+            "redaction_recall_student_names": 0
+          },
+          "unexpected_classes": [],
+          "errors": [
+            {
+              "code": "P_MISSING_REQUIRED_CLASS",
+              "path": "by_class.address_like",
+              "message": "Required privacy class has no gold examples."
+            },
+            {
+              "code": "P_MISSING_REQUIRED_CLASS",
+              "path": "by_class.email",
+              "message": "Required privacy class has no gold examples."
+            },
+            {
+              "code": "P_MISSING_REQUIRED_CLASS",
+              "path": "by_class.patient_identifier",
+              "message": "Required privacy class has no gold examples."
+            },
+            {
+              "code": "P_MISSING_REQUIRED_CLASS",
+              "path": "by_class.student_name",
+              "message": "Required privacy class has no gold examples."
+            },
+            {
+              "code": "P_MISSING_REQUIRED_CLASS",
+              "path": "by_class.third_party_name",
+              "message": "Required privacy class has no gold examples."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "privacy_contract_tests": {
+    "count": 5,
+    "status": "pass",
+    "tests": [
+      {
+        "id": "PA-001-required-classes-explicit",
+        "status": "pass",
+        "evidence": {
+          "required_classes": [
+            "address_like",
+            "email",
+            "patient_identifier",
+            "student_name",
+            "third_party_name"
+          ],
+          "evaluated_classes": [
+            "address_like",
+            "email",
+            "patient_identifier",
+            "student_name",
+            "third_party_name"
+          ]
+        }
+      },
+      {
+        "id": "PA-002-patient-recall-numeric",
+        "status": "pass",
+        "evidence": {
+          "value": 1
+        }
+      },
+      {
+        "id": "PA-003-missing-required-class-fails",
+        "status": "pass",
+        "evidence": {
+          "status": "fail",
+          "patient_identifier": {
+            "required": true,
+            "explicitly_evaluated": true,
+            "missing_required_class": true,
+            "gold_count": 0,
+            "detection_count": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "precision": 1,
+            "recall": 0,
+            "denominator_zero": {
+              "precision": true,
+              "recall": true
+            },
+            "denominator_resolution": {
+              "precision": "no_gold_and_no_predictions_returns_1",
+              "recall": "required_class_with_no_gold_returns_0_and_fails"
+            }
+          },
+          "error_codes": [
+            "P_MISSING_REQUIRED_CLASS"
+          ]
+        }
+      },
+      {
+        "id": "PA-004-zero-prediction-denominator-explicit",
+        "status": "pass",
+        "evidence": {
+          "patient_identifier": {
+            "required": true,
+            "explicitly_evaluated": true,
+            "missing_required_class": false,
+            "gold_count": 1,
+            "detection_count": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 1,
+            "precision": 0,
+            "recall": 0,
+            "denominator_zero": {
+              "precision": true,
+              "recall": false
+            },
+            "denominator_resolution": {
+              "precision": "gold_present_and_no_predictions_returns_0",
+              "recall": "ordinary_ratio"
+            }
+          }
+        }
+      },
+      {
+        "id": "PA-005-empty-corpus-denominators-explicit",
+        "status": "pass",
+        "evidence": {
+          "aggregate": {
+            "tp": 0,
+            "predicted_count": 0,
+            "gold_count": 0,
+            "precision": 1,
+            "recall": 0,
+            "denominator_zero": {
+              "precision": true,
+              "recall": true
+            }
+          },
+          "patient_identifier_recall": 0,
+          "denominator_policy": {
+            "class_precision_zero_predictions_with_gold": 0,
+            "class_precision_zero_predictions_and_zero_gold": 1,
+            "class_recall_zero_gold_required_class": 0,
+            "aggregate_precision_zero_predictions": 1,
+            "aggregate_recall_zero_gold": 0,
+            "missing_required_class": "fail"
+          }
+        }
+      }
+    ]
+  },
+  "overall_status": "pass"
+}

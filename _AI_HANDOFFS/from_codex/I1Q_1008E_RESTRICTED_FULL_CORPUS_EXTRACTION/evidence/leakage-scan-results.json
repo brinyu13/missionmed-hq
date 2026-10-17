@@ -1,0 +1,21 @@
+{
+  "schema_version": "missionmed.i1q1008e.restricted_correlated_leakage_audit.v1",
+  "scanner_scope": "GIT_SAFE_HANDOFF_VS_PROTECTED_ACQUISITION_AND_RAW_CORPUS",
+  "safe_files_scanned": 76,
+  "protected_raw_files_scanned": 200,
+  "protected_strings_inspected": 569865,
+  "protected_ngrams_inspected": 2385226,
+  "protected_short_fingerprints_inspected": 5485365,
+  "protected_locator_and_identifier_count": 447,
+  "ngram_size": 12,
+  "short_sequence_max_tokens": 11,
+  "short_distinctiveness_policy": "TOKEN_COUNT_CHARACTER_AND_NONCOMMON_TOKEN_THRESHOLDS_WITH_GENERIC_ALLOWLIST",
+  "nongeneric_speaker_minimum_normalized_characters": 4,
+  "generic_short_phrase_allowlist_count": 14,
+  "generic_speaker_allowlist_count": 15,
+  "finding_count": 0,
+  "findings": [],
+  "generic_safe_tree_result": "pass",
+  "result": "pass",
+  "content_hash": "eb9a221038e82f083bdaae592024212d3212805252eb45b6776eb7030b70d2f8"
+}

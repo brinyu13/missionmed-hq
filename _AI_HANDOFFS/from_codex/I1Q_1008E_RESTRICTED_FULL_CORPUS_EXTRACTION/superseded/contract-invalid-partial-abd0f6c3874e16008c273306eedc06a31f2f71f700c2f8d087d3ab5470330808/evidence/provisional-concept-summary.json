@@ -1,0 +1,50 @@
+{
+  "schema_version": "missionmed.i1q.1008e.provisional_concept_summary.v1",
+  "extraction_run_id": "opaque_run_i2IwFt-nc8yUknV2OcX47LKN7Ibxoqh2WLuNZIrma5M",
+  "provisional_concept_count": 56401,
+  "multi_occurrence_concept_count": 416,
+  "provisional_duplicate_cluster_count": 416,
+  "occurrence_membership_count": 57028,
+  "status_histogram": {
+    "QUARANTINED": 47787,
+    "REVIEW_REQUIRED": 8614
+  },
+  "subject_histogram": {
+    "BIOSTATISTICS_EVIDENCE": 114,
+    "CARDIOVASCULAR_MEDICINE": 2063,
+    "EMERGENCY_CRITICAL_CARE": 384,
+    "ENDOCRINOLOGY": 1504,
+    "ETHICS_PROFESSIONALISM": 119,
+    "GASTROENTEROLOGY": 718,
+    "HEMATOLOGY_ONCOLOGY": 1284,
+    "INFECTIOUS_DISEASE": 1437,
+    "NEUROLOGY": 1149,
+    "OBSTETRICS_GYNECOLOGY": 198,
+    "PEDIATRICS": 360,
+    "PHARMACOLOGY": 673,
+    "PSYCHIATRY": 499,
+    "PULMONARY_MEDICINE": 720,
+    "RENAL_MEDICINE": 1489,
+    "RHEUMATOLOGY": 755,
+    "UNCLASSIFIED": 42935
+  },
+  "no_destructive_deduplication": true,
+  "final_canonical_concept_count": 0,
+  "duplicate_relationship_count": 174290,
+  "duplicate_relationship_type_histogram": {
+    "EXACT_TEXT_DUPLICATE": 968,
+    "NEAR_TEXT_DUPLICATE": 94,
+    "NOT_DUPLICATE": 171517,
+    "POSSIBLE_DUPLICATE": 0,
+    "REPEATED_TEACHING_OCCURRENCE": 0,
+    "SAME_CONCEPT_DIFFERENT_FORM": 0,
+    "SAME_CONCEPT_SAME_TARGET": 0,
+    "SAME_TOPIC_DIFFERENT_CONCEPT": 1711
+  },
+  "duplicate_relationship_inventory_root": "a9125daf92e5b8f93b5885862a2e0439165b2a5746f79585dcdc1a0cb9fc9ccc",
+  "duplicate_relationship_final_adjudication_performed": false,
+  "i1q1008f_candidate_concept_count": 56401,
+  "i1q1008f_candidate_qualification": "ALL_PROVISIONAL_CONCEPTS_INCLUDE_QUARANTINED_ITEMS_AND_REQUIRE_1008F_ADJUDICATION",
+  "concept_set_root": "6802814678dd841e25c0439d36fdb22a924d8113a2fc2aa4872136ea7d2e492c",
+  "content_hash": "cb0374dbec6d76354c846cafeef9acf6d4fca0638e48092ba54dfcb633573f0e"
+}

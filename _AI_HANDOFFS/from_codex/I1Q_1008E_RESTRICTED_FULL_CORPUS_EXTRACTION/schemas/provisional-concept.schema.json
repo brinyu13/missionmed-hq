@@ -1,0 +1,508 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmed.internal/contracts/i1q-1008e/provisional-concept/v1",
+  "title": "I1Q-1008E Provisional Concept v1",
+  "description": "Closed-world, non-destructive concept-cluster contract. Instances remain restricted and provisional pending I1Q-1008F adjudication.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provisional_concept_id",
+    "schema_version",
+    "extraction_run_id",
+    "canonicality",
+    "destructive_deduplication_performed",
+    "final_canonical_adjudication_completed",
+    "successor_mission",
+    "normalized_concept_wording",
+    "target_answer",
+    "medical_concept",
+    "teaching_objective",
+    "clinical_scenario_summary",
+    "question_forms",
+    "subject",
+    "organ_system",
+    "discipline",
+    "competency",
+    "cognitive_levels",
+    "educational_intents",
+    "evidence_sensitivity_flag",
+    "guideline_sensitivity_flag",
+    "medical_ambiguity_flags",
+    "assessment_suitability_status",
+    "provisional_duplicate_cluster_id",
+    "occurrence_ids",
+    "occurrence_count",
+    "provenance_bindings",
+    "duplicate_relationships",
+    "duplicate_relationship_count",
+    "speaker_authority_classes_present",
+    "normalization_status",
+    "normalization_changed_fields",
+    "normalization_rationale",
+    "normalization_confidence",
+    "medical_review_status",
+    "assessment_review_status",
+    "privacy_review_status",
+    "rights_status",
+    "release_status",
+    "quarantine_reasons",
+    "review_receipt_bindings",
+    "disagreement_record_bindings",
+    "adjudication_status",
+    "legacy_comparison_status",
+    "provisional_status",
+    "content_hash"
+  ],
+  "properties": {
+    "provisional_concept_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "schema_version": {
+      "const": "missionmed.i1q-1008e.provisional-concept.v1"
+    },
+    "extraction_run_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "canonicality": {
+      "const": "PROVISIONAL"
+    },
+    "destructive_deduplication_performed": {
+      "const": false
+    },
+    "final_canonical_adjudication_completed": {
+      "const": false
+    },
+    "successor_mission": {
+      "const": "I1Q-1008F"
+    },
+    "normalized_concept_wording": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_answer": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "medical_concept": {
+      "type": "string",
+      "minLength": 1
+    },
+    "teaching_objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "clinical_scenario_summary": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "question_forms": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "subject": {
+      "$ref": "#/$defs/classificationValue"
+    },
+    "organ_system": {
+      "$ref": "#/$defs/classificationValue"
+    },
+    "discipline": {
+      "$ref": "#/$defs/classificationValue"
+    },
+    "competency": {
+      "$ref": "#/$defs/classificationValue"
+    },
+    "cognitive_levels": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "educational_intents": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "evidence_sensitivity_flag": {
+      "type": "boolean"
+    },
+    "guideline_sensitivity_flag": {
+      "type": "boolean"
+    },
+    "medical_ambiguity_flags": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "assessment_suitability_status": {
+      "type": "string",
+      "enum": [
+        "SUITABLE",
+        "UNSUITABLE",
+        "MIXED",
+        "REVIEW_REQUIRED",
+        "UNDETERMINED"
+      ]
+    },
+    "provisional_duplicate_cluster_id": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/opaqueId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "occurrence_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/opaqueId"
+      }
+    },
+    "occurrence_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "provenance_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/provenanceBinding"
+      }
+    },
+    "duplicate_relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/duplicateRelationship"
+      }
+    },
+    "duplicate_relationship_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "speaker_authority_classes_present": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/speakerClass"
+      }
+    },
+    "normalization_status": {
+      "type": "string",
+      "enum": [
+        "NOT_NORMALIZED",
+        "NORMALIZED_WITHOUT_RECONSTRUCTION",
+        "NORMALIZED_WITH_RECONSTRUCTION",
+        "NORMALIZATION_REVIEW_REQUIRED",
+        "NORMALIZATION_REJECTED"
+      ]
+    },
+    "normalization_changed_fields": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "normalization_rationale": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "normalization_confidence": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "medical_review_status": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "assessment_review_status": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "privacy_review_status": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "rights_status": {
+      "$ref": "#/$defs/reviewStatus"
+    },
+    "release_status": {
+      "type": "string",
+      "enum": [
+        "NOT_EVALUATED",
+        "NOT_RELEASED",
+        "RELEASE_PROHIBITED",
+        "RESTRICTED_ONLY",
+        "QUARANTINED"
+      ]
+    },
+    "quarantine_reasons": {
+      "$ref": "#/$defs/stringSet"
+    },
+    "review_receipt_bindings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/opaqueId"
+      }
+    },
+    "disagreement_record_bindings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/opaqueId"
+      }
+    },
+    "adjudication_status": {
+      "type": "string",
+      "enum": [
+        "NOT_REQUIRED",
+        "PENDING",
+        "RESOLVED",
+        "UNRESOLVED",
+        "QUARANTINED",
+        "DEFERRED_TO_I1Q_1008F"
+      ]
+    },
+    "legacy_comparison_status": {
+      "type": "string",
+      "enum": [
+        "NOT_COMPARED",
+        "LIKELY_OVERLAP",
+        "TRANSCRIPT_DERIVED_ABSENT_FROM_LEGACY",
+        "LEGACY_WITH_POSSIBLE_TRANSCRIPT_SUPPORT",
+        "LEGACY_WITHOUT_ESTABLISHED_TRANSCRIPT_SUPPORT",
+        "REQUIRES_I1Q_1008F_ADJUDICATION"
+      ]
+    },
+    "provisional_status": {
+      "type": "string",
+      "enum": [
+        "EXTRACTED",
+        "NORMALIZED",
+        "REVIEW_REQUIRED",
+        "AMBIGUOUS",
+        "QUARANTINED",
+        "READY_FOR_I1Q_1008F",
+        "REJECTED_NO_ASSESSABLE_CONCEPT"
+      ]
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "normalization_status": {
+            "const": "NORMALIZED_WITH_RECONSTRUCTION"
+          }
+        },
+        "required": [
+          "normalization_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "normalization_changed_fields": {
+            "minItems": 1
+          },
+          "normalization_rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "normalization_confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "provisional_status": {
+            "const": "READY_FOR_I1Q_1008F"
+          }
+        },
+        "required": [
+          "provisional_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "release_status": {
+            "enum": [
+              "NOT_RELEASED",
+              "RELEASE_PROHIBITED",
+              "RESTRICTED_ONLY"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "opaqueId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "opaqueAlias": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^(sha256:)?[a-f0-9]{64}$"
+    },
+    "classificationValue": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "stringSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      }
+    },
+    "speakerClass": {
+      "type": "string",
+      "enum": [
+        "VERIFIED_DR_J",
+        "HIGH_CONFIDENCE_DR_J",
+        "PROBABLE_DR_J",
+        "LEARNER_OR_OTHER",
+        "MULTI_SPEAKER_UNRESOLVED",
+        "UNKNOWN"
+      ]
+    },
+    "reviewStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_REVIEWED",
+        "PENDING",
+        "REVIEW_REQUIRED",
+        "INDEPENDENTLY_REVIEWED",
+        "ADJUDICATED",
+        "QUARANTINED"
+      ]
+    },
+    "provenanceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "occurrence_id",
+        "source_alias",
+        "artifact_alias",
+        "transcript_hash_binding",
+        "nodes_hash_binding",
+        "segment_locator_hash",
+        "source_lineage_hash"
+      ],
+      "properties": {
+        "occurrence_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "source_alias": {
+          "$ref": "#/$defs/opaqueAlias"
+        },
+        "artifact_alias": {
+          "$ref": "#/$defs/opaqueAlias"
+        },
+        "transcript_hash_binding": {
+          "$ref": "#/$defs/sha256"
+        },
+        "nodes_hash_binding": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "segment_locator_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_lineage_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "duplicateRelationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relationship_id",
+        "left_occurrence_id",
+        "right_occurrence_id",
+        "relationship_type",
+        "confidence",
+        "basis_receipt_bindings",
+        "adjudication_status"
+      ],
+      "properties": {
+        "relationship_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "left_occurrence_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "right_occurrence_id": {
+          "$ref": "#/$defs/opaqueId"
+        },
+        "relationship_type": {
+          "$ref": "#/$defs/duplicateRelationshipType"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "basis_receipt_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/opaqueId"
+          }
+        },
+        "adjudication_status": {
+          "type": "string",
+          "enum": [
+            "PROVISIONAL",
+            "REVIEW_REQUIRED",
+            "DISPUTED",
+            "DEFERRED_TO_I1Q_1008F"
+          ]
+        }
+      }
+    },
+    "duplicateRelationshipType": {
+      "type": "string",
+      "enum": [
+        "EXACT_TEXT_DUPLICATE",
+        "NEAR_TEXT_DUPLICATE",
+        "SAME_CONCEPT_SAME_TARGET",
+        "SAME_CONCEPT_DIFFERENT_FORM",
+        "SAME_TOPIC_DIFFERENT_CONCEPT",
+        "REPEATED_TEACHING_OCCURRENCE",
+        "POSSIBLE_DUPLICATE",
+        "NOT_DUPLICATE"
+      ]
+    }
+  }
+}
