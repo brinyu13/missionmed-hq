@@ -1,0 +1,166 @@
+.mmed-office-hours-panel {
+	background: rgba(15, 23, 42, 0.94);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	color: #e2e8f0;
+	margin: 0 auto;
+	max-width: 860px;
+	padding: 24px;
+	width: 100%;
+}
+
+.mmed-office-hours-head {
+	align-items: start;
+	display: grid;
+	gap: 14px;
+	grid-template-columns: minmax(0, 1fr) auto;
+	margin-bottom: 18px;
+}
+
+.mmed-office-hours-head h2 {
+	color: #f8fafc;
+	font-size: 28px;
+	line-height: 1.15;
+	margin: 0 0 6px;
+}
+
+.mmed-office-hours-head p,
+.mmed-office-hours-muted {
+	color: #94a3b8;
+}
+
+.mmed-office-hours-status {
+	background: rgba(217, 184, 91, 0.12);
+	border: 1px solid rgba(217, 184, 91, 0.28);
+	border-radius: 999px;
+	color: #f8e7a4;
+	font-size: 12px;
+	font-weight: 900;
+	padding: 7px 10px;
+}
+
+.mmed-office-hours-join {
+	display: grid;
+	gap: 14px;
+}
+
+.mmed-office-hours-join label {
+	color: #cbd5e1;
+	display: grid;
+	font-weight: 800;
+	gap: 8px;
+}
+
+.mmed-office-hours-join textarea {
+	background: #0f172a;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+	color: #f8fafc;
+	min-height: 120px;
+	padding: 12px;
+	resize: vertical;
+}
+
+.mmed-office-hours-primary,
+.mmed-office-hours-secondary {
+	border: 0;
+	border-radius: 8px;
+	cursor: pointer;
+	display: inline-flex;
+	font-weight: 900;
+	justify-content: center;
+	line-height: 1.2;
+	padding: 12px 16px;
+	text-decoration: none;
+}
+
+.mmed-office-hours-primary {
+	background: linear-gradient(135deg, #36c071, #2ea85f);
+	color: #ecfdf5;
+}
+
+.mmed-office-hours-secondary {
+	background: rgba(255, 255, 255, 0.07);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: #e2e8f0;
+}
+
+.mmed-office-hours-waiting,
+.mmed-office-hours-admitted,
+.mmed-office-hours-closed {
+	align-items: center;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	min-height: 260px;
+	justify-content: center;
+	text-align: center;
+}
+
+.mmed-office-hours-waiting strong,
+.mmed-office-hours-admitted strong,
+.mmed-office-hours-closed strong {
+	color: #f8fafc;
+	font-size: 26px;
+	line-height: 1.2;
+}
+
+.mmed-office-hours-waiting span,
+.mmed-office-hours-closed span {
+	color: #94a3b8;
+}
+
+.mmed-office-hours-pulse {
+	animation: mmedOfficePulse 1.3s ease-in-out infinite;
+	background: #36c071;
+	border-radius: 50%;
+	height: 18px;
+	width: 18px;
+}
+
+.mmed-office-hours-timer {
+	color: #36c071;
+	font-size: clamp(42px, 9vw, 86px);
+	font-variant-numeric: tabular-nums;
+	font-weight: 900;
+	line-height: 1;
+}
+
+.mmed-office-hours-alert {
+	background: rgba(239, 68, 68, 0.12);
+	border: 1px solid rgba(239, 68, 68, 0.32);
+	border-radius: 8px;
+	color: #fecaca;
+	margin-bottom: 14px;
+	padding: 12px;
+}
+
+@keyframes mmedOfficePulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(54, 192, 113, 0.45);
+		transform: scale(1);
+	}
+
+	70% {
+		box-shadow: 0 0 0 18px rgba(54, 192, 113, 0);
+		transform: scale(1.08);
+	}
+
+	100% {
+		box-shadow: 0 0 0 0 rgba(54, 192, 113, 0);
+		transform: scale(1);
+	}
+}
+
+@media (max-width: 720px) {
+	.mmed-office-hours-panel {
+		padding: 18px;
+	}
+
+	.mmed-office-hours-head {
+		grid-template-columns: 1fr;
+	}
+}

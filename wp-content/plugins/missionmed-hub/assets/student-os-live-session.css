@@ -1,0 +1,507 @@
+.mmed-live-session-container {
+	background: #0a0e17;
+	color: #e2e8f0;
+	display: flex;
+	flex-direction: column;
+	min-height: calc(100vh - 32px);
+}
+
+.mmed-live-session-header {
+	align-items: center;
+	background: rgba(15, 23, 42, 0.96);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	display: grid;
+	gap: 16px;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	min-height: 72px;
+	padding: 14px 18px;
+	position: sticky;
+	top: 0;
+	z-index: 20;
+}
+
+.mmed-live-back,
+.mmed-live-leave,
+.mmed-live-primary,
+.mmed-live-secondary {
+	border: 0;
+	cursor: pointer;
+	font-weight: 800;
+	text-decoration: none;
+}
+
+.mmed-live-back {
+	align-items: center;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	color: #e2e8f0;
+	display: inline-flex;
+	font-size: 32px;
+	height: 42px;
+	justify-content: center;
+	line-height: 1;
+	width: 42px;
+}
+
+.mmed-live-title-wrap {
+	min-width: 0;
+}
+
+.mmed-live-title-row {
+	align-items: center;
+	display: flex;
+	gap: 12px;
+	min-width: 0;
+}
+
+.mmed-live-title-row h1 {
+	color: #e2e8f0;
+	font-size: 20px;
+	line-height: 1.2;
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mmed-live-title-wrap p {
+	color: #94a3b8;
+	margin: 4px 0 0;
+}
+
+.mmed-live-pill {
+	align-items: center;
+	background: rgba(239, 68, 68, 0.14);
+	border: 1px solid rgba(239, 68, 68, 0.32);
+	border-radius: 999px;
+	color: #fecaca;
+	display: inline-flex;
+	font-size: 11px;
+	font-weight: 900;
+	gap: 7px;
+	padding: 5px 9px;
+}
+
+.mmed-live-indicator {
+	animation: mmedLivePulse 1.2s ease-in-out infinite;
+	background: #ef4444;
+	border-radius: 50%;
+	box-shadow: 0 0 0 rgba(239, 68, 68, 0.55);
+	display: inline-block;
+	height: 8px;
+	width: 8px;
+}
+
+.mmed-live-time-badge {
+	background: rgba(217, 184, 91, 0.12);
+	border: 1px solid rgba(217, 184, 91, 0.35);
+	border-radius: 8px;
+	color: #f8e7a4;
+	font-variant-numeric: tabular-nums;
+	font-weight: 800;
+	padding: 8px 10px;
+	white-space: nowrap;
+}
+
+.mmed-live-leave {
+	background: rgba(239, 68, 68, 0.12);
+	border: 1px solid rgba(239, 68, 68, 0.32);
+	border-radius: 8px;
+	color: #fecaca;
+	padding: 10px 12px;
+}
+
+.mmed-live-loading,
+.mmed-waiting-room,
+.mmed-live-fallback,
+.mmed-live-error {
+	align-items: center;
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	justify-content: center;
+	padding: 48px 24px;
+	text-align: center;
+}
+
+.mmed-live-loading {
+	color: #94a3b8;
+	font-size: 16px;
+}
+
+.mmed-waiting-kicker {
+	color: #d9b85b;
+	font-size: 12px;
+	font-weight: 900;
+	letter-spacing: 0;
+	text-transform: uppercase;
+}
+
+.mmed-waiting-room h2,
+.mmed-live-fallback h2,
+.mmed-live-error h2 {
+	color: #e2e8f0;
+	font-size: 30px;
+	line-height: 1.15;
+	margin: 12px 0;
+	max-width: 760px;
+}
+
+.mmed-waiting-room p,
+.mmed-live-fallback p,
+.mmed-live-error p,
+.mmed-waiting-note {
+	color: #94a3b8;
+	font-size: 15px;
+	max-width: 720px;
+}
+
+.mmed-countdown {
+	color: #d9b85b;
+	font-size: clamp(48px, 9vw, 104px);
+	font-variant-numeric: tabular-nums;
+	font-weight: 900;
+	letter-spacing: 0;
+	line-height: 1;
+	margin: 28px 0 14px;
+}
+
+.mmed-webex-stage {
+	display: flex;
+	flex: 1;
+	min-height: 600px;
+}
+
+#webex-meeting-widget {
+	background: #0a0e17;
+	flex: 1;
+	min-height: 600px;
+	width: 100%;
+}
+
+.mmed-live-fallback-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	justify-content: center;
+	margin-top: 22px;
+}
+
+.mmed-live-primary,
+.mmed-live-secondary {
+	border-radius: 8px;
+	display: inline-flex;
+	justify-content: center;
+	min-width: 150px;
+	padding: 12px 16px;
+}
+
+.mmed-live-primary {
+	background: linear-gradient(135deg, #10b981, #059669);
+	box-shadow: 0 12px 34px rgba(16, 185, 129, 0.24);
+	color: #ecfdf5;
+}
+
+.mmed-live-secondary {
+	background: rgba(255, 255, 255, 0.07);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: #e2e8f0;
+}
+
+.mmed-event-join-live {
+	animation: mmedJoinGlow 1.5s ease-in-out infinite;
+	background: linear-gradient(135deg, #10b981, #059669);
+	border: 0;
+	border-radius: 8px;
+	box-shadow: 0 10px 24px rgba(16, 185, 129, 0.24);
+	color: #ecfdf5;
+	cursor: pointer;
+	display: inline-flex;
+	font-size: 13px;
+	font-weight: 900;
+	justify-content: center;
+	line-height: 1;
+	margin-top: 8px;
+	padding: 9px 12px;
+}
+
+.mmed-event-join-live.is-compact {
+	border-radius: 7px;
+	font-size: 11px;
+	margin-top: 5px;
+	padding: 6px 8px;
+}
+
+.mmed-event-starts-soon,
+.mmed-event-ended {
+	border-radius: 999px;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 800;
+	margin-top: 7px;
+	padding: 5px 9px;
+}
+
+.mmed-event-starts-soon {
+	background: rgba(148, 163, 184, 0.12);
+	color: #cbd5e1;
+}
+
+.mmed-event-ended {
+	color: #94a3b8;
+}
+
+.mmed-event-starts-soon.is-compact,
+.mmed-event-ended.is-compact {
+	font-size: 10px;
+	margin-top: 4px;
+	padding: 4px 7px;
+}
+
+.mmed-live-layout {
+	display: grid;
+	flex: 1;
+	grid-template-columns: minmax(0, 1fr) 300px;
+	min-height: 0;
+}
+
+.mmed-live-main {
+	display: flex;
+	min-width: 0;
+}
+
+.mmed-live-chat {
+	background: #0f172a;
+	border-left: 1px solid rgba(255, 255, 255, 0.08);
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	position: relative;
+	width: 300px;
+}
+
+.mmed-chat-toggle {
+	background: rgba(255, 255, 255, 0.08);
+	border: 0;
+	color: #e2e8f0;
+	cursor: pointer;
+	font-weight: 800;
+	padding: 10px;
+}
+
+.mmed-chat-panel {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.mmed-chat-head {
+	align-items: center;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	display: flex;
+	justify-content: space-between;
+	padding: 12px;
+}
+
+.mmed-chat-head h2 {
+	color: #e2e8f0;
+	font-size: 16px;
+	margin: 0;
+}
+
+.mmed-chat-head span {
+	color: #94a3b8;
+	font-size: 12px;
+}
+
+.mmed-chat-messages {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 10px;
+	overflow-y: auto;
+	padding: 12px;
+}
+
+.mmed-chat-message {
+	align-self: flex-start;
+	max-width: 92%;
+}
+
+.mmed-chat-message.is-own {
+	align-self: flex-end;
+}
+
+.mmed-chat-meta {
+	align-items: center;
+	color: #94a3b8;
+	display: flex;
+	font-size: 11px;
+	gap: 5px;
+	margin-bottom: 4px;
+}
+
+.mmed-chat-message.is-own .mmed-chat-meta {
+	justify-content: flex-end;
+}
+
+.mmed-chat-bubble {
+	background: rgba(255, 255, 255, 0.08);
+	border-radius: 10px;
+	color: #e2e8f0;
+	padding: 9px 10px;
+}
+
+.mmed-chat-message.is-own .mmed-chat-bubble {
+	background: rgba(14, 117, 168, 0.7);
+}
+
+.mmed-chat-message.is-question .mmed-chat-bubble {
+	border-left: 3px solid #d9b85b;
+}
+
+.mmed-chat-message.is-pinned .mmed-chat-bubble {
+	box-shadow: 0 0 0 1px rgba(217, 184, 91, 0.5);
+}
+
+.mmed-chat-q,
+.mmed-chat-answered,
+.mmed-chat-pin {
+	border-radius: 999px;
+	font-size: 10px;
+	font-weight: 900;
+	padding: 2px 5px;
+}
+
+.mmed-chat-q {
+	background: rgba(217, 184, 91, 0.18);
+	color: #f8e7a4;
+}
+
+.mmed-chat-answered {
+	background: rgba(16, 185, 129, 0.16);
+	color: #bbf7d0;
+}
+
+.mmed-chat-pin {
+	background: rgba(148, 163, 184, 0.16);
+	color: #cbd5e1;
+}
+
+.mmed-chat-empty {
+	color: #94a3b8;
+	font-size: 13px;
+	padding: 16px 0;
+	text-align: center;
+}
+
+.mmed-chat-form {
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
+	padding: 10px;
+}
+
+.mmed-chat-question {
+	align-items: center;
+	color: #cbd5e1;
+	display: flex;
+	font-size: 12px;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.mmed-chat-input-row {
+	display: flex;
+	gap: 6px;
+}
+
+.mmed-chat-input-row input {
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+	color: #e2e8f0;
+	flex: 1;
+	min-width: 0;
+	padding: 9px;
+}
+
+.mmed-chat-input-row button {
+	background: #10b981;
+	border: 0;
+	border-radius: 8px;
+	color: #052e1a;
+	cursor: pointer;
+	font-weight: 900;
+	padding: 0 12px;
+}
+
+.mmed-live-chat.is-collapsed {
+	width: 44px;
+}
+
+.mmed-live-chat.is-collapsed .mmed-chat-panel {
+	display: none;
+}
+
+@keyframes mmedLivePulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+	}
+	70% {
+		box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+	}
+}
+
+@keyframes mmedJoinGlow {
+	0%, 100% {
+		filter: brightness(1);
+	}
+	50% {
+		filter: brightness(1.12);
+	}
+}
+
+@media (max-width: 860px) {
+	.mmed-live-layout {
+		grid-template-columns: 1fr;
+	}
+
+	.mmed-live-chat {
+		bottom: 0;
+		height: min(75vh, 640px);
+		position: fixed;
+		right: 0;
+		top: auto;
+		width: 100%;
+		z-index: 50;
+	}
+
+	.mmed-live-chat.is-collapsed {
+		height: auto;
+		width: 130px;
+	}
+
+	.mmed-live-session-header {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
+
+	.mmed-live-time-badge,
+	.mmed-live-leave {
+		grid-column: 2;
+		justify-self: start;
+	}
+
+	.mmed-live-title-row {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.mmed-live-title-row h1 {
+		white-space: normal;
+	}
+}

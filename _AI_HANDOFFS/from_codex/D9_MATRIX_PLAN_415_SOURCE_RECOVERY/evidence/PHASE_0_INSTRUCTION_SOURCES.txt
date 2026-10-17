@@ -1,0 +1,28 @@
+Loaded worktree instructions:
+- /Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415/AGENTS.md
+- /Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415/CLAUDE.md
+- No AGENTS.override.md found in the applicable chain.
+
+Loaded MissionMed OS resolution chain from fetched origin/main:
+- /Users/brianb/MissionMed_OS/BOOT.md
+- /Users/brianb/MissionMed_OS/CURRENT.md
+- /Users/brianb/MissionMed_OS/missions.json (D9-MATRIX-PLAN-415 absent)
+- /Users/brianb/MissionMed_OS/products_index.json (Matrix -> PRODUCT_PASSPORTS/matrix.md)
+- /Users/brianb/MissionMed_OS/authority_index.json
+
+Loaded product passport:
+- /Users/brianb/MissionMed_worktrees/D9-MatrixPlan-415/PRODUCT_PASSPORTS/matrix.md
+
+Loaded routed authority:
+- /Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_PROTOCOL.md
+- /Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json
+- /Users/brianb/MissionMed/_SYSTEM/tools/matrix_runtime_guard.py
+- /Users/brianb/MissionMed/_SYSTEM/CRITICAL_SYSTEMS_CONTRACT.md
+- /Users/brianb/MissionMed/_SYSTEM/CODEX_EXECUTION_GUARDRAILS.md
+
+Resolution:
+- Explicit founder decision and direct runtime evidence govern this scoped recovery.
+- Mission registry absence is logged as governance degradation; no registry write is authorized.
+- The active Matrix manifest postdates D9-410 and therefore current production must be reverified directly.
+- No unresolved instruction conflict blocks Wave 1 read-only discovery.
+

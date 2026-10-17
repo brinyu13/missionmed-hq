@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "ticket": "D9-MATRIX-PLAN-415",
+  "package_name": "missionmed-matrix-source",
+  "archive_root": "missionmed-matrix-source",
+  "canonical_branch": "d9-matrix-plan-415-source-recovery",
+  "runtime_source_commit": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+  "runtime_source_tree": "9e0408d93a37c0d6f73a4d06aa9da135b79c9b90",
+  "plugin_root": "wp-content/plugins/missionmed-hub",
+  "plugin_version": "1.5.1",
+  "production_hash_map": "_AI_HANDOFFS/from_codex/D9_MATRIX_PLAN_415_SOURCE_RECOVERY/D9_415_PRODUCTION_TO_GIT_HASH_MAP.json",
+  "mu_active_manifest": "_SYSTEM/BASELINES/D9_MATRIX_RUNTIME_2026_07_13/D9_MATRIX_MU_INTENDED_ACTIVE.json",
+  "runtime_source_lock": "_SYSTEM/BASELINES/D9_MATRIX_RUNTIME_2026_07_13/D9_MATRIX_RUNTIME_SOURCE_LOCK.json",
+  "expected_complete_plugin_file_count": 125,
+  "expected_intended_mu_file_count": 9,
+  "expected_package_plugin_file_count": 120,
+  "expected_package_source_file_count": 129,
+  "excluded_plugin_paths": [
+    "wp-content/plugins/missionmed-hub/CHANGELOG.md",
+    "wp-content/plugins/missionmed-hub/MULTI_DIVISION_DASHBOARD_INTEGRATION.md",
+    "wp-content/plugins/missionmed-hub/WEBEX_WIDGET_RESEARCH.md",
+    "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-sdk-tiles.inactive.js",
+    "wp-content/plugins/missionmed-hub/assets/test-deploy.txt"
+  ],
+  "excluded_classes": [
+    "reports",
+    "handoffs",
+    "evidence",
+    "tests not required at runtime",
+    "caches",
+    "logs",
+    "node_modules",
+    "forensic material"
+  ],
+  "forbidden_archive_components": [
+    "_AI_HANDOFFS",
+    "evidence",
+    "tests",
+    "test",
+    "cache",
+    "caches",
+    "logs",
+    "node_modules",
+    "FORENSICS"
+  ],
+  "secret_and_private_data_scan_baseline": {
+    "scanned_file_count": 134,
+    "scanned_byte_count": 10575308,
+    "binary_file_count": 11,
+    "forbidden_filename_candidates": [
+      "wp-content/mu-plugins/missionmed-supabase-session-cookie-auth.php",
+      "wp-content/plugins/missionmed-hub/assets/admin-session-manager.css",
+      "wp-content/plugins/missionmed-hub/assets/admin-session-manager.js",
+      "wp-content/plugins/missionmed-hub/assets/student-os-live-session.css",
+      "wp-content/plugins/missionmed-hub/assets/student-os-live-session.js",
+      "wp-content/plugins/missionmed-hub/includes/class-mmed-session-analytics.php",
+      "wp-content/plugins/missionmed-hub/includes/class-mmed-session-chat.php",
+      "wp-content/plugins/missionmed-hub/includes/class-mmed-session-manager.php",
+      "wp-content/plugins/missionmed-hub/includes/class-mmed-session-reminders.php"
+    ],
+    "high_confidence_allowlist": [
+      {
+        "path": "wp-content/plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+        "rule": "private_key_marker",
+        "sha256": "3021d90eb9437b2d8f30e8363695c4418b5e5f1870801b5c317e9398ee0f572d",
+        "count": 1,
+        "reason": "literal PKCS#8 validation marker inside the bundled Webex crypto library; no key body"
+      }
+    ],
+    "credential_literal_allowlist": [
+      {
+        "path": "wp-content/plugins/missionmed-hub/assets/mmed-webex-widget-adapter.js",
+        "identifier": "privateKey",
+        "sha256": "f5b38ccd9dc77221f08eabf46be84cb3b72b2753eda52ae2916f8e9b00b11162",
+        "count": 2,
+        "reason": "schema labels in the bundled Webex crypto library"
+      }
+    ],
+    "entropy_candidate_count": 18,
+    "email_literal_count": 33,
+    "private_data_allowlist": [
+      {
+        "path": "wp-content/plugins/missionmed-hub/includes/class-mmed-notifications.php",
+        "identifier": "user_email",
+        "sha256": "e2f79e5b60330bba4c289962231b6ba2957d0b14e7deb3110417003c79dea635",
+        "count": 1,
+        "reason": "fallback expression, not an embedded private value"
+      }
+    ]
+  },
+  "no_production_command_patterns": [
+    "(?i)\\bssh\\s+[^\\n]+",
+    "(?i)\\bscp\\s+[^\\n]+",
+    "(?i)\\brsync\\s+[^\\n]+",
+    "(?i)\\bgit\\s+push\\b",
+    "(?i)\\bgh\\s+pr\\s+merge\\b",
+    "(?i)\\bwp\\s+(?:plugin|option|cache|db)\\b",
+    "(?i)\\bsupabase\\s+(?:db|migration|functions)\\b",
+    "(?i)\\bcurl\\b[^\\n]*(?:-X|--request)\\s*(?:POST|PUT|PATCH|DELETE)",
+    "(?i)\\bkubectl\\s+(?:apply|delete|patch|set)\\b",
+    "(?i)\\bhelm\\s+(?:install|upgrade|uninstall)\\b"
+  ],
+  "deployable": false,
+  "production_side_effects_allowed": false
+}
