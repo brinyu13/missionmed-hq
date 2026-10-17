@@ -375,7 +375,7 @@ async function calendarMutation(path,intent,body,headers={}){
 }
 function calendarMonthRange(){const m=monthModel(S.ui.cal.ym),shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);return {start:shift(m.days[0].key,-1),end:shift(m.days.at(-1).key,1),ym:S.ui.cal.ym};}
 function cohortBinding(){return JSON.stringify([actor?.id,actor?.role,actor?.tier,calendarEpoch,sessionEpoch,S?.ui?.cal?.ym]);}
-function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))void loadCohort({background:true});}
+function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true});}
 function expireWarmCalendar(){if(cohortPage?.background&&(!calendarV2()||cohortPage.binding!==cohortBinding()||cohortPage.complete&&Date.now()-cohortPage.completedAt>30000)){calendarLoadSequence++;cohortFlight=null;cohortPage=null;}}
 function loadCohort({background=false}={}){
  if(!calendarV2()||!S||background&&S.ui.calendarScope&&S.ui.calendarScope!=='all')return;

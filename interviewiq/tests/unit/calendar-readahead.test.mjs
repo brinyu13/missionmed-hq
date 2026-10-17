@@ -22,8 +22,11 @@ test('administrator warm request uses only overview, not full roster',async()=>{
 
 test('returning from My Calendar or selected student starts a new live request, never joins canceled warm load',async()=>{for(const scope of ['mine','student']){const f=ui();const old=f.run('loadCohort({background:true})');f.run(`calendarLoadSequence++;S.ui.calendarScope='${scope}'`);const current=f.run('loadCohort()');assert.equal(f.requests.length,2);f.complete(0);await old;assert.equal(f.run('cohortPage.complete===true'),false);f.complete(1);await current;assert.equal(f.run('cohortPage.complete'),true);assert.equal(f.run('cohortPage.loading'),false);}});
 
-test('Calendar-first boot starts existing cohort and full reads without waiting for an opening callback',async()=>{
- const calls=[];const c=vm.createContext({document:{getElementById:()=>({innerHTML:''})},location:{search:''},actor:{id:'own'},sessionEpoch:0,bootSequence:0,parseInterviewIQEntry:()=>null,renderPublicCalendarShell:()=>'<div>Public dates</div>',fitCalendarViewport:()=>{},apiFetch:async path=>{calls.push(path);return{};},applyBootstrap:()=>{},applyInterviewIQEntry:()=>{calls.push('native-entry-now');},render:()=>{},completeWorkspace:()=>{calls.push('full-in-parallel');},warmCalendar:()=>{calls.push('cohort-in-parallel');},lockWorkspace:message=>{throw Error(message);}});
+test('visible cohort finishes before optional details; entry stays immediate and changed accounts cannot resume old work',async()=>{
+ for(const change of ['', "actor.id='other'", 'sessionEpoch++', 'bootSequence++']){
+ const calls=[];let finish;const pending=new Promise(resolve=>finish=resolve);
+ const c=vm.createContext({Promise,document:{getElementById:()=>({innerHTML:''})},location:{search:''},actor:{id:'own'},sessionEpoch:0,bootSequence:0,parseInterviewIQEntry:()=>null,renderPublicCalendarShell:()=>'<div>Public dates</div>',fitCalendarViewport:()=>{},apiFetch:async path=>{calls.push(path);return{};},applyBootstrap:()=>{},applyInterviewIQEntry:()=>{calls.push('entry');},render:()=>{},completeWorkspace:()=>{calls.push('details');},warmCalendar:()=>{calls.push('cohort');return pending;},lockWorkspace:message=>{throw Error(message);}});
  vm.runInContext(runtime.slice(runtime.indexOf('async function boot(){'),runtime.indexOf('const MRX_COMMANDS')),c);await vm.runInContext('boot()',c);
- assert.deepEqual(calls,['/bootstrap?view=calendar','cohort-in-parallel','full-in-parallel','native-entry-now']);
+ assert.deepEqual(calls,['/bootstrap?view=calendar','cohort','entry']);if(change)vm.runInContext(change,c);finish();await Promise.resolve();assert.equal(calls.includes('details'),!change);
+ }
 });

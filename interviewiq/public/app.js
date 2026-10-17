@@ -578,7 +578,9 @@ async function boot(){
   try{
     let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
     if(sequence!==bootSequence)return;applyBootstrap(b);render();const identity=actor.id,epoch=sessionEpoch;
-    warmCalendar();void completeWorkspace();applyInterviewIQEntry(entry,identity,epoch);
+    const calendarRead=warmCalendar();applyInterviewIQEntry(entry,identity,epoch);
+    // Complete optional workspace details after the visible cohort read, not in competition with it.
+    void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace();});
   }catch(error){if(sequence===bootSequence)lockWorkspace(error.message);}
 }
 
@@ -1559,8 +1561,7 @@ function calendarFiltered(items){const f=S.ui.calendarFilters||{};return items.f
 function calendarEventButton(it,row=false){return `<button type="button" class="mcv2-event ${row?'is-row ':''}mcv2-event--${it.kind}${it.own?' is-own':' is-peer'}" data-act="cal-item" data-item="${esc(it.id)}" aria-label="${esc((it.own?'Your interview: ':'')+it.title+' '+it.time)}"><span class="mcv2-event-time">${esc(it.time)}</span><span class="mcv2-event-copy"><strong>${it.own?'★ ':''}${esc(it.title)}</strong>${it.student?`<small>${esc(it.student)}</small>`:''}${row?`<small>${esc(it.student?it.student+' · ':'')}${esc(it.specialty)} · ${esc(it.sub)}</small>`:''}${it.sameProgram?`<span class="calendar-connection">${row?'Same program · eligible peer':'Same program'}</span>`:''}</span>${row?`<span class="mcv2-chip">${it.own?'Yours':it.student?'Student':'Peer'}</span>`:''}</button>`;}
 function calendarAdminControls(){
  if(!calendarV2()||actor.role!=='admin')return '';
- if(calendarRoster===null){calendarRoster={students:[],loading:true,q:'',tier:'all'};queueMicrotask(()=>loadCalendarRoster());}
- const r=calendarRoster,sel=calendarSelection;
+ const r=calendarRoster||{students:[],loading:false,q:'',tier:'all'},sel=calendarSelection;
  return `<section class="calendar-roster panel pad" aria-label="Student schedules"><h2>Student schedules</h2><p>Active 360 Match Mentorship and IV Prep Complete students.</p><div class="calendar-controls"><label>Student name<input id="calendar-roster-name" maxlength="120" value="${esc(r.q||'')}" type="search"></label><label>Enrollment<select id="calendar-roster-tier">${[['all','All eligible tiers'],['360','360 Match Mentorship'],['ivprep_complete','IV Prep Complete']].map(([v,n])=>`<option value="${v}" ${r.tier===v?'selected':''}>${n}</option>`).join('')}</select></label>${btn('calendar-roster-search','Search students','','btn ghost')}<label>Choose a student<select id="calendar-student-select" data-calendar-student><option value="">Choose a student</option>${r.students.map(s=>`<option value="${s.wpUserId}" ${sel?.wpUserId===s.wpUserId?'selected':''}>${esc(s.name)} · ${s.tier==='360'?'360':'IV Prep Complete'}</option>`).join('')}</select></label></div><div role="status" aria-live="polite">${r.loading?(r.preview?'Matching previously loaded names; refreshing eligibility…':'Loading eligible students…'):r.error?esc(r.error)+' Retry the search.':!r.students.length?'No eligible students match this search.':r.students.length+' eligible students in this search.'}</div>${sel?`<p class="calendar-selected">Selected student: <strong>${esc(sel.name)}</strong> · schedule is read-only</p>`:''}${calendarSchedule?.loading?'<p role="status">Loading this student’s saved interviews…</p>':calendarSchedule?.error?`<p role="alert">${esc(calendarSchedule.error)} ${btn('calendar-student-retry','Retry student schedule','','btn ghost')}</p>`:calendarSchedule?.mappingStatus==='unmapped'?'<p role="status">This student has not established an InterviewIQ workspace. A schedule cannot yet be loaded. Normal student sign-in establishes it.</p>':''}</section>`;
 }
 function renderCalendar(){
@@ -1879,7 +1880,7 @@ function render(){syncLoiCompositionView();
   if(coreOnly()&&!coreRoute(r))html=(r==='prepare'&&threeboxEnabled()?'<div class="panel pad" role="status"><p>Why This Program is ready: save your private Three-Box worksheet, review current RISE evidence, and assemble your answer. Rehearsal and day-sheet integrations are not active.</p></div>':comingSoonPanel(navItems().find(x=>x[0]===r)?.[1]||r))+html;
   document.getElementById('main').innerHTML=html;
   document.querySelectorAll('main details > summary').forEach(s=>{ if(openSet.has(s.textContent.trim())) s.parentElement.open=true; });
-  document.querySelectorAll('main details[data-calendar-disclosure]').forEach(d=>{if(calendarOpen.has(d.dataset.calendarDisclosure))d.open=true;});
+  document.querySelectorAll('main details[data-calendar-disclosure]').forEach(d=>{if(calendarOpen.has(d.dataset.calendarDisclosure))d.open=true;if(d.dataset.calendarDisclosure==='students')d.addEventListener('toggle',()=>{if(d.open&&calendarRoster===null)void loadCalendarRoster();});});
   renderDrawer();
   applyDrafts();
   loadProgramMedia();
@@ -2370,7 +2371,7 @@ async function calendarMutation(path,intent,body,headers={}){
 }
 function calendarMonthRange(){const m=monthModel(S.ui.cal.ym),shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);return {start:shift(m.days[0].key,-1),end:shift(m.days.at(-1).key,1),ym:S.ui.cal.ym};}
 function cohortBinding(){return JSON.stringify([actor?.id,actor?.role,actor?.tier,calendarEpoch,sessionEpoch,S?.ui?.cal?.ym]);}
-function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))void loadCohort({background:true});}
+function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true});}
 function expireWarmCalendar(){if(cohortPage?.background&&(!calendarV2()||cohortPage.binding!==cohortBinding()||cohortPage.complete&&Date.now()-cohortPage.completedAt>30000)){calendarLoadSequence++;cohortFlight=null;cohortPage=null;}}
 function loadCohort({background=false}={}){
  if(!calendarV2()||!S||background&&S.ui.calendarScope&&S.ui.calendarScope!=='all')return;
