@@ -17,12 +17,13 @@ const DEFAULT_LIMITS = Object.freeze({ connectMs: 10_000, appendMs: 5_000, durat
  * exact word boundaries, speaker biometrics, or proof of audible playback.
  */
 export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSessionId, ownerSubject,
-  observationId, apiKey, append, WebSocketImpl, limits = {} } = {}) {
+  observationId, apiKey, append, onProviderEvidence = null, WebSocketImpl, limits = {} } = {}) {
   if (typeof providerSessionId !== 'string' || !/^[A-Za-z0-9_-]{8,160}$/u.test(providerSessionId)
     || typeof ivocSessionId !== 'string' || !UUID.test(ivocSessionId)
     || typeof observationId !== 'string' || !UUID.test(observationId)
     || typeof ownerSubject !== 'string' || !/^wp:[1-9][0-9]{0,19}$/u.test(ownerSubject)
     || typeof apiKey !== 'string' || !apiKey.trim() || /[\r\n]/u.test(apiKey)
+    || (onProviderEvidence !== null && typeof onProviderEvidence !== 'function')
     || typeof append !== 'function' || (WebSocketImpl !== undefined && typeof WebSocketImpl !== 'function')) {
     throw new TypeError('Live transcript observer requires exact server-owned identity and sink.');
   }
@@ -43,7 +44,7 @@ export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSess
     owner_subject: ownerSubject, provider_session_id: providerSessionId };
   const queue = [], seen = new Map(), timers = new Set();
   let socket, opened = false, rootPersisted = false, draining = false, finished = false;
-  let terminal = null, seq = 0, queueBytes = 0, count = 0, bytes = 0, messages = 0;
+  let spendEvidence = Promise.resolve(), terminalEvidence = Promise.resolve(), pendingEvidence = 0, seq = 0, terminal = null, queueBytes = 0, count = 0, bytes = 0, messages = 0;
   let connectTimer, finishTimer, durationTimer;
   const receivedAt = () => new Date().toISOString();
   const schedule = (fn, ms) => { const timer = setTimeout(() => { timers.delete(timer); fn(); }, ms); timers.add(timer); return timer; };
@@ -100,6 +101,16 @@ export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSess
           continue;
         }
         if (terminal) {
+          // Terminal custody has its own path. Invalid/regressive final usage
+          // cannot erase genuine session.closed evidence. Accounting stays unknown.
+          try { await terminalEvidence; } catch { settle('INCOMPLETE', 'persistence_failure', false); return; }
+          let usageTimer;
+          try {
+            await Promise.race([spendEvidence, new Promise((_, reject) => {
+              usageTimer = setTimeout(() => reject(new Error('usage_wait_expired')), bounds.appendMs);
+            })]);
+          } catch { /* Unsupported/unconfirmed accounting is not terminal failure. */ }
+          finally { clearTimeout(usageTimer); }
           const end = record('terminal', { terminal_status: terminal.status, terminal_reason: terminal.reason }, terminal.at);
           try { await persist([end]); } catch (error) {
             settle('INCOMPLETE', error?.message === 'persistence_timeout' ? 'persistence_timeout' : 'persistence_failure', false);
@@ -128,6 +139,31 @@ export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSess
     for (const item of early) queue.push(record('fragment', item.fields, item.at));
     void drain();
   }
+  async function persistProviderEvidence(evidence) {
+    if (!onProviderEvidence || finished) return;
+    let timer;
+    try {
+      await Promise.race([Promise.resolve().then(() => onProviderEvidence(Object.freeze(evidence))),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('persistence_timeout')), bounds.appendMs); })]);
+    } finally { clearTimeout(timer); }
+  }
+  function queueProviderEvidence(evidence) {
+    if (!onProviderEvidence) return;
+    if (++pendingEvidence > bounds.queueRecords) { stop('INCOMPLETE', 'queue_limit'); return; }
+    spendEvidence = spendEvidence.then(() => persistProviderEvidence(evidence)).finally(() => { pendingEvidence--; });
+    // Running evidence failure triggers cleanup; final accounting failure must
+    // leave the independent terminal path intact and UNKNOWN in the ledger.
+    spendEvidence.catch(() => { if (!evidence.final) stop('INCOMPLETE', 'persistence_failure'); });
+  }
+  function nativeUsage(event, final) {
+    const usage = event.usage;
+    if (!usage || typeof usage !== 'object' || Array.isArray(usage)
+      || Object.keys(usage).join(',') !== 'seconds' || typeof usage.seconds !== 'number'
+      || !Number.isFinite(usage.seconds) || usage.seconds < 0
+      || typeof event.event_id !== 'string' || !ID.test(event.event_id)) return null;
+    return { kind: 'usage', type: event.type, source: final ? 'provider_session_closed' : 'provider_session_usage',
+      providerSessionId, eventId: event.event_id, final, usage: Object.freeze({ seconds: usage.seconds }) };
+  }
   function onMessage(data, binary = false) {
     if (terminal || finished) return;
     const at = receivedAt();
@@ -137,7 +173,26 @@ export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSess
     let event;
     try { event = JSON.parse(data.toString()); } catch { stop('INCOMPLETE', 'invalid_event', at); return; }
     if (!event || typeof event !== 'object' || Array.isArray(event)) { stop('INCOMPLETE', 'invalid_event', at); return; }
-    if (event.type === 'session.closed') { stop('PROVIDER_CLOSED', 'provider_closed', at); return; }
+    if (['session.closed', 'session.usage.updated'].includes(event.type)) {
+      // Authenticated exact-session URL establishes identity when an ID is omitted.
+      if ((event.session?.id != null && event.session.id !== providerSessionId)
+        || (event.session_id != null && event.session_id !== providerSessionId)) {
+        stop('INCOMPLETE', 'invalid_event', at); return;
+      }
+      const final = event.type === 'session.closed';
+      const usage = nativeUsage(event, final);
+      // Latest cumulative seconds, never summed and never replaced with backend
+      // token counts. Unsupported/missing dimensions do not certify accounting.
+      if (usage) queueProviderEvidence(usage);
+      if (!final) return;
+      const eventId = typeof event.event_id === 'string' && ID.test(event.event_id)
+        ? event.event_id : `closed:${providerSessionId}`;
+      const reasons = ['close_requested', 'expired', 'content', 'remote_hangup', 'connection_lost'];
+      terminalEvidence = persistProviderEvidence({ kind: 'terminal', type: 'session.closed', source: 'provider_session_closed',
+        providerSessionId, eventId, ...(reasons.includes(event.reason) ? { reason: event.reason } : {}) });
+      terminalEvidence.catch(() => {});
+      stop('PROVIDER_CLOSED', 'provider_closed', at); return;
+    }
     if (!['session.input_transcript.delta', 'session.output_transcript.delta'].includes(event.type)) return;
     if (typeof event.delta !== 'string' || Buffer.byteLength(event.delta) > bounds.fragmentBytes
       || !Number.isSafeInteger(event.start_ms) || !Number.isSafeInteger(event.end_ms)

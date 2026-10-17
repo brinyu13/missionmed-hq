@@ -232,3 +232,20 @@ test('persistence retry retains measured evidence and exact sealed recording',as
   assert.deepEqual({...h.writes[1],capturedAt:h.writes[0].capturedAt},h.writes[0]);
   assert.equal(h.writes[1].analytics.schema,'missionmed.ivprep.analytics.session.v1');assert.equal(h.c.phase,'SAVED');
 });
+
+
+test('actual Fable adapter forwards owner-bound presence without changing durable audio telemetry ownership', async () => {
+  const calls = []; let options;
+  class Native {
+    constructor(input) { options = input; }
+    async start() { await options.keepPresence('exact-provider', { generation: 'generation', sequence: 1 }); return {}; }
+    async stop() {}
+  }
+  const live = new GptLiveInterviewer({ account: { apiClient: {
+    createLiveInterview() { throw new Error('fixture must not create a provider'); }, endLiveInterview() {},
+    keepLiveInterviewPresence: async (id, body) => { calls.push({ id, body }); return { ok: true }; },
+  } }, durable: { accountSession: { id: 'session-1' }, recordLiveAudioTelemetry() {} }, LiveInterviewSessionCtor: Native });
+  await live.connect({ ivocSessionId: 'session-1', openingQuestion: 'Tell me about yourself.' });
+  assert.deepEqual(calls, [{ id: 'exact-provider', body: { generation: 'generation', sequence: 1 } }]);
+  await live.stop();
+});

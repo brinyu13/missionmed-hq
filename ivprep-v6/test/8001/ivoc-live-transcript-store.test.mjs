@@ -77,3 +77,15 @@ test('runtime dependencies attach only after a fresh owner guard, with server-on
   await assert.rejects(() => deps.liveTranscriptObserver(identity), /active owned live session/);
   assert.equal(calls.length, 1);
 });
+
+
+test('trusted runtime deadline tightens observer duration and callback is not persisted with transcripts', async () => {
+  let captured; const evidence = () => {};
+  const deps = createIvocLiveTranscriptDependencies({ apiKey: 'synthetic',
+    rest: { table: async () => [session], request: async () => {} },
+    observerFactory: input => { captured = input; return {}; } });
+  await deps.liveTranscriptObserver({ ...identity, remainingDurationMs: 1234, onProviderEvidence: evidence });
+  assert.equal(captured.limits.durationMs, 1234);
+  assert.equal(captured.onProviderEvidence, evidence);
+  assert.equal(captured.providerSessionId, identity.providerSessionId);
+});

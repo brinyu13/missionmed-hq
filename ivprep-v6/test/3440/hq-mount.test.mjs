@@ -112,18 +112,40 @@ function observerFixture(identity, { ready = Promise.resolve(attachedReceipt(ide
   return { ready, completion: completed.promise, finish: async () => {
     events.push(['finish', identity.providerSessionId]);
     const outcome = { observationId: identity.observationId,
-      ...(drain ? await drain : { status: 'INCOMPLETE', reason: 'finish_timeout', terminalPersisted: true }) };
+      ...(drain ? await drain : { status: 'PROVIDER_CLOSED', reason: 'provider_closed', terminalPersisted: true }) };
+    if (outcome.status === 'PROVIDER_CLOSED') await identity.onProviderEvidence?.({ kind: 'terminal', type: 'session.closed', providerSessionId: identity.providerSessionId });
     completed.resolve(outcome); return outcome;
   } };
 }
-function liveHarness({ guard, context, create, observe, hangup, report = () => {} } = {}) {
+
+function nativePolicyFixture({ deadlineDelta = 120000, startupDelta = 60000, presenceDelta = 60000, cleanupMs = 24000 } = {}) {
+  const reservation = { reservation_id: LIVE_SESSION_ID, generation: LIVE_SESSION_ID, heartbeat_ms: 1000, cleanup_ms: cleanupMs,
+    deadline_at: new Date(NOW + deadlineDelta).toISOString(), deadlineMs: NOW + deadlineDelta,
+    startupDeadlineMs: NOW + Math.min(startupDelta, deadlineDelta), presenceExpiresMs: NOW + Math.min(presenceDelta, deadlineDelta) };
+  let claimed = false, sequence = 0;
+  return {
+    reserve: async () => reservation,
+    claim: async () => { if (claimed) throw new Error('already consumed'); claimed = true; return Object.freeze({ fixture: true }); },
+    bind: async () => ({ ok: true, presence_expires_at: new Date(NOW + Math.min(presenceDelta, deadlineDelta)).toISOString() }),
+    presence: async (_reservation, input) => {
+      if (input.generation !== reservation.generation || input.sequence <= sequence) throw new Error('stale presence');
+      sequence = input.sequence;
+      return { ok: true, deadline_at: reservation.deadline_at, presence_expires_at: new Date(NOW + 60000).toISOString() };
+    },
+    requestEnd: async () => ({ ok: true }),
+    evidence: async () => ({ ok: true, provider_terminal_confirmed: true, accounting_complete: false }),
+    quarantine: async () => ({ ok: true }),
+  };
+}
+
+function liveHarness({ guard, context, create, observe, hangup, report = () => {}, policy = nativePolicyFixture(), clock = () => NOW } = {}) {
   const enrolled = registry(), events = []; let generation = 0;
-  const handler = createIvPrepHqHandler({ registry: enrolled, now: () => NOW,
+  const handler = createIvPrepHqHandler({ registry: enrolled, now: clock,
     flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
-    reportLiveStartFailure: report,
+    reportLiveStartFailure: report, nativeVoicePolicy: policy,
     liveSessionGuard: async identity => { events.push(['guard', identity]); if (guard) return guard(identity); },
     liveContextResolver: async identity => { events.push(['context', identity]); return context ? context(identity) : { actorBlock: 'authorized fixture', receipt: 'fixture' }; },
-    liveSessionBroker: { create: async input => { events.push(['create', input]); return create ? create(input)
+    liveSessionBroker: { credentialFingerprint: 'd'.repeat(64), create: async input => { events.push(['create', input]); return create ? create(input)
       : { session: { id: `live_fixture_${String(++generation).padStart(4, '0')}`, model: 'unchanged-model' }, transport: { type: 'webrtc', sdp: 'unchanged-sdp' } }; },
       hangup: async id => { events.push(['hangup', id]); if (hangup) return hangup(id); return { ok: true }; } },
     liveTranscriptObserver: async identity => {
@@ -141,7 +163,7 @@ test('owner-authorized observation attaches exact server identity before unchang
   assert.equal(result.status, 201); assert.equal(result.body.transport.sdp, 'unchanged-sdp');
   assert.deepEqual(h.events.map(event => event[0]), ['guard', 'context', 'guard', 'create', 'observe']);
   const identity = h.events.at(-1)[1];
-  assert.deepEqual(Object.keys(identity).sort(), ['ivocSessionId', 'observationId', 'ownerSubject', 'providerSessionId']);
+  assert.deepEqual(Object.keys(identity).sort(), ['ivocSessionId', 'observationId', 'onProviderEvidence', 'ownerSubject', 'providerSessionId', 'remainingDurationMs']);
   assert.equal(identity.ownerSubject, 'wp:1'); assert.equal(identity.ivocSessionId, LIVE_SESSION_ID);
   assert.equal(identity.providerSessionId, result.body.session.id); assert.match(identity.observationId, /^[a-f0-9-]{36}$/u);
   assert.equal(JSON.stringify(result.body).includes('observation'), false);
@@ -245,15 +267,14 @@ test('end waits for observer drain after single provider hangup without claiming
   await until(() => h.events.some(event => event[0] === 'finish')); assert.equal(responded, false);
   assert.deepEqual(h.events.slice(-2).map(event => event[0]), ['hangup', 'finish']);
   drain.resolve({ status: 'INCOMPLETE', reason: 'finish_timeout', terminalPersisted: true });
-  const result = await ending; assert.equal(result.status, 200);
-  assert.deepEqual(result.body, { session: { id: 'live_fixture_0001', state: 'ended' } });
-  assert.equal((await endLive(h.handler)).status, 200);
+  const result = await ending; assert.equal(result.status, 503);
+  assert.equal((await endLive(h.handler)).status, 503, 'hangup ACK is not provider terminal evidence');
   assert.equal(h.events.filter(event => event[0] === 'hangup').length, 1);
   assert.equal(h.events.filter(event => event[0] === 'finish').length, 1);
 });
 
 test('failed hangup still drains observer; missing terminal persistence or wrong observation remains fail closed', async () => {
-  for (const kind of ['hangup', 'negative-hangup', 'unpersisted', 'wrong-observation', 'drain-reject']) {
+  for (const kind of ['unpersisted', 'wrong-observation', 'drain-reject']) {
     const h = liveHarness({ hangup: kind === 'hangup' ? () => { throw new Error('private provider'); }
       : kind === 'negative-hangup' ? () => ({ ok: false }) : null,
       observe: (identity, events) => observerFixture(identity, { events, drain: kind === 'unpersisted'
@@ -310,7 +331,7 @@ test('late observer factory after timeout drains only that observation after ori
   const starting = startLive(h.handler); await until(() => identity);
   await new Promise(resolve => setImmediate(resolve)); t.mock.timers.tick(16_001);
   await until(() => h.events.some(event => event[0] === 'hangup'));
-  await new Promise(resolve => setImmediate(resolve)); t.mock.timers.tick(16_001);
+  await new Promise(resolve => setImmediate(resolve)); t.mock.timers.tick(24_001);
   assert.equal((await starting).status, 503);
   factory.resolve(observerFixture(identity, { events: h.events }));
   await until(() => h.events.some(event => event[0] === 'finish'));
@@ -340,7 +361,7 @@ test('provider creation that returns after shutdown or logout is never attached 
     if (kind === 'logout') h.enrolled.recordLogout({ cookieFingerprint: 'a'.repeat(64) });
     created.resolve({ session: { id: 'late_provider_0001' }, transport: { type: 'webrtc', sdp: 'never-published' } });
     assert.equal((await starting).status, 503, kind);
-    if (shutdown) assert.deepEqual(await shutdown, { ok: true, stopped: 1 });
+    if (shutdown) assert.deepEqual(await shutdown, { ok: false, stopped: 1 });
     assert.deepEqual(h.events.filter(event => event[0] === 'hangup'), [['hangup', 'late_provider_0001']]);
     assert.equal(h.events.some(event => event[0] === 'observe'), false);
     if (shutdown) assert.equal((await startLive(h.handler)).status, 503);
@@ -454,7 +475,8 @@ test('GPT-Live WebRTC creation is same-origin, entitlement-bound, and server-cle
     registry: registry(),
     now: () => NOW,
     flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
-    liveSessionBroker: {
+    nativeVoicePolicy: nativePolicyFixture(),
+    liveSessionBroker: { credentialFingerprint: 'd'.repeat(64),
       create: async (input) => {
         calls.push(['create', input]);
         return { session: { id: 'live_session_123456', model: 'gpt-live-1' }, transport: { type: 'webrtc', sdp: 'v=0\r\no=answer' } };
@@ -479,7 +501,7 @@ test('GPT-Live WebRTC creation is same-origin, entitlement-bound, and server-cle
   assert.equal(created.body.session.model, 'gpt-live-1');
   assert.equal(JSON.stringify(created.body).includes('server-only'), false);
   assert.deepEqual(calls[0], ['resolve', { subject: 'wp:1', sessionId: ivocSessionId }]);
-  assert.deepEqual(calls[1], ['create', { sdp: 'v=0\r\no=offer', voice: 'marin', context, actorContext }]);
+  assert.deepEqual(calls[1], ['create', { sdp: 'v=0\r\no=offer', voice: 'marin', context, actorContext, spendPermit: { fixture: true } }]);
   const switched = await invoke(handler, {
     path: '/api/ivprep-v6/live/sessions/live_session_123456/end', method: 'POST', headers, body: '{}', fingerprint: 'b'.repeat(64),
   });
@@ -487,7 +509,7 @@ test('GPT-Live WebRTC creation is same-origin, entitlement-bound, and server-cle
   const ended = await invoke(handler, {
     path: '/api/ivprep-v6/live/sessions/live_session_123456/end', method: 'POST', headers, body: '{}',
   });
-  assert.equal(ended.status, 200);
+  assert.equal(ended.status, 503, 'no trusted terminal observer means cleanup remains unconfirmed');
   assert.deepEqual(calls.at(-1), ['hangup', 'live_session_123456']);
 });
 
@@ -524,7 +546,7 @@ test('non-Founder sessions cannot select an Admin audition voice', async () => {
     }),
   });
   assert.equal(denied.status, 403);
-  assert.equal(denied.body.error, 'ivprep_admin_voice_audition_required');
+  assert.equal(denied.body.error, 'ivoc_native_voice_authorization_required');
 });
 
 test('live product CSP permits only the sealed LiveKit WSS origin', async () => {
@@ -767,4 +789,89 @@ test('logout during provider start is observed before activation and forces clea
   assert.equal(response.status, 409);
   assert.equal(response.body.error, 'ivprep_session_owner_changed');
   assert.deepEqual(stopped, ['hq_logout']);
+});
+
+
+test('native admission defaults denied even for Founder and never calls provider', async () => {
+  const h = liveHarness({ policy: null });
+  assert.equal((await startLive(h.handler)).status, 403);
+  assert.equal(h.events.length, 0);
+});
+
+test('native presence requires exact owner, CSRF, generation and increasing sequence; deadline is immutable', async () => {
+  const h = liveHarness(); const started = await startLive(h.handler);
+  assert.equal(started.status, 201);
+  const presence = body => invoke(h.handler, { path: '/api/ivprep-v6/live/sessions/live_fixture_0001/presence',
+    method: 'POST', headers: LIVE_HEADERS, body: JSON.stringify(body) });
+  assert.equal((await invoke(h.handler, { path: '/api/ivprep-v6/live/sessions/live_fixture_0001/presence', method: 'POST',
+    headers: LIVE_HEADERS, fingerprint: 'b'.repeat(64), body: JSON.stringify({ generation: LIVE_SESSION_ID, sequence: 1 }) })).status, 409);
+  assert.equal(h.events.filter(x => x[0] === 'hangup').length, 0);
+  assert.equal((await presence({ generation: LIVE_SESSION_ID, sequence: 1 })).status, 200);
+  assert.equal(started.body.presence.deadlineAt, new Date(NOW + 120000).toISOString());
+  assert.equal((await presence({ generation: LIVE_SESSION_ID, sequence: 1 })).status, 503);
+  assert.equal(h.events.filter(x => x[0] === 'hangup').length, 1);
+});
+
+test('a bound Founder losing trusted Admin status is terminated, never silently funded', async () => {
+  const h = liveHarness(); await startLive(h.handler);
+  const downgraded = session(); downgraded.user.roles = ['subscriber'];
+  const result = await invoke(h.handler, { path: '/api/ivprep-v6/live/sessions/live_fixture_0001/presence', method: 'POST',
+    hqSession: downgraded, headers: LIVE_HEADERS, body: JSON.stringify({ generation: LIVE_SESSION_ID, sequence: 1 }) });
+  assert.notEqual(result.status, 200);
+  // Existing admission may deny earlier; the independently armed presence deadline remains the fallback.
+  await h.handler.shutdown();
+  assert.equal(h.events.filter(x => x[0] === 'hangup').length, 1);
+});
+
+
+test('trusted provider closure survives rejected hangup while reporting control ACK and unknown voice accounting separately', async () => {
+  const h = liveHarness({ hangup: async () => { throw new Error('synthetic provider already closed'); } });
+  assert.equal((await startLive(h.handler)).status, 201);
+  const ended = await endLive(h.handler); assert.equal(ended.status, 200);
+  assert.deepEqual(ended.body.cleanup, { controlRequestAcknowledged: false, providerTerminalConfirmed: true, nativeVoiceSecondsComplete: false });
+  assert.equal(h.events.filter(e => e[0] === 'hangup').length, 1);
+});
+
+for (const expiry of ['deadline', 'presence']) test(`moving server clock enforces immutable ${expiry} expiry`, async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] }); let clock = NOW;
+  const reasons = [], policy = nativePolicyFixture({ deadlineDelta: expiry === 'deadline' ? 100 : 1000,
+    presenceDelta: expiry === 'presence' ? 100 : 1000, cleanupMs: 30 });
+  policy.requestEnd = async (_r, reason) => { reasons.push(reason); return { ok: true }; };
+  const h = liveHarness({ policy, clock: () => clock }); assert.equal((await startLive(h.handler)).status, 201);
+  clock += 101; t.mock.timers.tick(101); await until(() => h.events.some(e => e[0] === 'finish'));
+  assert.deepEqual(reasons, [expiry === 'presence' ? 'presence_expired' : 'deadline']);
+  assert.equal(h.events.filter(e => e[0] === 'hangup').length, 1);
+  await endLive(h.handler);
+});
+
+test('startup deadline consumes no retry; late known CREATE receives one cleanup without extending grant', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] }); let clock = NOW; const created = deferred();
+  const h = liveHarness({ create: () => created.promise, clock: () => clock,
+    policy: nativePolicyFixture({ startupDelta: 50, cleanupMs: 20 }) });
+  const starting = startLive(h.handler); await until(() => h.events.some(e => e[0] === 'create'));
+  clock += 51; t.mock.timers.tick(51); assert.equal((await starting).status, 503);
+  clock += 30; t.mock.timers.tick(30);
+  created.resolve({ session: { id: 'late_provider_0001' }, transport: { sdp: 'must-not-publish' } });
+  await until(() => h.events.some(e => e[0] === 'hangup'));
+  assert.equal(h.events.filter(e => e[0] === 'hangup').length, 1);
+  assert.equal(h.events.filter(e => e[0] === 'observe').length, 0);
+  assert.equal((await startLive(h.handler)).status, 409);
+});
+
+for (const stalled of ['requestEnd', 'quarantine', 'observer']) test(`one cleanup grace bounds stalled ${stalled} and late outcome cannot upgrade custody`, async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] }); let clock = NOW; const wait = deferred();
+  const policy = nativePolicyFixture({ cleanupMs: 30 });
+  let persistenceEntered = false;
+  if (stalled !== 'observer') policy[stalled] = () => { persistenceEntered = true; return wait.promise; };
+  const h = liveHarness({ policy, clock: () => clock, ...(stalled === 'observer'
+    ? { observe: (identity, events) => observerFixture(identity, { events, drain: wait.promise }) } : {}) });
+  assert.equal((await startLive(h.handler)).status, 201);
+  const ending = endLive(h.handler); await until(() => h.events.some(e => e[0] === 'finish'));
+  if (stalled !== 'observer') await until(() => persistenceEntered);
+  clock += 31; t.mock.timers.tick(31); assert.equal((await ending).status, 503);
+  wait.resolve(stalled === 'observer' ? { status: 'PROVIDER_CLOSED', reason: 'provider_closed', terminalPersisted: true } : { ok: true });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal((await endLive(h.handler)).status, 503);
+  assert.equal(h.events.filter(e => e[0] === 'hangup').length, 1);
+  assert.equal((await startLive(h.handler)).status, 409);
 });

@@ -1,3 +1,4 @@
+import { trustedNativeVoiceAdmin, nativeVoiceDenied } from './providers/native-voice-spend-policy.mjs';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
@@ -26,8 +27,6 @@ const MAX_STATIC_ADMISSIONS = 256;
 // Cover the existing observer's 10s connect + 5s root append and broker's
 // 15s request timeout, while keeping every lifecycle wait bounded.
 const LIVE_OBSERVER_WAIT_MS = 16_000;
-const LIVE_CLEANUP_WAIT_MS = 16_000;
-const LIVE_OBSERVER_DRAIN_MS = 24_000;
 const LIVE_PENDING_STOP_MS = 60_000;
 
 async function boundedLiveWait(value, milliseconds) {
@@ -222,6 +221,7 @@ export function createIvPrepHqHandler({
   providerControllerFactory = null,
   paidTestGate = null,
   liveSessionBroker = null,
+  nativeVoicePolicy = null,
   liveContextResolver = null,
   liveSessionGuard = null,
   liveTranscriptObserver = null,
@@ -244,37 +244,93 @@ export function createIvPrepHqHandler({
   const pendingLiveStarts = new Map();
   let shuttingDown = false;
   const observerDrains = new WeakMap();
+  const cleanupDeadline = live => {
+    if (live.cleanupDeadlineMs === undefined) {
+      const grace = live.reservation?.cleanup_ms;
+      // Invalid synthetic/injected receipts cannot create an unbounded grace.
+      const boundedGrace = Number.isSafeInteger(grace) && grace > 0 && grace <= 60000 ? grace : 1;
+      Object.defineProperty(live, 'cleanupDeadlineMs', { value: now() + boundedGrace });
+    }
+    return live.cleanupDeadlineMs;
+  };
+  const cleanupWait = (live, action) => {
+    const remaining = cleanupDeadline(live) - now();
+    if (remaining <= 0) return Promise.reject(new Error('Native cleanup deadline expired.'));
+    return boundedLiveWait(Promise.resolve().then(action), remaining);
+  };
+  const startupWait = (live, action) => {
+    const remaining = Math.min(live.reservation.deadlineMs, live.reservation.startupDeadlineMs) - now();
+    if (remaining <= 0) return Promise.reject(new Error('Native startup deadline expired.'));
+    return boundedLiveWait(Promise.resolve().then(action), remaining);
+  };
   const drainObserver = (live, observer) => {
     if (observerDrains.has(observer)) return observerDrains.get(observer);
-    const pending = boundedLiveWait(Promise.resolve().then(() => observer.finish()), LIVE_OBSERVER_DRAIN_MS)
-      .then(outcome => {
-        live.transcriptOutcome = outcome;
-        return outcome?.observationId === live.observationId && outcome.terminalPersisted === true
-          && ['PROVIDER_CLOSED', 'INCOMPLETE'].includes(outcome.status);
-      }, () => false);
+    const pending = cleanupWait(live, () => observer.finish()).then(outcome => {
+      if (live.cleanupFinalized) return false;
+      live.transcriptOutcome = outcome;
+      return outcome?.observationId === live.observationId && outcome.terminalPersisted === true
+        && ['PROVIDER_CLOSED', 'INCOMPLETE'].includes(outcome.status);
+    }, () => false);
     observerDrains.set(observer, pending);
     return pending;
   };
-  const terminateLive = (live) => {
+  const requestNativeEnd = (live, reason) => {
+    if (!live.nativeEndRequest) live.nativeEndRequest = cleanupWait(live,
+      () => nativeVoicePolicy.requestEnd(live.reservation, reason)).then(() => true, () => {
+        live.nativePersistenceUncertain = true; return false;
+      });
+    return live.nativeEndRequest;
+  };
+  const armNativeWatchdog = live => {
+    clearTimeout(live.nativeWatchdog);
+    if (!live.reservation || live.cancelled) return;
+    const deadline = Math.min(live.reservation.deadlineMs, live.state === 'starting'
+      ? live.reservation.startupDeadlineMs : live.presenceExpiresMs);
+    live.nativeWatchdog = setTimeout(() => {
+      const reason = now() >= live.reservation.deadlineMs ? 'deadline' : live.state === 'starting' ? 'startup_failed' : 'presence_expired';
+      live.cancelled = true; cleanupDeadline(live);
+      if (live.id) void terminateLive(live, reason);
+      else void requestNativeEnd(live, reason);
+    }, Math.max(1, deadline - now()));
+    live.nativeWatchdog.unref?.();
+  };
+  const terminateLive = (live, reason = 'user_ended') => {
     live.cancelled = true;
+    clearTimeout(live.nativeWatchdog);
+    cleanupDeadline(live);
     if (live.cleanupPromise) return live.cleanupPromise;
     live.state = 'terminating';
-    live.providerHangupPromise = boundedLiveWait(Promise.resolve().then(() => liveSessionBroker.hangup(live.id)), LIVE_CLEANUP_WAIT_MS)
-      .then(outcome => liveSessionGuard || liveTranscriptObserver ? outcome?.ok === true : true, () => false);
-    live.cleanupPromise = (async () => {
-      const providerStopped = await live.providerHangupPromise;
-      let observerStopped = true;
-      if (live.observerPending) {
-        try {
-          const observer = live.observer || await boundedLiveWait(live.observerPending, LIVE_OBSERVER_WAIT_MS);
-          observerStopped = await drainObserver(live, observer);
-        } catch { observerStopped = false; }
+    const endRecorded = requestNativeEnd(live, reason);
+    // One exact known-ID hangup attempt, even if CREATE returned too late for
+    // the grace. That late attempt cannot extend waiting or upgrade custody.
+    if (!live.providerHangupPromise) {
+      const attempt = Promise.resolve().then(() => liveSessionBroker.hangup(live.id));
+      attempt.catch(() => {});
+      live.providerHangupPromise = boundedLiveWait(attempt, Math.max(1, cleanupDeadline(live) - now()))
+        .then(outcome => { if (!live.cleanupFinalized) live.hangupAcknowledged = outcome?.ok === true;
+          return outcome?.ok === true; }, () => { live.hangupAcknowledged = false; return false; });
+    }
+    const work = async () => {
+      const observerStopped = live.observerPending ? await cleanupWait(live, async () => {
+        const observer = live.observer || await live.observerPending;
+        return drainObserver(live, observer);
+      }).catch(() => false) : false;
+      await Promise.all([endRecorded, live.providerHangupPromise, live.lateBindingPromise]);
+      // Exact trusted terminal evidence outranks a failed/404 later control ACK.
+      const terminal = observerStopped && live.transcriptOutcome?.status === 'PROVIDER_CLOSED'
+        && live.transcriptOutcome?.terminalPersisted === true && live.nativeTerminalConfirmed === true;
+      if (!terminal || live.nativeAccountingComplete !== true) {
+        await cleanupWait(live, () => nativeVoicePolicy.quarantine(live.reservation,
+          terminal ? 'accounting_unknown' : 'cleanup_unconfirmed')).catch(() => { live.nativePersistenceUncertain = true; });
       }
-      const stopped = providerStopped && observerStopped;
+      return terminal && !live.nativePersistenceUncertain;
+    };
+    live.cleanupPromise = cleanupWait(live, work).catch(() => false).then(stopped => {
+      live.cleanupFinalized = true;
       live.state = stopped ? 'ended' : 'failed_closed';
       if (stopped) registry.clearTerminationHandler?.(live.bindingId);
       return stopped;
-    })();
+    });
     return live.cleanupPromise;
   };
   // The product's ES module graph can request dozens of files at once. A fresh
@@ -534,6 +590,9 @@ export function createIvPrepHqHandler({
         sendJson(response, 503, { error: 'ivprep_live_unavailable' });
         return true;
       }
+      if (!nativeVoicePolicy || !trustedNativeVoiceAdmin(hqSession, admission.subject)) {
+        sendJson(response, 403, { error: 'ivoc_native_voice_authorization_required' }); return true;
+      }
       if (shuttingDown) { sendJson(response, 503, { error: 'ivprep_live_unavailable' }); return true; }
       const active = pendingLiveStarts.has(admission.subject)
         || [...liveSessions.values()].some(entry => entry.subject === admission.subject && entry.state !== 'ended');
@@ -548,7 +607,9 @@ export function createIvPrepHqHandler({
       const assertCurrent = () => {
         const current = strictProjectHqSession({ request, hqSession, cookieFingerprint, registry,
           now: now(), maxSessionTtlSeconds: hqSessionMaxTtlSeconds });
-        if (shuttingDown || live.cancelled || pendingLiveStarts.get(live.subject) !== live || !current.ok
+        if (shuttingDown || live.cancelled || !trustedNativeVoiceAdmin(hqSession, current.subject)
+          || (live.reservation && now() >= Math.min(live.reservation.deadlineMs, live.reservation.startupDeadlineMs))
+          || pendingLiveStarts.get(live.subject) !== live || !current.ok
           || current.subject !== live.subject || current.cookieFingerprint !== live.cookieFingerprint
           || current.entitlement.revision !== live.entitlementRevision
           || !validateIvPrepMutation({ request, admission: current, expectedOrigin: sealedOrigin }).ok
@@ -594,17 +655,46 @@ export function createIvPrepHqHandler({
           await liveSessionGuard({ ownerSubject: live.subject, ivocSessionId: live.ivocSessionId });
           assertCurrent();
         }
+        startStage = 'native_reservation';
+        const spendBinding = Object.freeze({ ownerSubject: live.subject, administrator: trustedNativeVoiceAdmin(hqSession, live.subject),
+          ivocSessionId: live.ivocSessionId, cookieFingerprint: live.cookieFingerprint,
+          entitlementRevision: live.entitlementRevision, credentialFingerprint: liveSessionBroker.credentialFingerprint,
+          requestHash: createHash('sha256').update(JSON.stringify(body)).digest('hex') });
+        live.reservation = await nativeVoicePolicy.reserve(spendBinding);
+        live.presenceExpiresMs = live.reservation.presenceExpiresMs;
+        armNativeWatchdog(live); assertCurrent();
+        startStage = 'native_create_claim';
+        const spendPermit = await startupWait(live, () => nativeVoicePolicy.claim(live.reservation, spendBinding));
+        assertCurrent();
         startStage = 'provider_create';
-        const created = await liveSessionBroker.create({
+        const creation = Promise.resolve().then(() => liveSessionBroker.create({
           sdp: body.sdp,
           voice: body.voice,
           context: body.context,
           actorContext,
-        });
+          spendPermit,
+        }));
+        // A timed-out CREATE remains consumed. If its exact ID arrives late,
+        // cleanup runs once under the original deadline; it cannot publish SDP.
+        const adoptLateProvider = id => {
+          if (!live.cancelled || live.id || !/^[A-Za-z0-9_-]{8,160}$/u.test(id || '')) return;
+          live.id = id; live.bindingId = `live:${live.id}`; liveSessions.set(live.id, live);
+          // Preserve the exact late identity durably even when the waiting grace
+          // has expired. SQL keeps it quarantined; this never rearms admission.
+          const binding = Promise.resolve().then(() => nativeVoicePolicy.bind(live.reservation, live.id));
+          binding.catch(() => {});
+          live.lateBindingPromise = boundedLiveWait(binding, Math.max(1, cleanupDeadline(live) - now()))
+            .catch(() => { live.nativePersistenceUncertain = true; });
+          void terminateLive(live, 'startup_failed');
+        };
+        creation.then(created => adoptLateProvider(created?.session?.id), error => adoptLateProvider(error?.providerSessionId)).catch(() => {});
+        const created = await startupWait(live, () => creation);
         if (!/^[A-Za-z0-9_-]{8,160}$/u.test(created?.session?.id || '')) throw new Error('Live provider identity unavailable.');
         live.id = created.session.id;
         live.bindingId = `live:${live.id}`;
         liveSessions.set(live.id, live);
+        const durableBinding = await startupWait(live, () => nativeVoicePolicy.bind(live.reservation, live.id));
+        live.presenceExpiresMs = Date.parse(durableBinding.presence_expires_at);
         assertCurrent();
         startStage = 'provider_binding';
         await registry.bindInterview({
@@ -614,12 +704,28 @@ export function createIvPrepHqHandler({
           entitlementRevision: admission.entitlement.revision,
         });
         live.bindingArmed = true;
-        registry.setTerminationHandler?.(live.bindingId, () => terminateLive(live));
+        registry.setTerminationHandler?.(live.bindingId, () => terminateLive(live, 'owner_changed'));
         assertCurrent();
         if (liveTranscriptObserver) {
           startStage = 'transcript_factory';
           const identity = Object.freeze({ ownerSubject: live.subject, ivocSessionId: live.ivocSessionId,
-            providerSessionId: live.id, observationId: randomUUID() });
+            providerSessionId: live.id, observationId: randomUUID(),
+            remainingDurationMs: Math.max(1, Math.min(3_600_000, live.reservation.deadlineMs - now())),
+            onProviderEvidence: async evidence => {
+              const action = () => nativeVoicePolicy.evidence(live.reservation, evidence);
+              const outcome = live.cleanupDeadlineMs === undefined
+                ? await boundedLiveWait(Promise.resolve().then(action), Math.max(1, live.reservation.deadlineMs - now()))
+                : await cleanupWait(live, action);
+              if (live.cleanupFinalized) throw new Error('Native cleanup custody is already final.');
+              if (evidence.kind === 'terminal') live.nativeTerminalConfirmed = outcome.provider_terminal_confirmed === true;
+              if (evidence.kind === 'usage') {
+                live.nativeAccountingComplete = outcome.accounting_complete === true && outcome.accounting_scope === 'native_voice_seconds';
+                if (outcome.duration_limit_reached === true && !live.cancelled) {
+                  queueMicrotask(() => { void terminateLive(live, 'usage_limit'); });
+                }
+              }
+              return outcome;
+            } });
           live.observationId = identity.observationId;
           live.observerPending = Promise.resolve().then(() => liveTranscriptObserver(identity)).then(observer => {
             // Even a malformed observer contract must get its own bounded
@@ -629,8 +735,8 @@ export function createIvPrepHqHandler({
               || typeof observer.completion?.then !== 'function') throw new Error('Live observer unavailable.');
             observer.ready.catch(() => {});
             observer.completion.then(outcome => {
-              live.transcriptOutcome = outcome;
-              if (!live.cancelled && live.state === 'active') void terminateLive(live);
+              if (!live.cleanupFinalized) live.transcriptOutcome = outcome;
+              if (!live.cancelled && live.state === 'active') void terminateLive(live, 'observer_failed');
             }, () => { if (!live.cancelled) void terminateLive(live); });
             // A timed-out factory may return after cleanup. Drain that exact
             // late observer only after the original provider hangup settles.
@@ -647,8 +753,9 @@ export function createIvPrepHqHandler({
           assertCurrent();
           if (live.transcriptOutcome) throw new Error('Live observation already ended.');
         }
-      live.state = 'active';
-      sendJson(response, 201, created);
+      live.state = 'active'; armNativeWatchdog(live);
+      sendJson(response, 201, { ...created, presence: { generation: live.reservation.generation,
+        heartbeatMs: live.reservation.heartbeat_ms, deadlineAt: live.reservation.deadline_at } });
       return true;
       } catch (error) {
         // Closed vocabulary only. Never log error.message, SDP, credentials,
@@ -658,8 +765,20 @@ export function createIvPrepHqHandler({
             : error instanceof TypeError ? 'invalid_contract' : 'startup_failed',
           providerStatus: error?.code === 'OPENAI_LIVE_REQUEST_FAILED' && Number.isInteger(error.status)
             && error.status >= 400 && error.status <= 599 ? error.status : null }); } catch { /* Diagnostics cannot change cleanup. */ }
-        if (live.id) await terminateLive(live);
-        else live.state = 'ended';
+        if (!live.id && /^[A-Za-z0-9_-]{8,160}$/u.test(error?.providerSessionId || '')) {
+          live.id = error.providerSessionId;
+          live.lateBindingPromise = cleanupWait(live, () => nativeVoicePolicy.bind(live.reservation, live.id))
+            .catch(() => { live.nativePersistenceUncertain = true; });
+        }
+        if (live.reservation && !live.id) {
+          try { await cleanupWait(live, () => nativeVoicePolicy.quarantine(live.reservation, 'create_unknown')); }
+          catch { live.nativePersistenceUncertain = true; }
+        }
+        if (live.id) await terminateLive(live, 'startup_failed');
+        else { clearTimeout(live.nativeWatchdog); live.cleanupFinalized = true; live.state = 'failed_closed'; }
+        if (error?.code === 'ivoc_native_voice_authorization_required') {
+          sendJson(response, 403, { error: error.code }); return true;
+        }
         if (error?.code === 'ivoc_interview_policy_changed') {
           sendJson(response,409,{error:error.code}); return true;
         }
@@ -668,8 +787,38 @@ export function createIvPrepHqHandler({
         return true;
       } finally {
         if (pendingLiveStarts.get(live.subject) === live) pendingLiveStarts.delete(live.subject);
-        completeStart(live.state === 'ended');
+        completeStart(live.state === 'ended' || !live.reservation);
       }
+    }
+
+    const presenceMatch = pathname.match(new RegExp(`^${API_PREFIX}/live/sessions/([A-Za-z0-9_-]{8,160})/presence$`, 'u'));
+    if (request.method === 'POST' && presenceMatch) {
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
+      if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
+      const live = liveSessions.get(presenceMatch[1]);
+      const owned = live && registry.assertBinding({ interviewId: live.bindingId, subject: admission.subject,
+        cookieFingerprint: admission.cookieFingerprint, entitlementRevision: admission.entitlement.revision });
+      if (!live || !owned?.ok || !trustedNativeVoiceAdmin(hqSession, admission.subject)) {
+        // Only the exact bound owner can cause cleanup on revoked Admin status.
+        // A foreign caller cannot terminate somebody else's session.
+        if (live && owned?.ok) await terminateLive(live, 'owner_changed');
+        sendJson(response, 409, { error: 'ivprep_session_owner_changed' }); return true;
+      }
+      try {
+        const body = await readJson(request);
+        if (Object.keys(body).sort().join(',') !== 'generation,sequence' || !Number.isSafeInteger(body.sequence)
+          || body.sequence < 1 || body.generation !== live.reservation.generation || live.cancelled || shuttingDown) throw nativeVoiceDenied();
+        const remaining = Math.min(live.reservation.deadlineMs, live.presenceExpiresMs) - now();
+        if (remaining <= 0) throw nativeVoiceDenied();
+        const receipt = await boundedLiveWait(Promise.resolve().then(() => nativeVoicePolicy.presence(live.reservation, body)), remaining);
+        if (live.cancelled || shuttingDown) throw nativeVoiceDenied();
+        live.presenceExpiresMs = Date.parse(receipt.presence_expires_at); armNativeWatchdog(live);
+        sendJson(response, 200, { ok: true });
+      } catch {
+        await terminateLive(live, 'presence_expired');
+        sendJson(response, 503, { error: 'ivoc_native_presence_unconfirmed' });
+      }
+      return true;
     }
 
     const liveEndMatch = pathname.match(new RegExp(`^${API_PREFIX}/live/sessions/([A-Za-z0-9_-]{8,160})/end$`, 'u'));
@@ -692,7 +841,9 @@ export function createIvPrepHqHandler({
         return true;
       }
       registry.clearTerminationHandler?.(live.bindingId);
-      sendJson(response, 200, { session: { id: live.id, state: live.state } });
+      sendJson(response, 200, { session: { id: live.id, state: live.state }, cleanup: {
+        controlRequestAcknowledged: live.hangupAcknowledged === true, providerTerminalConfirmed: live.nativeTerminalConfirmed === true,
+        nativeVoiceSecondsComplete: live.nativeAccountingComplete === true } });
       return true;
     }
 
@@ -1015,7 +1166,7 @@ export function createIvPrepHqHandler({
     for (const live of new Set([...pendingLiveStarts.values(), ...liveSessions.values()])) {
       if (live.state === 'ended') continue;
       live.cancelled = true;
-      terminal.push(live.id ? terminateLive(live)
+      terminal.push(live.id ? terminateLive(live, 'server_shutdown')
         : boundedLiveWait(live.done, LIVE_PENDING_STOP_MS).catch(() => false));
     }
     for (const interview of interviews.values()) {

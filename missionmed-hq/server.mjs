@@ -360,8 +360,24 @@ let LOR_STUDIO_COMPOSITION = Object.freeze({
 });
 let LOR_STUDIO_SHUTDOWN = null;
 let lorShutdownRequested = false;
+let ivocShutdownPromise = null;
 
 function requestGracefulShutdown() {
+  // Call synchronously so IVOC closes admission before another request can start.
+  // Acknowledged hangup is not guaranteed remote terminal/accounting evidence.
+  if (!ivocShutdownPromise) {
+    let timer;
+    const failed = () => { process.exitCode = 1; console.error('IVOC_RUNTIME_SHUTDOWN_UNCONFIRMED'); };
+    try {
+      const pending = handleIvPrepV6Request.shutdown('server_shutdown');
+      ivocShutdownPromise = Promise.race([pending, new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('IVOC shutdown timeout')), 60_000);
+        timer.unref?.();
+      })]).then(result => { if (result?.ok !== true) failed(); }, failed).finally(() => clearTimeout(timer));
+    } catch {
+      failed(); ivocShutdownPromise = Promise.resolve();
+    }
+  }
   lorShutdownRequested = true;
   LOR_STARTUP_ABORT.abort();
   if (LOR_STUDIO_SHUTDOWN) {

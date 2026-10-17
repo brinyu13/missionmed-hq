@@ -48,6 +48,7 @@ export class LiveInterviewSession {
   constructor({
     createSession,
     endSession,
+    keepPresence = null,
     audioElement,
     PeerConnection = globalThis.RTCPeerConnection,
     onStatus = () => {},
@@ -62,6 +63,9 @@ export class LiveInterviewSession {
       || typeof PeerConnection !== 'function') throw new TypeError('Live interview dependencies are required.');
     this.createSession = createSession;
     this.endSession = endSession;
+    this.keepPresence = keepPresence;
+    this.presenceTimer = null;
+    this.presenceStop = null;
     this.audioElement = audioElement;
     this.PeerConnection = PeerConnection;
     this.onStatus = onStatus;
@@ -434,6 +438,7 @@ export class LiveInterviewSession {
       }
       this.sessionId = created.session.id;
       published = true;
+      this.startPresence(created.presence, generation);
       if (created.audioAuthority?.mode !== 'single'
           || created.audioAuthority?.authority !== 'openai-gpt-live-native') {
         throw new Error('InterviewBrain audio authority is invalid.');
@@ -468,6 +473,34 @@ export class LiveInterviewSession {
     }
   }
 
+  startPresence(presence, generation) {
+    if (!presence || typeof this.keepPresence !== 'function'
+      || typeof presence.generation !== 'string' || !Number.isSafeInteger(presence.heartbeatMs)
+      || presence.heartbeatMs < 1 || !Number.isFinite(Date.parse(presence.deadlineAt))) {
+      throw new Error('Native Voice presence authorization is unavailable.');
+    }
+    let sequence = 0, active = true;
+    const id = this.sessionId;
+    const current = () => active && this.startGeneration === generation && this.sessionId === id;
+    this.presenceStop = () => { active = false; clearTimeout(this.presenceTimer); this.presenceTimer = null; };
+    // Serial scheduling means exactly one in-flight owner-bound contact. Missing
+    // contact is not silence; the server's immutable deadline is never renewed.
+    const ping = async () => {
+      if (!current()) return;
+      try {
+        const result = await this.keepPresence(id, { generation: presence.generation, sequence: ++sequence });
+        if (!current()) return;
+        if (result?.ok !== true) throw new Error('Presence unconfirmed.');
+        this.presenceTimer = setTimeout(ping, presence.heartbeatMs);
+      } catch {
+        if (!current()) return;
+        this.emitStatus('error', 'Interview connection authorization expired.');
+        void this.stop({ notifyServer: true }).catch(() => {});
+      }
+    };
+    void ping();
+  }
+
   stop(options = {}) {
     // Actor failure, user Finish and startup cancellation can converge here.
     // Publish the shared promise BEFORE synchronous mute/telemetry callbacks:
@@ -481,6 +514,7 @@ export class LiveInterviewSession {
 
   async finishStop({ notifyServer = true, keepalive = false } = {}) {
     this.state = 'closing';
+    this.presenceStop?.(); this.presenceStop = null;
     const generation = ++this.startGeneration;
     const rendererCleanup=this.audioRenderer?.stop?.({keepalive}); // synchronous mute/flush first
     this.cancelStart?.(new Error('InterviewBrain startup was stopped.'));

@@ -86,6 +86,7 @@ export class GptLiveInterviewer {
     const live = new this.Ctor({
       createSession: apiClient.createLiveInterview,
       endSession: apiClient.endLiveInterview,
+      keepPresence: apiClient.keepLiveInterviewPresence,
       audioElement: this.audioElement,
       audioRenderer:this.audioRenderer,
       onStatus: (status) => { if(!current())return;this.onStatus(status); if (status.state === 'error' || status.state === 'closed') this.resolvePending(null, status); },

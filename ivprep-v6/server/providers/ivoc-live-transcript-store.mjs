@@ -68,10 +68,11 @@ export function createIvocLiveTranscriptDependencies({ rest, apiKey,
   return Object.freeze({
     liveSessionGuard: store.assertActiveSession,
     async liveTranscriptObserver(identity) {
-      const { ownerSubject, ivocSessionId, providerSessionId, observationId } = identity || {};
+      const { ownerSubject, ivocSessionId, providerSessionId, observationId, remainingDurationMs, onProviderEvidence } = identity || {};
       const trusted = Object.freeze({ ownerSubject, ivocSessionId, providerSessionId, observationId });
       const append = await store.bindObservation(trusted);
-      return observerFactory({ ...trusted, apiKey, append });
+      return observerFactory({ ...trusted, apiKey, append, onProviderEvidence,
+        ...(remainingDurationMs === undefined ? {} : { limits: { durationMs: remainingDurationMs } }) });
     },
   });
 }

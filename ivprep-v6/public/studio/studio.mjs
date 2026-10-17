@@ -26,6 +26,7 @@ import {
   createLiveInterview,
   DurableStudioSession,
   endLiveInterview,
+  keepLiveInterviewPresence,
   InstrumentRack,
   InterviewCalendarCapability,
   LiveInterviewSession,
@@ -2715,6 +2716,7 @@ function wireLiveInterview() {
   state.liveInterview = new LiveInterviewSession({
     createSession: createLiveInterview,
     endSession: endLiveInterview,
+    keepPresence: keepLiveInterviewPresence,
     audioElement: $('#live-interviewer-audio'),
     onStatus: setLiveInterviewStatus,
     onTranscript: appendLiveTranscript,

@@ -1,3 +1,4 @@
+import { consumeNativeCreatePermit, nativeCredentialFingerprint } from './native-voice-spend-policy.mjs';
 import { createDefaultQuestionStore } from '../../public/questions/question-store.mjs';
 import { normalizePracticeFocus } from '../../public/studio/live-context-adapter.mjs';
 import { interviewTeachingPolicy, substantiveQuestionPlan } from '../../public/capabilities/interview-progression.mjs';
@@ -175,6 +176,7 @@ export class OpenAiLiveSessionBroker {
     timeoutMs = 15_000,
   } = {}) {
     this.apiKey = String(apiKey || '').trim();
+    this.credentialFingerprint = nativeCredentialFingerprint(this.apiKey);
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     if (!this.apiKey) throw new Error('OPENAI_API_KEY is not configured.');
@@ -208,19 +210,21 @@ export class OpenAiLiveSessionBroker {
     }
   }
 
-  async create({ sdp, voice = 'marin', context, actorContext } = {}) {
+  async create({ sdp, voice = 'marin', context, actorContext, spendPermit } = {}) {
     const offer = String(sdp || '');
     if (!offer.startsWith('v=0') || Buffer.byteLength(offer, 'utf8') > MAX_SDP_BYTES) {
       throw new TypeError('WebRTC offer SDP is invalid.');
     }
     if (!SAFE_VOICES.has(voice)) throw new TypeError('Voice is invalid.');
+    const instructions = buildLiveInterviewInstructions(context, actorContext);
+    consumeNativeCreatePermit(spendPermit, this.credentialFingerprint);
     const body = await this.request('', {
       method: 'POST',
       body: JSON.stringify({
         session: {
           model: MODEL,
           delegation: { type: 'client' },
-          instructions: buildLiveInterviewInstructions(context, actorContext),
+          instructions,
           audio: { output: { voice } },
           store: false,
         },
@@ -231,7 +235,9 @@ export class OpenAiLiveSessionBroker {
     const answer = String(body?.transport?.sdp || '');
     if (!id || body?.transport?.type !== 'webrtc' || !answer.startsWith('v=0')
       || Buffer.byteLength(answer, 'utf8') > MAX_SDP_BYTES) {
-      throw new Error('OpenAI Live returned an invalid WebRTC session.');
+      const error = new Error('OpenAI Live returned an invalid WebRTC session.');
+      if (id) error.providerSessionId = id; // private exact identity for one cleanup attempt
+      throw error;
     }
     return Object.freeze({
       session: Object.freeze({ id, model: MODEL }),

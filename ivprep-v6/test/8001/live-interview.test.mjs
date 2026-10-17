@@ -55,3 +55,34 @@ test('candidate allocation retries a lost transport response once using identica
     assert.equal(calls.length, 2);
   } finally { globalThis.fetch = oldFetch; }
 });
+
+
+test('native presence is serial, owner-bound, stops locally before awaiting end and never creates a session', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let release; const pending = new Promise(resolve => { release = resolve; });
+  const calls = []; let creates = 0, ends = 0;
+  const live = new LiveInterviewSession({ createSession: async () => { creates++; }, endSession: async () => { ends++; },
+    keepPresence: async (id, body) => { calls.push({ id, body }); return pending; }, PeerConnection: class {} });
+  live.sessionId = 'owned_provider'; const generation = live.startGeneration;
+  live.startPresence({ generation: 'server-generation', heartbeatMs: 100,
+    deadlineAt: '2099-01-01T00:00:00Z' }, generation);
+  t.mock.timers.tick(1000); assert.equal(calls.length, 1, 'no overlapping request or background recreation');
+  assert.deepEqual(calls[0], { id: 'owned_provider', body: { generation: 'server-generation', sequence: 1 } });
+  await live.stop(); release({ ok: true }); await Promise.resolve();
+  t.mock.timers.tick(1000); assert.equal(calls.length, 1); assert.equal(creates, 0); assert.equal(ends, 1);
+});
+
+test('negative presence response closes exactly its native session without CREATE retry', async () => {
+  let creates = 0; const ended = [];
+  const live = new LiveInterviewSession({ createSession: async () => { creates++; },
+    endSession: async id => { ended.push(id); }, keepPresence: async () => ({ ok: false }), PeerConnection: class {} });
+  live.sessionId = 'owned_provider';
+  live.startPresence({ generation: 'server-generation', heartbeatMs: 100, deadlineAt: '2099-01-01T00:00:00Z' }, live.startGeneration);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(live.sessionId, null); assert.deepEqual(ended, ['owned_provider']); assert.equal(creates, 0);
+});
+
+test('missing presence capability or malformed grant is unavailable before ongoing native interaction', () => {
+  const live = new LiveInterviewSession({ createSession: async () => ({}), endSession: async () => {}, PeerConnection: class {} });
+  assert.throws(() => live.startPresence({ generation: 'x', heartbeatMs: 100, deadlineAt: '2099-01-01' }, 0), /unavailable/);
+});

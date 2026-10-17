@@ -1,3 +1,5 @@
+import { createNativeVoiceSpendPolicy } from './native-voice-spend-policy.mjs';
+import { createNativeVoiceSpendStore } from './native-voice-spend-store.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 
 import { installAdmissionRegistry, InMemoryAdmissionRegistry } from '../admission-registry.mjs';
@@ -834,6 +836,9 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
   const liveSessionBroker = liveApiKey
     ? createOpenAiLiveSessionBroker({ apiKey: liveApiKey })
     : null;
+  // No ledger lookup/arming at boot. Wrong project leaves native CREATE denied.
+  const nativeVoicePolicy = liveSessionBroker && rest.projectRef === 'bscnrgqlwsyygyfrbhfn'
+    ? createNativeVoiceSpendPolicy({ store: createNativeVoiceSpendStore({ rest }) }) : null;
   const liveContextResolver = createIvocContextPackResolver({ rest });
   const liveTranscriptDependencies = liveApiKey
     ? createIvocLiveTranscriptDependencies({ rest, apiKey: liveApiKey })
@@ -846,6 +851,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
       providerControllerFactory: null,
       liveKitSignalOrigin: null,
       liveSessionBroker,
+      nativeVoicePolicy,
       liveContextResolver,
       ...liveTranscriptDependencies,
       runtimeState,
@@ -884,6 +890,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
     providerControllerFactory,
     liveKitSignalOrigin: livekit.signalOrigin,
     liveSessionBroker,
+    nativeVoicePolicy,
     liveContextResolver,
     ...liveTranscriptDependencies,
     runtimeState,

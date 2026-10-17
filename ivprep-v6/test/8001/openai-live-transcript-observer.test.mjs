@@ -7,7 +7,7 @@ const IVOC = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OBS = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function fixture({ append, limits = {} } = {}) {
+function fixture({ append, limits = {}, onProviderEvidence = null } = {}) {
   const records = [], batches = [], calls = [];
   let socket;
   class FakeSocket extends EventEmitter {
@@ -19,7 +19,7 @@ function fixture({ append, limits = {} } = {}) {
     terminate() { this.terminated = true; this.close(); }
   }
   const observer = attachOpenAiLiveTranscriptObserver({ providerSessionId: 'sess_test_123', ivocSessionId: IVOC,
-    ownerSubject: 'wp:42', observationId: OBS, apiKey: 'offline-placeholder-not-a-secret', WebSocketImpl: FakeSocket,
+    ownerSubject: 'wp:42', observationId: OBS, onProviderEvidence, apiKey: 'offline-placeholder-not-a-secret', WebSocketImpl: FakeSocket,
     append: async batch => { batches.push(batch); if (append) await append(batch); records.push(...batch); },
     limits: { connectMs: 100, appendMs: 100, durationMs: 1000, drainMs: 10, ...limits } });
   return { observer, socket, records, batches, calls };
@@ -208,4 +208,86 @@ test('identity and loosened limits rejected before socket construction; construc
   const observer = attachOpenAiLiveTranscriptObserver({ ...base, WebSocketImpl: Broken });
   await assert.rejects(observer.ready, /did not attach durably/u);
   assert.deepEqual(await observer.completion, { status: 'INCOMPLETE', reason: 'connect_failure', terminalPersisted: false, observationId: OBS });
+});
+
+
+test('trusted exact-session channel accepts closed without invented ID and never invents final usage', async () => {
+  const evidence = []; const h = fixture({ onProviderEvidence: e => evidence.push(e) });
+  h.socket.open(); await h.observer.ready;
+  h.socket.message({ type: 'session.closed', event_id: 'closed_1', usage: { undocumented: 7 } });
+  assert.equal((await h.observer.completion).status, 'PROVIDER_CLOSED');
+  assert.deepEqual(evidence, [{ kind: 'terminal', type: 'session.closed', source: 'provider_session_closed',
+    providerSessionId: 'sess_test_123', eventId: 'closed_1' }]);
+  assert.equal(Object.isFrozen(evidence[0]), true);
+});
+
+test('explicit conflicting terminal identity cannot acquire trusted terminal evidence', async () => {
+  for (const extra of [{ session: { id: 'foreign' } }, { session_id: 'foreign' }]) {
+    let writes = 0; const h = fixture({ onProviderEvidence: () => { writes++; } });
+    h.socket.open(); await h.observer.ready; h.socket.message({ type: 'session.closed', ...extra });
+    assert.equal((await h.observer.completion).status, 'INCOMPLETE'); assert.equal(writes, 0);
+  }
+});
+
+test('failed or stalled spend-evidence persistence never certifies provider terminal custody', async () => {
+  for (const stall of [false, true]) {
+    const h = fixture({ limits: { appendMs: 10 }, onProviderEvidence: () => stall
+      ? new Promise(() => {}) : Promise.reject(new Error('synthetic unavailable ledger')) });
+    h.socket.open(); await h.observer.ready; h.socket.message({ type: 'session.closed' });
+    const outcome = await h.observer.completion;
+    assert.equal(outcome.status, 'INCOMPLETE'); assert.equal(outcome.terminalPersisted, false);
+    assert.equal(h.socket.terminated, true);
+  }
+});
+
+
+test('documented native running and final seconds preserve cumulative values and same-event provenance without token substitution', async () => {
+  const evidence = []; const h = fixture({ onProviderEvidence: e => evidence.push(e) });
+  h.socket.open(); await h.observer.ready;
+  h.socket.message({ type: 'session.usage.updated', event_id: 'usage1', usage: { seconds: 12 }, context_window: { usage_ratio: .42 } });
+  h.socket.message({ type: 'session.usage.updated', event_id: 'usage2', usage: { seconds: 12.5 } });
+  h.socket.message({ type: 'response.event', event: { usage: { input_tokens: 100, output_tokens: 200 } } });
+  h.socket.message({ type: 'session.closed', event_id: 'closed1', reason: 'close_requested', usage: { seconds: 13.25 } });
+  assert.equal((await h.observer.completion).status, 'PROVIDER_CLOSED');
+  assert.deepEqual(evidence.filter(e => e.kind === 'usage').map(e => [e.usage.seconds, e.final]), [[12,false],[12.5,false],[13.25,true]]);
+  assert.deepEqual(evidence.filter(e => e.eventId === 'closed1').map(e => e.kind).sort(), ['terminal','usage']);
+  assert.equal(evidence.find(e => e.kind === 'terminal').reason, 'close_requested');
+  assert.equal(JSON.stringify(evidence).includes('tokens'), false);
+});
+
+for (const usage of [undefined, { seconds: null }, { seconds: -1 }, { seconds: '12' }, { input_tokens: 1, output_tokens: 2 }, { seconds: 12, unknown: 1 }]) {
+  test('missing or unsupported final native seconds remain unknown after valid running usage: '+JSON.stringify(usage), async () => {
+    const evidence = []; const h = fixture({ onProviderEvidence: e => evidence.push(e) });
+    h.socket.open(); await h.observer.ready;
+    h.socket.message({ type: 'session.usage.updated', event_id: 'run', usage: { seconds: 1 } });
+    h.socket.message({ type: 'session.closed', event_id: 'close', usage });
+    assert.equal((await h.observer.completion).status, 'PROVIDER_CLOSED');
+    assert.equal(evidence.filter(e => e.kind === 'usage' && e.final).length, 0);
+    assert.equal(evidence.filter(e => e.kind === 'terminal').length, 1);
+  });
+}
+
+
+test('rejected final cumulative usage cannot erase independently persisted provider closure', async () => {
+  const evidence = []; const h = fixture({ onProviderEvidence: async event => {
+    evidence.push(event);
+    if (event.kind === 'usage' && event.final) throw new Error('synthetic regressive final usage rejected');
+    return { ok: true, provider_terminal_confirmed: event.kind === 'terminal', accounting_complete: false };
+  } });
+  h.socket.open(); await h.observer.ready;
+  h.socket.message({ type: 'session.usage.updated', event_id: 'running', usage: { seconds: 12 } });
+  await tick();
+  h.socket.message({ type: 'session.closed', event_id: 'closed', reason: 'remote_hangup', usage: { seconds: 11 } });
+  const outcome = await h.observer.completion;
+  assert.equal(outcome.status, 'PROVIDER_CLOSED'); assert.equal(outcome.terminalPersisted, true);
+  assert.equal(evidence.filter(e => e.kind === 'terminal').length, 1);
+  assert.equal(h.records.at(-1).terminal_status, 'PROVIDER_CLOSED');
+});
+
+test('stalled final accounting is bounded independently of trusted terminal persistence', async () => {
+  const h = fixture({ limits: { appendMs: 10 }, onProviderEvidence: event => event.kind === 'usage'
+    ? new Promise(() => {}) : Promise.resolve({ ok: true, provider_terminal_confirmed: true, accounting_complete: false }) });
+  h.socket.open(); await h.observer.ready;
+  h.socket.message({ type: 'session.closed', event_id: 'closed', usage: { seconds: 1 } });
+  assert.equal((await h.observer.completion).status, 'PROVIDER_CLOSED');
 });

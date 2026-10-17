@@ -5,6 +5,7 @@
 export {
   createLiveInterview,
   endLiveInterview,
+  keepLiveInterviewPresence,
   loadIvPrepSession,
 } from '../aaa/api-client.mjs';
 export { COLLECTIONS, createDefaultQuestionStore } from '../questions/question-store.mjs';

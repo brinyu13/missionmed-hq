@@ -24,6 +24,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
@@ -1847,4 +1848,39 @@ test('SOURCE GUARD: the composition root passes a drafting service to the applic
   );
   assert.equal(/aiProposalProvider \?\? new DeterministicAiProposalAdapter/u.test(source), false,
     'production must never silently fall back to deterministic AI');
+});
+
+
+test('actual production SIGTERM/SIGINT handlers close IVOC admission once while preserving LOR shutdown', async () => {
+  const source = readFileSync(new URL('../../server.mjs', import.meta.url), 'utf8');
+  const begin = source.indexOf('function requestGracefulShutdown() {');
+  const end = source.indexOf("process.once('SIGINT', requestGracefulShutdown);", begin)
+    + "process.once('SIGINT', requestGracefulShutdown);".length;
+  assert.ok(begin > 0 && end > begin);
+  for (const mode of ['success', 'unconfirmed', 'reject', 'throw', 'timeout']) {
+    const events = [], listeners = {}, timers = [], errors = [];
+    let settle; const pending = new Promise(resolve => { settle = resolve; });
+    const processStub = { exitCode: 0, once: (signal, fn) => { listeners[signal] = fn; } };
+    const context = { process: processStub, console: { error: code => errors.push(code) },
+      handleIvPrepV6Request: { shutdown: reason => { events.push(['ivoc', reason]);
+        if (mode === 'throw') throw new Error('private fixture');
+        if (mode === 'reject') return Promise.reject(new Error('private fixture'));
+        return pending; } },
+      LOR_STARTUP_ABORT: { abort: () => events.push(['lor-abort']) },
+      LOR_STUDIO_SHUTDOWN: async () => { events.push(['lor-shutdown']); },
+      setTimeout: fn => { const timer = { fn, unref() {} }; timers.push(timer); return timer; },
+      clearTimeout: () => {},
+    };
+    runInNewContext('let ivocShutdownPromise=null; let lorShutdownRequested=false;\n'
+      + source.slice(begin, end) + '\nglobalThis.pendingIvoc=()=>ivocShutdownPromise;', context);
+    listeners.SIGTERM(); listeners.SIGINT();
+    assert.deepEqual(events[0], ['ivoc', 'server_shutdown']);
+    assert.equal(events.filter(e => e[0] === 'ivoc').length, 1);
+    assert.equal(events.filter(e => e[0] === 'lor-abort').length, 2);
+    assert.equal(events.filter(e => e[0] === 'lor-shutdown').length, 2);
+    if (mode === 'timeout') timers[0].fn(); else settle({ ok: mode === 'success' });
+    await context.pendingIvoc();
+    assert.equal(processStub.exitCode, mode === 'success' ? 0 : 1);
+    assert.equal(errors.some(e => e.includes('private fixture')), false);
+  }
 });
