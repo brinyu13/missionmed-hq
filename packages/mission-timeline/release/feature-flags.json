@@ -1,0 +1,12 @@
+{
+  "matrix.timeline_app_mode.enabled": false,
+  "timeline.api.enabled": false,
+  "timeline.remote_sync.enabled": false,
+  "timeline.private_storage.enabled": false,
+  "timeline.mac_pro_export.enabled": false,
+  "timeline.filevault_legacy.enabled": false,
+  "timeline.filevault_v2.enabled": false,
+  "timeline.faculty_access.enabled": false,
+  "timeline.break_glass.enabled": false,
+  "timeline.cloud_ocr.enabled": false
+}
