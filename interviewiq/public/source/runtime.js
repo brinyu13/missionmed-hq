@@ -270,11 +270,16 @@ function applyInterviewIQEntry(entry,identity,epoch){
   if(intakeFlow?.busy||intakeFlow?.awaitingConfirmation){notice('Your current interview draft is retained. Finish confirming its save before adding another.');return false;}
   openIntake({dataset:{}},{preserveCurrent:true});return true;
 }
+function calendarLoadingMarkup(stage){
+ const stages=[['connecting','Connecting to MissionMed'],['personal','Loading your interviews'],['cohort','Loading authorized cohort interviews']],index=stages.findIndex(([key])=>key===stage);
+ if(index<0)return '';
+ return `<aside class="calendar-loading" data-calendar-loading="${stage}" role="status" aria-live="polite"><div class="calendar-loading-title"><span aria-hidden="true">✦</span><strong>${stages[index][1]}</strong></div><ol class="calendar-loading-steps" aria-label="Calendar loading stages">${stages.map(([key,label],n)=>`<li class="${n<index?'is-done':n===index?'is-current':'is-waiting'}" ${n===index?'aria-current="step"':''}><span class="calendar-loading-dot" aria-hidden="true">${n<index?'✓':n+1}</span><span>${label}</span></li>`).join('')}</ol><div class="calendar-loading-cheers" aria-hidden="true">${['Look at you, future doctor!','Getting your interview schedule ready…',"Let’s see where your Match journey takes you.","Checking who’s interviewing at your programs!"].map((text,n)=>`<span style="--cheer:${n}">${text}</span>`).join('')}</div></aside>`;
+}
 function renderPublicCalendarShell(){
   const date=new Date(),year=date.getFullYear(),month=date.getMonth(),first=new Date(year,month,1),count=new Date(year,month+1,0).getDate(),weeks=Math.ceil((first.getDay()+count)/7);
   const title=new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric'}).format(first);
   const days=Array.from({length:weeks*7},(_,k)=>{const d=new Date(year,month,k-first.getDay()+1);return '<div class="mcv2-month-day'+(d.getMonth()!==month?' is-outside':'')+'" role="gridcell" aria-label="'+esc(d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}))+', schedules loading"><span class="mcv2-day-number">'+d.getDate()+'</span><span class="mcv2-compact-day">'+d.getDate()+'</span></div>';}).join('');
-  return '<section data-view="calendar" data-calendar-mode="month" class="live calendar-first" aria-busy="true"><header class="mcv2-header"><div class="calendar-heading"><div><p class="mcv2-kicker">INTERVIEW CALENDAR</p><div class="h1">Month <em>view</em></div></div></div><div class="calendar-navigation"><strong class="calendar-month-title">'+esc(title)+'</strong></div></header><p class="calendar-message" role="status">Verifying your account and loading saved interviews…</p><div class="calendar-grid-scroll"><div class="mcv2-month" role="grid" aria-label="'+esc(title)+': dates only, schedules loading" style="--calendar-weeks:'+weeks+'"><div class="mcv2-weekdays" role="row">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>'<div class="mcv2-weekday" role="columnheader">'+d+'</div>').join('')+'</div><div class="mcv2-month-grid">'+days+'</div></div></div></section>';
+  return '<section data-view="calendar" data-calendar-mode="month" class="live calendar-first" aria-busy="true"><header class="mcv2-header"><div class="calendar-heading"><div><p class="mcv2-kicker">INTERVIEW CALENDAR</p><div class="h1">Month <em>view</em></div></div></div><div class="calendar-navigation"><strong class="calendar-month-title">'+esc(title)+'</strong></div></header>'+calendarLoadingMarkup('connecting')+'<div class="calendar-grid-scroll"><div class="mcv2-month" role="grid" aria-label="'+esc(title)+': dates only, schedules loading" style="--calendar-weeks:'+weeks+'"><div class="mcv2-weekdays" role="row">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>'<div class="mcv2-weekday" role="columnheader">'+d+'</div>').join('')+'</div><div class="mcv2-month-grid">'+days+'</div></div></div></section>';
 }
 function completeWorkspace(afterComplete){
   if(workspaceReadFlight)return workspaceReadFlight;
@@ -302,6 +307,7 @@ async function boot(){
   const entry=parseInterviewIQEntry(location.search);
   try{
     if(!session||session.expiresAt<Date.now()+15000)await refreshSession();
+    const loading=document.querySelector('[data-calendar-loading]');if(loading)loading.outerHTML=calendarLoadingMarkup('personal');
     let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
     if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar();render();const identity=actor.id,epoch=sessionEpoch;
     applyInterviewIQEntry(entry,identity,epoch);
