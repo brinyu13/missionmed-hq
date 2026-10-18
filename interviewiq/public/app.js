@@ -338,20 +338,36 @@ function apiError(body,status){const message=body?.error?.message||body?.message
 async function readJSON(response){let body;try{body=await response.json();}catch{throw Error('The service returned an unreadable response. Your draft remains in this tab.');}if(!response.ok)throw apiError(body,response.status);return body;}
 let initialSessionNonce=document.querySelector('meta[name="iiq-session-nonce"]')?.getAttribute('content')||null;
 document.querySelector('meta[name="iiq-session-nonce"]')?.remove();
-async function refreshSession(){
+function calendarStartupResponse(signed,path,startedAt,epoch,expiresAt){
+ const has=Object.prototype.hasOwnProperty;
+ if(!has.call(signed,'calendarStartupAttempted')&&!has.call(signed,'calendarStartup')){
+  if(path&&Object.keys(signed).some(k=>!['token','expires_at','ttl_seconds','nonce','actor'].includes(k)))throw Error('The Calendar startup response was incomplete. Retry from MissionMed.');
+  return null; // Known legacy token-only contract: no upstream Calendar attempt.
+ }
+ const b=signed.calendarStartup?.bootstrap;
+ if(!path||signed.calendarStartupAttempted!==true||signed.calendarStartup?.path!==path||epoch!==sessionEpoch||!b?.actor||!Array.isArray(b.state?.interviews)||b.workspacePhase!=='calendar'||!b.calendarBundle||expiresAt<=Date.now()||Date.now()-startedAt<0||Date.now()-startedAt>30000)throw Error('The Calendar startup response could not be verified. Retry from MissionMed.');
+ for(const k of ['id','role','tier'])if(b.actor[k]!==signed.actor?.[k]||b.calendarBundle.actor?.[k]!==signed.actor?.[k])throw Error('The Calendar account changed. Reopen MissionMed.');
+ const q=new URL('https://calendar.invalid'+path).searchParams;
+ if(b.calendarBundle.start!==q.get('start')||b.calendarBundle.end!==q.get('end'))throw Error('The Calendar range changed. Reopen Calendar.');
+ return {bootstrap:b,path,startedAt,epoch}; // Returned once to boot; never stored on session or browser storage.
+}
+async function refreshSession(calendarPath=null){
   if(sessionRefresh)return sessionRefresh;
-  const epoch=sessionEpoch,identity=actor?.id;
+  if(calendarPath!==null&&(!calendarBootstrapPath(calendarPath)||!calendarPath.startsWith('/bootstrap?view=calendar&start=')))throw Error('Choose a bounded Calendar startup.');
+  const epoch=sessionEpoch,identity=actor?.id,startedAt=Date.now();
   const work=(async()=>{
   function fetchResult(){return fetch('/wp-admin/admin-ajax.php?action=missionmed_interviewiq_bootstrap',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});}
   const seed=initialSessionNonce;initialSessionNonce=null;
   let first=typeof seed==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(seed)?{nonce:seed,token_endpoint:'/wp-admin/admin-ajax.php?action=missionmed_interviewiq_token',api_base:'/interviewiq/api'}:await readJSON(await fetchResult());
-  const exchange=async()=>{if(!first.nonce||!first.token_endpoint)throw Error('MissionMed could not establish the InterviewIQ session.');return readJSON(await fetch(sameOriginURL(first.token_endpoint),{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json','X-IIQ-Nonce':first.nonce}}));};
+  const exchange=async()=>{if(!first.nonce||!first.token_endpoint)throw Error('MissionMed could not establish the InterviewIQ session.');const target=sameOriginURL(first.token_endpoint);if(calendarPath&&target.pathname==='/wp-admin/admin-ajax.php'&&target.search==='?action=missionmed_interviewiq_token'){const q=new URL('https://calendar.invalid'+calendarPath).searchParams;target.searchParams.set('iiq_calendar','1');target.searchParams.set('start',q.get('start'));target.searchParams.set('end',q.get('end'));}return readJSON(await fetch(target,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json','X-IIQ-Nonce':first.nonce}}));};
   let signed;try{signed=await exchange();}catch(error){if(seed&&error.status===403&&error.code==='csrf_failed'){first=await readJSON(await fetchResult());signed=await exchange();}else throw error;}
   if(epoch!==sessionEpoch||identity!==actor?.id)throw Error('The workspace changed while its session was loading.');
   if(!signed.token)throw Error('MissionMed did not return a signed InterviewIQ session.');
   if(actor&&signed.actor?.id&&(signed.actor.id!==actor.id||normalizeRole(signed.actor.role)!==actor.role||signed.actor.tier!==actor.tier)){lockWorkspace('Your MissionMed account changed. Reopen the workspace to continue.');throw Error('Your account changed. Reopen the workspace.');}
   const expires=typeof signed.expires_at==='number'?signed.expires_at*1000:Date.parse(signed.expires_at||'');
-  session={actor:signed.actor||null,token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
+  const expiresAt=Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000,startup=calendarStartupResponse(signed,calendarPath,startedAt,epoch,expiresAt);
+  session={actor:signed.actor||null,token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt};
+  return startup;
   })();sessionRefresh=work;
   try{return await work;}finally{if(sessionRefresh===work)sessionRefresh=null;}
 }
@@ -566,7 +582,7 @@ function calendarLoadingPresentation(pending,error){
  return calendarLoadingWaitExpired?'slow':'cohort';
 }
 function calendarLoadingMarkup(stage){
- const combined=stage==='calendar',stages=combined?[['connecting','Connecting to your MissionMed workspace.'],['calendar','Loading your interviews and authorized cohort.'],['ready','Your Calendar is ready!']]:[['connecting','Connecting to your MissionMed workspace.'],['personal','Loading your interviews.'],['cohort',"Gathering your fellow doctors' interviews."],['ready','Your Calendar is ready!']],recovery=['error','slow'].includes(stage),index=recovery?2:stages.findIndex(([key])=>key===stage);
+ const combined=stage==='calendar',stages=stage==='startup'?[['startup','Connecting and loading your authorized Calendar.'],['ready','Your Calendar is ready!']]:combined?[['connecting','Connecting to your MissionMed workspace.'],['calendar','Loading your interviews and authorized cohort.'],['ready','Your Calendar is ready!']]:[['connecting','Connecting to your MissionMed workspace.'],['personal','Loading your interviews.'],['cohort',"Gathering your fellow doctors' interviews."],['ready','Your Calendar is ready!']],recovery=['error','slow'].includes(stage),index=recovery?2:stages.findIndex(([key])=>key===stage);
  if(index<0)return '';
  if(stage==='ready')return '<span class="calendar-ready" role="status">✓ Your Calendar is ready!</span>';
  const title=recovery?(stage==='slow'?'Your cohort is taking a little longer.':'Cohort loading did not finish.'):stages[index][1];
@@ -603,10 +619,11 @@ async function boot(){
   const sequence=++bootSequence;const main=document.getElementById('main');main.innerHTML=renderPublicCalendarShell();fitCalendarViewport();
   const entry=parseInterviewIQEntry(location.search);
   try{
-    if(!session||session.expiresAt<Date.now()+15000)await refreshSession();
-    const loading=document.querySelector('[data-calendar-loading]');if(loading)loading.outerHTML=calendarLoadingMarkup('calendar');
-    const range=calendarRangeForMonth(S?.ui?.cal?.ym||dateKeyInZone(now(),session?.actor?.zone||'UTC').slice(0,7)),startedAt=Date.now(),epochAtStart=sessionEpoch;
-    let b;try{b=await apiFetch('/bootstrap?view=calendar&start='+range.start+'&end='+range.end);}
+    const range=calendarRangeForMonth(S?.ui?.cal?.ym||dateKeyInZone(now(),session?.actor?.zone||'UTC').slice(0,7)),path='/bootstrap?view=calendar&start='+range.start+'&end='+range.end,startedAt=Date.now(),epochAtStart=sessionEpoch;
+    const loading=document.querySelector('[data-calendar-loading]');if(loading)loading.outerHTML=calendarLoadingMarkup('startup');
+    const startup=(!session||session.expiresAt<Date.now()+15000)?await refreshSession(path):null;
+    if(!startup){const pending=document.querySelector('[data-calendar-loading]');if(pending)pending.outerHTML=calendarLoadingMarkup('calendar');}
+    let b;try{b=startup?startup.bootstrap:await apiFetch(path);}
     catch(error){
       if(error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');
       else if(error.status===400&&['invalid_query','query_not_supported'].includes(error.code)){try{b=await apiFetch('/bootstrap?view=calendar');}catch(legacy){if(legacy.status===400&&legacy.code==='invalid_query'||legacy.status===503&&legacy.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw legacy;}}else throw error;

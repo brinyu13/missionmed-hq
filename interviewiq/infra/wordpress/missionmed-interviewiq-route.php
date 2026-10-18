@@ -311,6 +311,58 @@ function mmiiqg_immutable_assets() {
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'HEAD') { readfile($asset['path']); }
     exit;
 }
+/** Optional nonce-POST startup: reuse full browser/token and remote API authorization. */
+function mmiiqg_calendar_startup_token() {
+    if (!array_key_exists('iiq_calendar', $_GET)) { return; } // Legacy token-only contract.
+    $raw = $_SERVER['QUERY_STRING'] ?? '';
+    $input = array(); parse_str($raw, $input); $keys = array_keys($input); sort($keys);
+    if (!is_string($raw) || strlen($raw)>256 || preg_match('/%(?![a-fA-F0-9]{2})/', $raw)
+        || $keys!==array('action','end','iiq_calendar','start') || count(explode('&',$raw))!==4
+        || $input['action']!=='missionmed_interviewiq_token' || $input['iiq_calendar']!=='1'
+        || !is_string($input['start']) || !is_string($input['end'])) { mmiiqg_error(400,'invalid_query'); }
+    $query=mmiiqg_query(array('query'=>'bootstrap'), 'view=calendar&start='.rawurlencode($input['start']).'&end='.rawurlencode($input['end']));
+    if ($query===false) { mmiiqg_error(400,'invalid_query'); }
+    foreach (array('HTTP_X_MMED_IIQ_GATEWAY','HTTP_X_MMED_IIQ_PROOF','HTTP_X_MMED_IIQ_OWNER_PROOF') as $key) {
+        if (isset($_SERVER[$key])) { mmiiqg_error(400,'reserved_header'); }
+    }
+    $permission=mmiiq_browser_request(true);
+    if (is_wp_error($permission)) { mmiiq_ajax_response($permission); return; }
+    $actor=mmiiq_browser_identity(true);
+    if (is_wp_error($actor)) { mmiiq_ajax_response($actor); return; }
+    $signed=mmiiq_issue_token($actor);
+    if (is_wp_error($signed)) { mmiiq_ajax_response($signed); return; }
+    $origin=mmiiqg_origin(); $secret=mmiiq_setting('INTERVIEWIQ_GATEWAY_SECRET');
+    if ($origin==='' || strlen($secret)<32) { mmiiqg_error(503,'origin_unconfigured'); }
+    // The API still makes its normal fresh REMOTE owner and peer requests.
+    // No browser authorization/proof/cookie/header or arbitrary target is forwarded.
+    $result=wp_remote_request($origin.'/api/bootstrap'.$query,array('method'=>'GET',
+        'headers'=>array('Accept'=>'application/json','Authorization'=>'Bearer '.$signed['token'],
+            'Origin'=>mmiiq_wp_origin(),'X-MMED-IIQ-Gateway'=>$secret),
+        'body'=>'','timeout'=>25,'redirection'=>0,'sslverify'=>true,'reject_unsafe_urls'=>true,
+        'limit_response_size'=>4194305,'cookies'=>array()));
+    if (is_wp_error($result)) { mmiiqg_error(502,'calendar_startup_unavailable'); }
+    $status=(int)wp_remote_retrieve_response_code($result); $body=wp_remote_retrieve_body($result);
+    $type=strtolower(trim(explode(';',(string)wp_remote_retrieve_header($result,'content-type'))[0]));
+    if (!is_string($body) || strlen($body)>4194304 || $type!=='application/json') { mmiiqg_error(502,'calendar_startup_invalid'); }
+    // A possibly executed request is never retried or disguised as token-only success.
+    if ($status!==200) { mmiiqg_error(in_array($status,array(401,403),true)?$status:502,'calendar_startup_denied'); }
+    $bootstrap=json_decode($body,true);
+    if (!is_array($bootstrap) || ($bootstrap['workspacePhase']??null)!=='calendar'
+        || !is_array($bootstrap['state']['interviews']??null) || !is_array($bootstrap['actor']??null)
+        || !is_array($bootstrap['calendarBundle']??null)) { mmiiqg_error(502,'calendar_startup_invalid'); }
+    foreach (array('id','role','tier') as $key) {
+        if (($bootstrap['actor'][$key]??null)!==($signed['actor'][$key]??null)
+            || ($bootstrap['calendarBundle']['actor'][$key]??null)!==($signed['actor'][$key]??null)) { mmiiqg_error(502,'calendar_startup_invalid'); }
+    }
+    if (($bootstrap['calendarBundle']['start']??null)!==$input['start'] || ($bootstrap['calendarBundle']['end']??null)!==$input['end']
+        || $signed['expires_at']<=time()) { mmiiqg_error(502,'calendar_startup_invalid'); }
+    $signed['calendarStartupAttempted']=true;
+    $signed['calendarStartup']=array('path'=>'/bootstrap'.$query,'bootstrap'=>$bootstrap);
+    mmiiq_ajax_response($signed);
+}
+add_action('wp_ajax_missionmed_interviewiq_token','mmiiqg_calendar_startup_token',0);
+add_action('wp_ajax_nopriv_missionmed_interviewiq_token','mmiiqg_calendar_startup_token',0);
+
 add_action('muplugins_loaded', 'mmiiqg_immutable_assets', -1000);
 
 add_action('parse_request', 'mmiiqg_handle', -1000);

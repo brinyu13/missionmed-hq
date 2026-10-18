@@ -17,6 +17,20 @@ function wp_send_json($value, $status) { http_response_code($status); header('Co
 function wp_safe_redirect($url, $status) { http_response_code($status); header('Location: ' . $url); }
 function wp_login_url($url) { return 'https://missionmedinstitute.com/my-account/?redirect_to=' . rawurlencode($url); }
 function wp_remote_request($url, $options) {
+    if (isset($_SERVER['HTTP_X_FIXTURE_STARTUP'])) {
+        $mode=$_SERVER['HTTP_X_FIXTURE_UPSTREAM']??'';
+        if($mode==='timeout')return new WP_Error('http_request_failed','Synthetic timeout');
+        parse_str(parse_url($url,PHP_URL_QUERY)??'', $q);
+        $a=mmiiq_public_actor(mmiiq_browser_identity(false));
+        $b=array('actor'=>$a,'state'=>array('interviews'=>array()),'workspacePhase'=>'calendar',
+            'calendarBundle'=>array('actor'=>$a,'kind'=>'cohort','start'=>$q['start']??null,'end'=>$q['end']??null,'page'=>array('events'=>array())),
+            'testTransport'=>array('method'=>$options['method'],'url'=>$url,'cookiesEmpty'=>$options['cookies']===array(),'redirects'=>$options['redirection'],
+                'gatewayMatched'=>hash_equals(mmiiq_setting('INTERVIEWIQ_GATEWAY_SECRET'),$options['headers']['X-MMED-IIQ-Gateway']??''),'body'=>$options['body']));
+        if($mode==='actor')$b['actor']['id']='other';if($mode==='range')$b['calendarBundle']['end']='2026-12-31';
+        return array('response'=>array('code'=>$mode==='denied'?403:($mode==='redirect'?302:($mode==='failure'?503:200))),
+            'headers'=>array('content-type'=>$mode==='html'?'text/html':'application/json'),
+            'body'=>$mode==='invalid'?'{':json_encode($b));
+    }
     $body = json_encode(array('ok' => true, 'forwarded' => array('url' => $url, 'method' => $options['method'],
         'origin' => $options['headers']['Origin'],
         'gatewayMatched' => hash_equals(mmiiq_setting('INTERVIEWIQ_GATEWAY_SECRET'), $options['headers']['X-MMED-IIQ-Gateway'] ?? ''),
@@ -35,7 +49,7 @@ function wp_remote_retrieve_header($v, $key) { return $v['headers'][$key] ?? '';
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 if ($path === '/wp-admin/admin-ajax.php') {
     if (($_GET['action'] ?? '') === 'missionmed_interviewiq_bootstrap') { mmiiq_ajax_bootstrap(); }
-    if (($_GET['action'] ?? '') === 'missionmed_interviewiq_token') { mmiiq_ajax_token(); }
+    if (($_GET['action'] ?? '') === 'missionmed_interviewiq_token') { mmiiqg_calendar_startup_token(); mmiiq_ajax_token(); }
 }
 if ($path === '/wp-json/missionmed-interviewiq/v1/introspect') {
     $headers = array_change_key_case(getallheaders(), CASE_LOWER);
