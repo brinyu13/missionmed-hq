@@ -244,3 +244,5 @@ $failed = array_values(array_filter($results, static fn($r) => !$r['pass']));
 echo json_encode(array('suite' => 'isolated-wordpress-auth-gateway', 'passed' => count($results) - count($failed),
     'failed' => count($failed), 'tests' => $results), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
 exit($failed ? 1 : 0);
+
+function esc_attr($s) { return htmlspecialchars($s, ENT_QUOTES, "UTF-8"); }

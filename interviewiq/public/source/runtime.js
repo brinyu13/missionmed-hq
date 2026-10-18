@@ -53,18 +53,22 @@ function normalizeRole(role){return ({administrator:'admin',advisor:'mentor',adm
 function sameOriginURL(value){const u=new URL(value,location.origin);if(u.origin!==location.origin)throw Error('The signed service address does not match this site.');return u;}
 function apiError(body,status){const message=body?.error?.message||body?.message||`Request failed (${status}).`;const err=new Error(message);err.status=status;err.code=body?.error?.code;return err;}
 async function readJSON(response){let body;try{body=await response.json();}catch{throw Error('The service returned an unreadable response. Your draft remains in this tab.');}if(!response.ok)throw apiError(body,response.status);return body;}
+let initialSessionNonce=document.querySelector('meta[name="iiq-session-nonce"]')?.getAttribute('content')||null;
+document.querySelector('meta[name="iiq-session-nonce"]')?.remove();
 async function refreshSession(){
   if(sessionRefresh)return sessionRefresh;
   const epoch=sessionEpoch,identity=actor?.id;
   const work=(async()=>{
-  const first=await readJSON(await fetch('/wp-admin/admin-ajax.php?action=missionmed_interviewiq_bootstrap',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}}));
-  if(!first.nonce||!first.token_endpoint)throw Error('MissionMed could not establish the InterviewIQ session.');
-  const signed=await readJSON(await fetch(sameOriginURL(first.token_endpoint),{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json','X-IIQ-Nonce':first.nonce}}));
+  function fetchResult(){return fetch('/wp-admin/admin-ajax.php?action=missionmed_interviewiq_bootstrap',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});}
+  const seed=initialSessionNonce;initialSessionNonce=null;
+  let first=typeof seed==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(seed)?{nonce:seed,token_endpoint:'/wp-admin/admin-ajax.php?action=missionmed_interviewiq_token',api_base:'/interviewiq/api'}:await readJSON(await fetchResult());
+  const exchange=async()=>{if(!first.nonce||!first.token_endpoint)throw Error('MissionMed could not establish the InterviewIQ session.');return readJSON(await fetch(sameOriginURL(first.token_endpoint),{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json','X-IIQ-Nonce':first.nonce}}));};
+  let signed;try{signed=await exchange();}catch(error){if(seed&&error.status===403&&error.code==='csrf_failed'){first=await readJSON(await fetchResult());signed=await exchange();}else throw error;}
   if(epoch!==sessionEpoch||identity!==actor?.id)throw Error('The workspace changed while its session was loading.');
   if(!signed.token)throw Error('MissionMed did not return a signed InterviewIQ session.');
   if(actor&&signed.actor?.id&&signed.actor.id!==actor.id){lockWorkspace('Your MissionMed account changed. Reopen the workspace to continue.');throw Error('Your account changed. Reopen the workspace.');}
   const expires=typeof signed.expires_at==='number'?signed.expires_at*1000:Date.parse(signed.expires_at||'');
-  session={token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
+  session={actor:signed.actor||null,token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
   })();sessionRefresh=work;
   try{return await work;}finally{if(sessionRefresh===work)sessionRefresh=null;}
 }
@@ -294,8 +298,10 @@ async function boot(){
   const sequence=++bootSequence;const main=document.getElementById('main');main.innerHTML=renderPublicCalendarShell();fitCalendarViewport();
   const entry=parseInterviewIQEntry(location.search);
   try{
+    if(!session||session.expiresAt<Date.now()+15000)await refreshSession();
+    const prefetched=beginCalendarBootRead(sequence);
     let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
-    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar();render();const identity=actor.id,epoch=sessionEpoch;
+    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar(prefetched);render();const identity=actor.id,epoch=sessionEpoch;
     applyInterviewIQEntry(entry,identity,epoch);
     // Complete optional workspace details after the visible cohort read, not in competition with it.
     void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace();});

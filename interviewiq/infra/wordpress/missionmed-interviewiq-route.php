@@ -152,6 +152,12 @@ function mmiiqg_security_headers() {
     header('Cross-Origin-Resource-Policy: same-origin');
 }
 
+function mmiiqg_private_html($html) {
+    // Existing CSRF nonce, generated only in this authenticated no-store response.
+    $meta='<meta name="iiq-session-nonce" content="'.esc_attr(wp_create_nonce('missionmed_interviewiq')).'">';
+    return str_replace('</head>',$meta.'</head>',$html);
+}
+
 function mmiiqg_proxy($route, $method) {
     if (isset($_SERVER['HTTP_X_MMED_IIQ_GATEWAY'])) { mmiiqg_error(400, 'reserved_header'); }
     $actor = mmiiq_browser_identity(false);
@@ -259,8 +265,13 @@ function mmiiqg_handle() {
     status_header(200);
     header('Content-Type: ' . $asset['type']);
     header('X-InterviewIQ-Release: ' . $release['manifest']['release_id']);
-    header('Content-Length: ' . filesize($asset['path']));
-    if ($method !== 'HEAD') { readfile($asset['path']); }
+    if ($relative==='index.html') {
+        $html=mmiiqg_private_html(file_get_contents($asset['path']));
+        header('Content-Length: '.strlen($html)); if ($method!=='HEAD') { echo $html; }
+    } else {
+        header('Content-Length: ' . filesize($asset['path']));
+        if ($method !== 'HEAD') { readfile($asset['path']); }
+    }
     exit;
 }
 

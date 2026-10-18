@@ -1,4 +1,5 @@
 import {createHmac,timingSafeEqual} from 'node:crypto';
+import {readOwnerSession} from './owner-session.mjs';
 import {validDate} from './time.mjs';
 import {requireValue} from './errors.mjs';
 import {calendarEnabled,requireCalendar,bindCalendar} from './calendar-admission.mjs';
@@ -7,7 +8,7 @@ export function cohortRange(input){requireValue(input&&Object.keys(input).every(
 function mac(config,t){return createHmac('sha256',config.ownerProofSecret).update('iiq-cohort-cursor-v1\n'+t).digest('hex');}
 function decodeCursor(config,actor,range){if(!range.cursor)return[null,null];requireValue(typeof range.cursor==='string'&&range.cursor.length<=1024,'calendar_cursor','This Calendar page expired.');try{const [b,s,...extra]=range.cursor.split('.'),text=Buffer.from(b,'base64url').toString(),p=JSON.parse(text);requireValue(extra.length===0&&/^[a-f0-9]{64}$/.test(s)&&timingSafeEqual(Buffer.from(mac(config,text)),Buffer.from(s))&&p.actor===actor.id&&p.start===range.start&&p.end===range.end&&validDate(p.day)&&/^[a-f0-9-]{36}$/.test(p.ref),'calendar_cursor','This Calendar page expired.');return[p.day,p.ref];}catch{requireValue(false,'calendar_cursor','This Calendar page expired.');}}
 export async function readCohort({database,actor,config,admit,input}){
- requireCalendar(config,actor);const r=cohortRange(input),[day,ref]=decodeCursor(config,actor,r);await admit(actor,[],'GET /api/calendar/cohort');
+ requireCalendar(config,actor);const r=cohortRange(input),[day,ref]=decodeCursor(config,actor,r);requireValue(readOwnerSession(actor),'calendar_admission_unavailable','Current Calendar access could not be verified.',503);
  const candidates=await database.withActor(actor,async db=>{await db.query('SET TRANSACTION READ ONLY');await bindCalendar(db,actor);return(await db.query('SELECT * FROM iiq.calendar_candidates($1,$2,$3,$4,NULL)',[r.start,r.end,day,ref])).rows;});
  const pairs=[...new Map(candidates.map(x=>[x.owner_id,{subject:x.owner_id,wp_user_id:Number(x.wp_user_id)}])).values()];const grant=await admit(actor,pairs,'GET /api/calendar/cohort'),allowed=grant.pairs.filter(p=>p.allowed).map(({subject,wp_user_id})=>({subject,wp_user_id}));
  // Revalidate all pairs immediately before publish; no positive grant cache.

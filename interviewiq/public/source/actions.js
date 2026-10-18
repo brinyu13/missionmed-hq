@@ -375,23 +375,37 @@ async function calendarMutation(path,intent,body,headers={}){
 }
 function calendarMonthRange(){const m=monthModel(S.ui.cal.ym),shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);return {start:shift(m.days[0].key,-1),end:shift(m.days.at(-1).key,1),ym:S.ui.cal.ym};}
 function cohortBinding(){return JSON.stringify([actor?.id,actor?.role,actor?.tier,calendarEpoch,sessionEpoch,S?.ui?.cal?.ym]);}
-function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true});}
+function beginCalendarBootRead(sequence){
+ if(studentPreview()||!session?.actor||!['student','admin'].includes(session.actor.role)||!['360','ivprep_complete','admin'].includes(session.actor.tier))return null;
+ const authority={id:session.actor.id,role:session.actor.role,tier:session.actor.tier},ym=defaultUI().cal.ym,m=monthModel(ym),shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10),range={start:shift(m.days[0].key,-1),end:shift(m.days.at(-1).key,1),ym};
+ const held={authority,range,sequence,startedAt:Date.now(),epoch:sessionEpoch,session,used:false};
+ const path=authority.role==='admin'?'/calendar/overview':'/calendar/cohort';
+ // Hold data/error privately until bootstrap independently confirms this exact scope.
+ held.promise=fetch(session.apiBase+path+'?'+new URLSearchParams({start:range.start,end:range.end}),{headers:{Authorization:'Bearer '+session.token,Accept:'application/json'},credentials:'same-origin',cache:'no-store'}).then(readJSON).then(value=>({value}),error=>({error}));
+ return held;
+}
+function takeCalendarBootRead(held,range){
+ if(!held||held.used||Date.now()-held.startedAt>30000||studentPreview()||!calendarV2()||held.sequence!==bootSequence||held.epoch!==sessionEpoch||held.session!==session||held.range.ym!==range.ym||held.range.start!==range.start||held.range.end!==range.end||['id','role','tier'].some(k=>held.authority[k]!==actor[k]))return null;
+ held.used=true;return held.promise.then(result=>{if(Date.now()-held.startedAt>30000)return null;if(result.error)throw result.error;return result.value;});
+}
+function warmCalendar(prefetched=null){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true,prefetched});}
 function expireWarmCalendar(){if(cohortPage?.background&&(!calendarV2()||cohortPage.binding!==cohortBinding()||cohortPage.complete&&Date.now()-cohortPage.completedAt>30000)){calendarLoadSequence++;cohortFlight=null;cohortPage=null;}}
-function loadCohort({background=false}={}){
+function loadCohort({background=false,prefetched=null}={}){
  if(!calendarV2()||!S||background&&S.ui.calendarScope&&S.ui.calendarScope!=='all')return;
  const key=cohortBinding();if(cohortFlight?.key===key&&cohortFlight.seq===calendarLoadSequence&&cohortFlight.page===cohortPage){if(!background)S.ui.calendarScope='all';return cohortFlight.promise;}
  const a=calendarAuthority(),seq=++calendarLoadSequence,range=calendarMonthRange(),admin=actor.role==='admin',tier=actor.tier,sessionAtStart=sessionEpoch;
  if(!background)S.ui.calendarScope='all';const page={events:[],interviews:[],start:range.start,end:range.end,loading:true,unmapped:0,background,binding:key};cohortPage=page;
  const repaint=()=>{if(S.ui.route==='calendar'&&!S.ui.drawer)render();};if(!background)repaint();
+ const firstPage=takeCalendarBootRead(prefetched,range);
  const promise=(async()=>{ 
  const current=()=>currentCalendar(a)&&actor.tier===tier&&sessionEpoch===sessionAtStart&&seq===calendarLoadSequence&&cohortPage===page&&S.ui.cal.ym===range.ym&&(!S.ui.calendarScope||S.ui.calendarScope==='all');let cursor=null;const seen=new Set();
- try{do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),r=await apiFetch(path+'?'+q);if(!current())return;
+ try{do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),first=!cursor&&firstPage?await firstPage:null,r=first||await apiFetch(path+'?'+q);if(!current())return;
    if(r.start!==range.start||r.end!==range.end)throw Error('The Calendar month changed. Retry.');
    if(admin){if(r.readOnly!==true||!Array.isArray(r.interviews)||r.interviews.length>2000)throw Error('The student schedule response was invalid.');for(const i of r.interviews){if(!page.interviews.some(x=>x.id===i.id))page.interviews.push(i);}page.unmapped+=r.unmapped||0;cursor=r.nextAfter;}
    else{if(r.deidentified!==true||!Array.isArray(r.events)||r.events.length>200)throw Error('The cohort response was invalid.');const fields=['event_ref','program_id','program_name','specialty','track','local_date','local_time','timezone','start_at','fold','all_day','format','event_type','lifecycle','same_program'];for(const e of r.events){if(!/^[a-f0-9-]{36}$/.test(e.event_ref||'')||typeof e.program_name!=='string'||e.program_name.length>500||typeof e.local_date!=='string')throw Error('The cohort event was invalid.');if(!page.events.some(x=>x.event_ref===e.event_ref))page.events.push(Object.fromEntries(fields.map(k=>[k,e[k]])));}cursor=r.nextCursor;}
    if(cursor!=null){if(seen.has(String(cursor)))throw Error('Calendar paging did not advance. Retry.');seen.add(String(cursor));}repaint();
   }while(cursor!=null);if(current()){page.loading=false;page.complete=true;page.completedAt=Date.now();repaint();}
- }catch(e){if(current()){page.loading=false;page.error=e.message||'Calendar is unavailable.';repaint();}}
+ }catch(e){if(current()){if(firstPage&&(e.status===401||e.status===403)){lockWorkspace('Your current Calendar access could not be verified. Reopen your workspace.');return;}page.loading=false;page.error=e.message||'Calendar is unavailable.';repaint();}}
  })();const flight={key,promise,seq,page};cohortFlight=flight;void promise.finally(()=>{if(cohortFlight===flight)cohortFlight=null;});return promise;
 }
 async function loadCalendarRoster(q='',tier='all'){

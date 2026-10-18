@@ -4,8 +4,8 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const runtime=readFileSync(new URL('../../public/source/runtime.js',import.meta.url),'utf8');
 const functions=runtime.slice(runtime.indexOf('function sameOriginURL('),runtime.indexOf('let loiAuthorityEpoch='));
-function fixture(remaining){
- const pending=[],now=1800000000000,context=vm.createContext({URL,Headers,Error,Number,Promise,Date:class extends Date{static now(){return now;}},fetch:(url,options)=>new Promise((resolve,reject)=>pending.push({url:String(url),options,resolve,reject}))});
+function fixture(remaining,seed=null){
+ const pending=[],now=1800000000000,context=vm.createContext({document:{querySelector:()=>seed?{getAttribute:()=>seed,remove:()=>{}}:null},URL,Headers,Error,Number,Promise,Date:class extends Date{static now(){return now;}},fetch:(url,options)=>new Promise((resolve,reject)=>pending.push({url:String(url),options,resolve,reject}))});
  vm.runInContext(`let session={token:'synthetic-old',nonce:'synthetic-nonce',apiBase:'/interviewiq/api',expiresAt:${now+remaining}},sessionRefresh=null,sessionEpoch=1,actor={id:'synthetic'},locked=false;const location={origin:'https://example.test'},studentPreview=()=>false,coreOnly=()=>false,lockWorkspace=()=>{locked=true;sessionEpoch++;};`+functions,context);
  const respond=(i,body,status=200)=>pending[i].resolve({ok:status<400,status,json:async()=>body});
  const tick=()=>new Promise(r=>setImmediate(r));
@@ -21,4 +21,15 @@ test('account or session change during refresh prevents the protected request',a
 test('refresh failure denies access and upstream503 is never automatically retried',async()=>{
  const f=fixture(0),p=f.run("apiFetch('/commands')"),rejected=assert.rejects(p);f.respond(0,{error:{message:'denied'}},403);await rejected;assert.equal(f.run('locked'),true);assert.equal(f.pending.length,1);
  const g=fixture(60000),q=g.run("apiFetch('/commands')"),failure=assert.rejects(q,e=>e.status===503);g.respond(0,{error:{code:'owner_service_unavailable',message:'unavailable'}},503);await failure;assert.equal(g.pending.length,1);
+});
+
+test('private HTML nonce removes exactly one bootstrap round trip; subsequent renewal is ordinary',async()=>{
+ const f=fixture(0,'synthetic-seed'),p=f.run('refreshSession()');assert.equal(f.pending.length,1);assert.match(f.pending[0].url,/action=missionmed_interviewiq_token/);assert.equal(f.pending[0].options.headers['X-IIQ-Nonce'],'synthetic-seed');
+ f.respond(0,{token:'fresh',actor:{id:'synthetic',role:'student',tier:'360'},expires_at:1800000060});await p;assert.equal(f.run('initialSessionNonce'),null);assert.equal(f.run('session.actor.tier'),'360');
+ const q=f.run('refreshSession()');assert.match(f.pending[1].url,/action=missionmed_interviewiq_bootstrap/);f.respond(1,{nonce:'fresh-nonce',token_endpoint:'/signed'});await f.tick();f.respond(2,{token:'fresh2',actor:{id:'synthetic'},expires_at:1800000060});await q;
+});
+test('expired HTML nonce falls back once; other denials and failed fallback never retry',async()=>{
+ const f=fixture(0,'old-seed'),p=f.run('refreshSession()');f.respond(0,{error:{code:'csrf_failed'}},403);await f.tick();assert.match(f.pending[1].url,/bootstrap/);f.respond(1,{nonce:'new',token_endpoint:'/signed'});await f.tick();f.respond(2,{token:'fresh',actor:{id:'synthetic'},expires_at:1800000060});await p;assert.equal(f.pending.length,3);
+ for(const code of ['eligibility_required','identity_owner_unavailable']){const g=fixture(0,'seed'),q=g.run('refreshSession()'),reject=assert.rejects(q);g.respond(0,{error:{code}},403);await reject;assert.equal(g.pending.length,1);}
+ const g=fixture(0,'seed'),q=g.run('refreshSession()'),reject=assert.rejects(q);g.respond(0,{error:{code:'csrf_failed'}},403);await g.tick();g.respond(1,{nonce:'new',token_endpoint:'/signed'});await g.tick();g.respond(2,{error:{code:'csrf_failed'}},403);await reject;assert.equal(g.pending.length,3);
 });
