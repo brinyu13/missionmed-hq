@@ -1,3 +1,4 @@
+import { validateNativeVoiceBillingContext } from './openai-live-session.mjs';
 import { createHash } from 'node:crypto';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -17,7 +18,7 @@ const DEFAULT_LIMITS = Object.freeze({ connectMs: 10_000, appendMs: 5_000, durat
  * exact word boundaries, speaker biometrics, or proof of audible playback.
  */
 export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSessionId, ownerSubject,
-  observationId, apiKey, append, onProviderEvidence = null, WebSocketImpl, limits = {} } = {}) {
+  observationId, apiKey, billingContext, append, onProviderEvidence = null, WebSocketImpl, limits = {} } = {}) {
   if (typeof providerSessionId !== 'string' || !/^[A-Za-z0-9_-]{8,160}$/u.test(providerSessionId)
     || typeof ivocSessionId !== 'string' || !UUID.test(ivocSessionId)
     || typeof observationId !== 'string' || !UUID.test(observationId)
@@ -27,6 +28,7 @@ export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSess
     || typeof append !== 'function' || (WebSocketImpl !== undefined && typeof WebSocketImpl !== 'function')) {
     throw new TypeError('Live transcript observer requires exact server-owned identity and sink.');
   }
+  const context = validateNativeVoiceBillingContext(billingContext);
   const bounds = { ...DEFAULT_LIMITS };
   if (!limits || typeof limits !== 'object' || Array.isArray(limits)) throw new TypeError('Observer limits are invalid.');
   for (const [key, value] of Object.entries(limits)) {
@@ -229,7 +231,7 @@ export function attachOpenAiLiveTranscriptObserver({ providerSessionId, ivocSess
     if (terminal || finished) return;
     try {
       socket = new Implementation(`wss://api.openai.com/v1/live/sessions/${providerSessionId}/attach`, {
-        headers: { Authorization: `Bearer ${apiKey}` }, maxPayload: bounds.packetBytes,
+        headers: { Authorization: `Bearer ${apiKey}`, 'OpenAI-Organization': context.organization, 'OpenAI-Project': context.project }, maxPayload: bounds.packetBytes,
         handshakeTimeout: bounds.connectMs, followRedirects: false,
       });
       socket.on('open', onOpen); socket.on('message', onMessage);

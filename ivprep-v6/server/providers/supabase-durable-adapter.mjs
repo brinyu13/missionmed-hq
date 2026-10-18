@@ -13,7 +13,7 @@ import {
 import { createLiveKitSessionCoordinator } from './livekit-session-coordinator.mjs';
 import { createIvocContextPackResolver } from './ivoc-context-pack-resolver.mjs';
 import { createIvocLiveTranscriptDependencies } from './ivoc-live-transcript-store.mjs';
-import { createOpenAiLiveSessionBroker } from './openai-live-session.mjs';
+import { createOpenAiLiveSessionBroker, NATIVE_VOICE_BILLING_CONTEXT } from './openai-live-session.mjs';
 import { PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from './provider-session-controller.mjs';
 
 const PRODUCT_PROJECT_REF = 'tufzqxeucfugdovtjyqk';
@@ -834,14 +834,14 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
   // never require a duplicate production secret or expose either value downstream.
   const liveApiKey = String(environment.MMHQ_OPENAI_API_KEY || environment.OPENAI_API_KEY || '').trim();
   const liveSessionBroker = liveApiKey
-    ? createOpenAiLiveSessionBroker({ apiKey: liveApiKey })
+    ? createOpenAiLiveSessionBroker({ apiKey: liveApiKey, billingContext: NATIVE_VOICE_BILLING_CONTEXT })
     : null;
   // No ledger lookup/arming at boot. Wrong project leaves native CREATE denied.
   const nativeVoicePolicy = liveSessionBroker && rest.projectRef === 'bscnrgqlwsyygyfrbhfn'
     ? createNativeVoiceSpendPolicy({ store: createNativeVoiceSpendStore({ rest }) }) : null;
   const liveContextResolver = createIvocContextPackResolver({ rest });
   const liveTranscriptDependencies = liveApiKey
-    ? createIvocLiveTranscriptDependencies({ rest, apiKey: liveApiKey })
+    ? createIvocLiveTranscriptDependencies({ rest, apiKey: liveApiKey, billingContext: NATIVE_VOICE_BILLING_CONTEXT })
     : { liveSessionGuard: null, liveTranscriptObserver: null };
   if (!paidEnabled) {
     return Object.freeze({

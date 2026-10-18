@@ -86,3 +86,13 @@ test('missing presence capability or malformed grant is unavailable before ongoi
   const live = new LiveInterviewSession({ createSession: async () => ({}), endSession: async () => {}, PeerConnection: class {} });
   assert.throws(() => live.startPresence({ generation: 'x', heartbeatMs: 100, deadlineAt: '2099-01-01' }, 0), /unavailable/);
 });
+
+
+test('client delegation supplies limitation text only, without invoking a backend or creating another session',()=>{
+  let creates=0;const messages=[];
+  const session=new LiveInterviewSession({createSession:async()=>{creates++;},endSession:async()=>{},PeerConnection:class {}});
+  session.state='active';session.channel={readyState:'open',send:raw=>messages.push(JSON.parse(raw))};
+  session.handleEvent(JSON.stringify({type:'session.delegation.created',delegation:{id:'offline_delegation',target:'client'}}));
+  assert.equal(creates,0);assert.equal(messages.length,1);assert.equal(messages[0].type,'session.instructions.append');
+  assert.match(messages[0].content,/no additional lookup or backend result/);
+});

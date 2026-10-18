@@ -1,3 +1,4 @@
+import { validateNativeVoiceBillingContext } from './openai-live-session.mjs';
 import { attachOpenAiLiveTranscriptObserver } from './openai-live-transcript-observer.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -60,10 +61,11 @@ export function createIvocLiveTranscriptStore({ rest } = {}) {
 // Credentials remain captured server-side; caller receives only actions. The
 // mount supplies identity from its authorized provider/session binding, never
 // a browser transcript or a client-supplied provider session identifier.
-export function createIvocLiveTranscriptDependencies({ rest, apiKey,
+export function createIvocLiveTranscriptDependencies({ rest, apiKey, billingContext,
   observerFactory = attachOpenAiLiveTranscriptObserver } = {}) {
   if (typeof apiKey !== 'string' || !apiKey.trim() || /[\r\n]/u.test(apiKey)
     || typeof observerFactory !== 'function') throw new TypeError('IVOC live transcript server binding unavailable.');
+  const context = validateNativeVoiceBillingContext(billingContext);
   const store = createIvocLiveTranscriptStore({ rest });
   return Object.freeze({
     liveSessionGuard: store.assertActiveSession,
@@ -71,7 +73,7 @@ export function createIvocLiveTranscriptDependencies({ rest, apiKey,
       const { ownerSubject, ivocSessionId, providerSessionId, observationId, remainingDurationMs, onProviderEvidence } = identity || {};
       const trusted = Object.freeze({ ownerSubject, ivocSessionId, providerSessionId, observationId });
       const append = await store.bindObservation(trusted);
-      return observerFactory({ ...trusted, apiKey, append, onProviderEvidence,
+      return observerFactory({ ...trusted, apiKey, billingContext: context, append, onProviderEvidence,
         ...(remainingDurationMs === undefined ? {} : { limits: { durationMs: remainingDurationMs } }) });
     },
   });

@@ -74,3 +74,27 @@ test('fixed exact-project RPC adapter makes one attempt and sanitizes persistenc
 // PostgreSQL atomicity, lock-expiry, duplicate bind, same-event terminal+usage,
 // service_role column ACLs and RLS require the separately admitted isolated DB
 // runner. These mock tests explicitly do not certify those database invariants.
+
+
+test('actual mount reservation binds server billing context, with browser context unable to replace it', async () => {
+  const {Readable}=await import('node:stream'); const {createHash}=await import('node:crypto');
+  const {createIvPrepHqHandler}=await import('../../server/hq-mount.mjs');
+  const {InMemoryAdmissionRegistry}=await import('../../server/admission-registry.mjs');
+  const {NATIVE_VOICE_BILLING_CONTEXT}=await import('../../server/providers/openai-live-session.mjs');
+  const registry=new InMemoryAdmissionRegistry({now:()=>NOW});
+  registry.grantSyntheticEntitlement({subject:'wp:1',revision:'local-1',expiresAtMs:NOW+120000,founder:true,voice:true,video:false});
+  let captured,creates=0;
+  const handler=createIvPrepHqHandler({registry,now:()=>NOW,flags:{enabled:true,adminCanaryEnabled:true,videoEnabled:false},
+    liveSessionGuard:async()=>{},liveContextResolver:async()=>({actorBlock:'authorized fixture',receipt:'fixture'}),
+    liveSessionBroker:{billingContext:NATIVE_VOICE_BILLING_CONTEXT,credentialFingerprint:'c'.repeat(64),create:async()=>{creates++;}},
+    nativeVoicePolicy:{reserve:async value=>{captured=value;throw new Error('offline stop before provider');}}});
+  const body={sdp:'v=0\r\no=offer',voice:'marin',context:{questionIds:['CORE-01']},ivocSessionId:ID};
+  async function invoke(value){const request=Readable.from([Buffer.from(JSON.stringify(value))]);request.method='POST';request.headers={host:'hq.local',origin:'http://hq.local','sec-fetch-site':'same-origin','x-mmhq-csrf':'csrf_token_1234567890'};
+    const response={writeHead(status){this.status=status;},end(){}};
+    await handler({request,response,url:new URL('http://hq.local/api/ivprep-v6/live/sessions'),hqSession:{version:1,issuedAt:new Date(NOW-1000).toISOString(),expiresAt:new Date(NOW+60000).toISOString(),csrfToken:'csrf_token_1234567890',authSource:'wordpress-cookie',user:{id:1,roles:['administrator']}},cookieFingerprint:'a'.repeat(64),hqSessionMaxTtlSeconds:300,expectedOrigin:'http://hq.local'});return response.status;}
+  assert.equal(await invoke(body),503);assert.ok(captured);
+  assert.equal(captured.requestHash,createHash('sha256').update(JSON.stringify({body,billingContext:NATIVE_VOICE_BILLING_CONTEXT})).digest('hex'));
+  assert.notEqual(captured.requestHash,createHash('sha256').update(JSON.stringify(body)).digest('hex'));
+  captured=null;await invoke({...body,billingContext:{organization:'foreign',project:'foreign'}});
+  assert.equal(captured,null,'browser billing context must be rejected before reservation');assert.equal(creates,0);
+});

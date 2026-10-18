@@ -7,6 +7,16 @@ import {interviewerPreferenceRequest} from '../../public/capabilities/interviewe
 
 const OPENAI_LIVE_SESSIONS_URL = 'https://api.openai.com/v1/live/sessions';
 const MODEL = 'gpt-live-1';
+export const NATIVE_VOICE_BILLING_CONTEXT = Object.freeze({
+  organization: 'org-n8nCMMSe7DlBUK56v3msVqje', project: 'proj_UTCDEhLVMT6aQnCXnBElihZT',
+});
+export function validateNativeVoiceBillingContext(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).sort().join(',') !== 'organization,project'
+    || value.organization !== NATIVE_VOICE_BILLING_CONTEXT.organization
+    || value.project !== NATIVE_VOICE_BILLING_CONTEXT.project) throw new TypeError('Native Voice billing context denied.');
+  return NATIVE_VOICE_BILLING_CONTEXT;
+}
 // Exact built-in Live voice names from the current OpenAI Live API schema.
 // Student sessions remain pinned to marin; the additional voices are available only
 // through the Founder/Admin audition gate in hq-mount.mjs.
@@ -174,7 +184,9 @@ export class OpenAiLiveSessionBroker {
     apiKey = process.env.OPENAI_API_KEY,
     fetchImpl = globalThis.fetch,
     timeoutMs = 15_000,
+    billingContext,
   } = {}) {
+    Object.defineProperty(this, 'billingContext', { value: validateNativeVoiceBillingContext(billingContext), enumerable: true });
     this.apiKey = String(apiKey || '').trim();
     this.credentialFingerprint = nativeCredentialFingerprint(this.apiKey);
     this.fetch = fetchImpl;
@@ -184,6 +196,10 @@ export class OpenAiLiveSessionBroker {
   }
 
   async request(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    for (const name of ['authorization', 'openai-organization', 'openai-project']) {
+      if (headers.has(name)) throw new TypeError('Native Voice protected header override denied.');
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -191,10 +207,13 @@ export class OpenAiLiveSessionBroker {
         ...options,
         signal: controller.signal,
         headers: {
+          ...Object.fromEntries(headers),
           Authorization: `Bearer ${this.apiKey}`,
+          'OpenAI-Organization': this.billingContext.organization,
+          'OpenAI-Project': this.billingContext.project,
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          ...(options.headers || {}),
+
         },
       });
       const body = await response.json().catch(() => ({}));

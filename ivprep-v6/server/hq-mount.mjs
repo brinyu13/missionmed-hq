@@ -1,3 +1,4 @@
+import { validateNativeVoiceBillingContext } from './providers/openai-live-session.mjs';
 import { trustedNativeVoiceAdmin, nativeVoiceDenied } from './providers/native-voice-spend-policy.mjs';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
@@ -659,7 +660,7 @@ export function createIvPrepHqHandler({
         const spendBinding = Object.freeze({ ownerSubject: live.subject, administrator: trustedNativeVoiceAdmin(hqSession, live.subject),
           ivocSessionId: live.ivocSessionId, cookieFingerprint: live.cookieFingerprint,
           entitlementRevision: live.entitlementRevision, credentialFingerprint: liveSessionBroker.credentialFingerprint,
-          requestHash: createHash('sha256').update(JSON.stringify(body)).digest('hex') });
+          requestHash: createHash('sha256').update(JSON.stringify({ body, billingContext: validateNativeVoiceBillingContext(liveSessionBroker.billingContext) })).digest('hex') });
         live.reservation = await nativeVoicePolicy.reserve(spendBinding);
         live.presenceExpiresMs = live.reservation.presenceExpiresMs;
         armNativeWatchdog(live); assertCurrent();

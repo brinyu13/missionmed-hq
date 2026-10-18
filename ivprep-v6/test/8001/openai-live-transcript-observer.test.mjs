@@ -1,3 +1,4 @@
+import { NATIVE_VOICE_BILLING_CONTEXT } from '../../server/providers/openai-live-session.mjs';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
@@ -18,7 +19,7 @@ function fixture({ append, limits = {}, onProviderEvidence = null } = {}) {
     close() { this.readyState = 3; this.emit('close', 1000); }
     terminate() { this.terminated = true; this.close(); }
   }
-  const observer = attachOpenAiLiveTranscriptObserver({ providerSessionId: 'sess_test_123', ivocSessionId: IVOC,
+  const observer = attachOpenAiLiveTranscriptObserver({billingContext:NATIVE_VOICE_BILLING_CONTEXT, providerSessionId: 'sess_test_123', ivocSessionId: IVOC,
     ownerSubject: 'wp:42', observationId: OBS, onProviderEvidence, apiKey: 'offline-placeholder-not-a-secret', WebSocketImpl: FakeSocket,
     append: async batch => { batches.push(batch); if (append) await append(batch); records.push(...batch); },
     limits: { connectMs: 100, appendMs: 100, durationMs: 1000, drainMs: 10, ...limits } });
@@ -202,10 +203,10 @@ test('identity and loosened limits rejected before socket construction; construc
   class Never { constructor() { assert.fail('invalid inputs reached socket'); } }
   for (const patch of [{ providerSessionId: '../escape' }, { ivocSessionId: 'bad' }, { ownerSubject: 'wp:0' },
     { observationId: 'bad' }, { apiKey: 'key\nheader' }, { append: null }, { limits: { fragments: 8193 } }]) {
-    assert.throws(() => attachOpenAiLiveTranscriptObserver({ ...base, WebSocketImpl: Never, ...patch }), TypeError);
+    assert.throws(() => attachOpenAiLiveTranscriptObserver({billingContext:NATIVE_VOICE_BILLING_CONTEXT, ...base, WebSocketImpl: Never, ...patch }), TypeError);
   }
   class Broken { constructor() { throw new Error('private transport details'); } }
-  const observer = attachOpenAiLiveTranscriptObserver({ ...base, WebSocketImpl: Broken });
+  const observer = attachOpenAiLiveTranscriptObserver({billingContext:NATIVE_VOICE_BILLING_CONTEXT, ...base, WebSocketImpl: Broken });
   await assert.rejects(observer.ready, /did not attach durably/u);
   assert.deepEqual(await observer.completion, { status: 'INCOMPLETE', reason: 'connect_failure', terminalPersisted: false, observationId: OBS });
 });
@@ -291,3 +292,13 @@ test('stalled final accounting is bounded independently of trusted terminal pers
   h.socket.message({ type: 'session.closed', event_id: 'closed', usage: { seconds: 1 } });
   assert.equal((await h.observer.completion).status, 'PROVIDER_CLOSED');
 });
+
+
+test('passive sideband uses immutable selected organization/project without provider commands', async () => {
+  const h=fixture(); h.socket.open(); await h.observer.ready;
+  assert.equal(h.calls[0].options.headers['OpenAI-Organization'],'org-n8nCMMSe7DlBUK56v3msVqje');
+  assert.equal(h.calls[0].options.headers['OpenAI-Project'],'proj_UTCDEhLVMT6aQnCXnBElihZT');
+  h.socket.message({type:'session.closed'}); await h.observer.completion;
+});
+
+test('missing sideband billing context denies before socket or append',()=>{for(const billingContext of [undefined,null,{}])assert.throws(()=>attachOpenAiLiveTranscriptObserver({billingContext,providerSessionId:'sess_test_123',ivocSessionId:IVOC,ownerSubject:'wp:1',observationId:OBS,apiKey:'offline',append:()=>assert.fail('append'),WebSocketImpl:class{constructor(){assert.fail('socket');}}}),/billing context/);});

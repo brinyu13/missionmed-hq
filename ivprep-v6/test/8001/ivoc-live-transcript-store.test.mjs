@@ -1,3 +1,4 @@
+import { NATIVE_VOICE_BILLING_CONTEXT } from '../../server/providers/openai-live-session.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createIvocLiveTranscriptStore, createIvocLiveTranscriptDependencies } from '../../server/providers/ivoc-live-transcript-store.mjs';
@@ -62,7 +63,7 @@ test('storage errors are generic and never claim a terminal was persisted', asyn
 
 test('runtime dependencies attach only after a fresh owner guard, with server-only credentials and sink', async () => {
   let current = session; const calls = [];
-  const deps = createIvocLiveTranscriptDependencies({ apiKey: 'test-only-server-value',
+  const deps = createIvocLiveTranscriptDependencies({billingContext:NATIVE_VOICE_BILLING_CONTEXT, apiKey: 'test-only-server-value',
     rest: { table: async () => current ? [current] : [], request: async () => {} },
     observerFactory: input => { calls.push(input); return { fixtureObserver: true }; },
   });
@@ -81,7 +82,7 @@ test('runtime dependencies attach only after a fresh owner guard, with server-on
 
 test('trusted runtime deadline tightens observer duration and callback is not persisted with transcripts', async () => {
   let captured; const evidence = () => {};
-  const deps = createIvocLiveTranscriptDependencies({ apiKey: 'synthetic',
+  const deps = createIvocLiveTranscriptDependencies({billingContext:NATIVE_VOICE_BILLING_CONTEXT, apiKey: 'synthetic',
     rest: { table: async () => [session], request: async () => {} },
     observerFactory: input => { captured = input; return {}; } });
   await deps.liveTranscriptObserver({ ...identity, remainingDurationMs: 1234, onProviderEvidence: evidence });
@@ -89,3 +90,16 @@ test('trusted runtime deadline tightens observer duration and callback is not pe
   assert.equal(captured.onProviderEvidence, evidence);
   assert.equal(captured.providerSessionId, identity.providerSessionId);
 });
+
+
+test('server transcript plumbing passes one validated immutable billing context', async () => {
+  let observed;
+  const supplied={organization:'org-n8nCMMSe7DlBUK56v3msVqje',project:'proj_UTCDEhLVMT6aQnCXnBElihZT'};
+  const deps=createIvocLiveTranscriptDependencies({billingContext:NATIVE_VOICE_BILLING_CONTEXT,rest:{table:async()=>[session],request:async()=>{}},apiKey:'offline-fixture',billingContext:supplied,
+    observerFactory:input=>{observed=input;return {fixture:true};}});
+  supplied.project='foreign'; await deps.liveTranscriptObserver(identity);
+  assert.equal(observed.billingContext.project,'proj_UTCDEhLVMT6aQnCXnBElihZT');assert.ok(Object.isFrozen(observed.billingContext));
+  assert.throws(()=>createIvocLiveTranscriptDependencies({billingContext:NATIVE_VOICE_BILLING_CONTEXT,rest:{},apiKey:'offline',billingContext:supplied}),/billing context/);
+});
+
+test('missing transcript billing context denies before private store I/O',()=>{for(const billingContext of [undefined,null,{}])assert.throws(()=>createIvocLiveTranscriptDependencies({apiKey:'offline',billingContext,rest:{table:()=>assert.fail('I/O')}}),/billing context/);});
