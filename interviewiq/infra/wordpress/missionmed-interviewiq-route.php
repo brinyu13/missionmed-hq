@@ -67,7 +67,15 @@ function mmiiqg_api_route($method, $path) {
 }
 
 function mmiiqg_query($route, $raw) {
-    if (($route['query']??'')==='bootstrap') { return $raw===''?'':($raw==='view=calendar'?'?view=calendar':false); }
+    if (($route['query']??'')==='bootstrap') {
+        if($raw==='')return '';if($raw==='view=calendar')return '?view=calendar';
+        if(!is_string($raw)||strlen($raw)>128||preg_match('/%(?![a-fA-F0-9]{2})/',$raw))return false;
+        $input=array();parse_str($raw,$input);$keys=array_keys($input);sort($keys);
+        if($keys!==array('end','start','view')||count(explode('&',$raw))!==3||$input['view']!=='calendar')return false;
+        foreach(array('start','end')as$k){if(!is_string($input[$k])||!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$input[$k]))return false;$d=DateTimeImmutable::createFromFormat('!Y-m-d',$input[$k],new DateTimeZone('UTC'));if(!$d||$d->format('Y-m-d')!==$input[$k])return false;}
+        $days=(strtotime($input['end'].'T00:00:00Z')-strtotime($input['start'].'T00:00:00Z'))/86400;if($days<0||$days>=90)return false;
+        return '?'.http_build_query($input,'','&',PHP_QUERY_RFC3986);
+    }
     if(in_array($route['query']??'',array('roster','overview'),true)){
         if(!is_string($raw)||strlen($raw)>2048||preg_match('/%(?![a-fA-F0-9]{2})/',$raw)){return false;}$input=array();parse_str($raw,$input);$keys=array_keys($input);if(count(explode('&',$raw))!==count($keys)){return false;}
         $allowed=$route['query']==='roster'?array('after','q','tier'):array('start','end','after');foreach($keys as $key){if(!in_array($key,$allowed,true)||!is_string($input[$key])){return false;}}

@@ -1,6 +1,7 @@
 import {createCalendarDirectory,readCalendarRoster,readCalendarStudent,readCalendarOverview} from './calendar-directory.mjs';
 import {calendarEnabled,requireCalendar,createCalendarAdmission} from './calendar-admission.mjs';
-import {readCohort} from './calendar-cohort.mjs';
+import {readCohort,cohortRange} from './calendar-cohort.mjs';
+import {readOwnerSession} from './owner-session.mjs';
 import {readAdminLogistics,writeAdminLogistics} from './calendar-admin.mjs';
 import {uploadItinerary,listItineraries,downloadItinerary,withdrawItinerary} from './calendar-itinerary.mjs';
 import {emptyStudentPreview} from './calendar-preview.mjs';
@@ -71,7 +72,25 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       if(route==='itinerary-list')return send(200,await listItineraries(calendarContext));
       if(route==='itinerary-withdraw')return send(200,await withdrawItinerary(calendarContext,await jsonBody(req,16384)));
       if(route==='itinerary-download'){const f=await downloadItinerary(calendarContext);res.writeHead(200,f.headers);return res.end(f.bytes);}
-      if(route==='bootstrap'){const options={calendarOnly:url.searchParams.get('view')==='calendar'};return send(200,await (ownerReadReceipts?ownerReadReceipts.run(actor,req,()=>commands.bootstrap(actor,options)):commands.bootstrap(actor,options)));}
+      if(route==='bootstrap'){
+        const options={calendarOnly:url.searchParams.get('view')==='calendar'},bootstrap=who=>ownerReadReceipts?ownerReadReceipts.run(who,req,()=>commands.bootstrap(who,options)):commands.bootstrap(who,options);
+        if(!url.searchParams.has('start'))return send(200,await bootstrap(actor));
+        requireValue(config.coreOnly&&calendarEnabled(config,actor),'calendar_unavailable','Calendar startup is unavailable.',503);requireCalendar(config,actor);const {start,end}=cohortRange({start:url.searchParams.get('start'),end:url.searchParams.get('end')}),range={start,end},kind=actor.role==='admin'?'overview':'cohort';
+        let page;
+        try{page=await (kind==='overview'?readCalendarOverview(calendarContext,range):readCohort({...calendarContext,input:range}));}
+        catch(error){
+          const safe=publicError(error);if(safe.status===401||safe.status===403)throw safe;
+          // Admission-unavailable may include revocation. Prove current owner access again
+          // before returning any own-only fallback; never retry the failed cohort operation.
+          const fresh=await authorize(req,`${req.method} ${path}`);
+          requireValue(['id','role','tier','wpUserId'].every(k=>fresh[k]===actor[k])&&readOwnerSession(fresh),'session_unavailable','Your current access changed. Reopen your workspace.',401);
+          const own=await bootstrap(fresh);requireValue(readOwnerSession(fresh),'session_unavailable','Your current access expired. Reopen your workspace.',401);
+          return send(200,{...own,calendarBundle:{kind,start:range.start,end:range.end,actor:{id:fresh.id,role:fresh.role,tier:fresh.tier},error:{code:'calendar_bundle_partial',message:'The shared Calendar did not finish loading. Your personal interviews are available.'}}});
+        }
+        requireValue(readOwnerSession(actor),'session_unavailable','Your current access expired. Reopen your workspace.',401);
+        const own=await bootstrap(actor);requireValue(readOwnerSession(actor),'session_unavailable','Your current access expired. Reopen your workspace.',401);
+        return send(200,{...own,calendarBundle:{kind,start:range.start,end:range.end,actor:{id:actor.id,role:actor.role,tier:actor.tier},page}});
+      }
       if(route==='programs'){
         const loiLookup=loiCanonicalLookup(config,actor);
         if(config.researchMissionsEnabled===true&&!loiLookup&&!intakeEnabled(config,actor))requireResearch(config,actor);
@@ -115,7 +134,11 @@ function resolveRoute(method,path,url) {
   if(method==='GET'&&['/api/calendar/roster','/api/calendar/overview'].includes(path)){const keys=[...url.searchParams.keys()],allowed=path.endsWith('/overview')?['start','end','after']:['after','q','tier'];requireValue(new Set(keys).size===keys.length&&keys.every(k=>allowed.includes(k)),'invalid_query','Choose a bounded student scope.',400);return path.endsWith('/overview')?'calendar-overview':'calendar-roster';}
   if(method==='GET'&&/^\/api\/calendar\/student\/[1-9][0-9]{0,15}$/.test(path)){requireValue(!url.search,'invalid_query','This endpoint does not accept a query.',400);return 'calendar-student';}
   if(method==='GET'&&path==='/api/calendar/cohort'){const keys=[...url.searchParams.keys()];requireValue(keys.length>=2&&keys.length<=3&&new Set(keys).size===keys.length&&keys.every(k=>['start','end','cursor'].includes(k)),'invalid_query','Choose a bounded Calendar range.',400);return 'calendar-cohort';}
-  if(method==='GET'&&path==='/api/bootstrap'){requireValue(!url.search||url.search==='?view=calendar','invalid_query','Choose the supported workspace view.',400);return 'bootstrap';}
+  if(method==='GET'&&path==='/api/bootstrap'){
+    const keys=[...url.searchParams.keys()];
+    requireValue(!url.search||url.search==='?view=calendar'||keys.length===3&&new Set(keys).size===3&&keys.every(k=>['view','start','end'].includes(k))&&url.searchParams.get('view')==='calendar','invalid_query','Choose the supported workspace view.',400);
+    if(keys.length===3)cohortRange({start:url.searchParams.get('start'),end:url.searchParams.get('end')});return 'bootstrap';
+  }
   requireValue(!url.search,'invalid_query','This endpoint does not accept a query.',400);
   if(method==='GET'&&path==='/api/calendar/student-preview')return 'student-preview';
   const calendarAdmin=/^\/api\/calendar\/admin\/([a-f0-9-]{36})$/.exec(path);if(calendarAdmin&&UUID.test(calendarAdmin[1])&&['GET','POST'].includes(method))return method==='GET'?'calendar-admin-read':'calendar-admin-write';

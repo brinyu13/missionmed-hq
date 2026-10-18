@@ -379,7 +379,13 @@ function calendarCacheAuthorized(){return calendarV2()&&S&&session&&session.expi
 function cohortBinding(range=calendarMonthRange()){return JSON.stringify([actor?.id,actor?.role,actor?.tier,calendarEpoch,sessionEpoch,actor?.zone||F?.student_zone,calendarCacheRevision,range.start,range.end]);}
 function usableCalendarPage(page){return calendarCacheAuthorized()&&page?.complete&&page.binding===cohortBinding({start:page.start,end:page.end})&&Date.now()-page.completedAt<=30000;}
 function rememberCalendarPage(page){cohortPages.delete(page.binding);cohortPages.set(page.binding,page);while(cohortPages.size>3){const keep=new Set([S.ui.cal.ym,shiftYm(S.ui.cal.ym,1),shiftYm(S.ui.cal.ym,-1)]),old=[...cohortPages].find(([,p])=>!keep.has(p.ym));cohortPages.delete(old?.[0]||cohortPages.keys().next().value);}scheduleCalendarCacheExpiry();}
-function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true});}
+function calendarBootstrapSeed(bundle,range,startedAt){
+ const age=Date.now()-startedAt,kind=actor?.role==='admin'?'overview':'cohort';
+ if(!calendarCacheAuthorized()||!bundle||bundle.kind!==kind||!['id','role','tier'].every(k=>bundle.actor?.[k]===actor[k])||bundle.start!==range.start||bundle.end!==range.end||range.start!==calendarMonthRange().start||range.end!==calendarMonthRange().end||age<0||age>30000)return null;
+ if(bundle.error&&bundle.error.code!=='calendar_bundle_partial')throw Error('The Calendar startup response was invalid.');
+ return {page:bundle.page,error:bundle.error,kind,binding:cohortBinding(range),version,startedAt,used:false};
+}
+function warmCalendar(seed=null){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true,seed});}
 function scheduleCalendarCacheExpiry(){
  clearTimeout(calendarCacheExpiryTimer);calendarCacheExpiryTimer=null;
  const pages=[cohortPage,...cohortPages.values()].filter(p=>p?.complete);
@@ -421,15 +427,15 @@ function scheduleCalendarPrefetch(){
  if(!range)return;
  calendarPrefetchTimer=setTimeout(()=>{calendarPrefetchTimer=null;if(!calendarCacheAuthorized()||cohortBinding()!==key||S.ui.drawer||calendarMutationBusy||workspaceReadFlight||cohortReads.size)return;calendarPrefetchAttempted.add(cohortBinding(range));while(calendarPrefetchAttempted.size>12)calendarPrefetchAttempted.delete(calendarPrefetchAttempted.values().next().value);const flight=readCalendarRange(range,{prefetch:true});calendarPrefetchFlight=flight;void flight.finally(()=>{if(calendarPrefetchFlight===flight){calendarPrefetchFlight=null;if(calendarCacheAuthorized()&&cohortBinding()===key)scheduleCalendarPrefetch();}});},120);
 }
-function loadCohort({background=false,force=false}={}){
+function loadCohort({background=false,force=false,seed=null}={}){
  if(!calendarV2()||!S||background&&S.ui.calendarScope&&S.ui.calendarScope!=='all')return;
  if(!background)S.ui.calendarScope='all';
  const range=calendarMonthRange(),key=cohortBinding(range),cached=cohortPages.get(key),existing=cohortReads.get(key);
  if(existing){cohortPage=existing.page;cohortFlight=existing;return existing.promise;}
  if(!force&&usableCalendarPage(cached)){rememberCalendarPage(cached);cohortPage=cached;cohortFlight=null;if(!background&&S.ui.route==='calendar'&&!S.ui.drawer)render();scheduleCalendarPrefetch();return Promise.resolve();}
- return readCalendarRange(range,{background});
+ return readCalendarRange(range,{background,seed});
 }
-function readCalendarRange(range,{background=false,prefetch=false}={}){
+function readCalendarRange(range,{background=false,prefetch=false,seed=null}={}){
  const a=calendarAuthority(),tier=actor.tier,epoch=sessionEpoch,revision=calendarCacheRevision,zone=actor.zone||F?.student_zone,key=cohortBinding(range),admin=actor.role==='admin',cached=cohortPages.get(key);
  const current=()=>currentCalendar(a)&&actor.tier===tier&&sessionEpoch===epoch&&calendarCacheRevision===revision&&(actor.zone||F?.student_zone)===zone;
  const show=()=>current()&&cohortPage===page&&S.ui.cal.ym===range.ym&&(!S.ui.calendarScope||S.ui.calendarScope==='all');
@@ -441,7 +447,9 @@ function readCalendarRange(range,{background=false,prefetch=false}={}){
   if(!prefetch&&calendarPrefetchFlight)await calendarPrefetchFlight;
   if(!current())return;
   const fresh={events:[],interviews:[],unmapped:0};let cursor=null;const seen=new Set();
-  try{do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),r=await apiFetch(path+'?'+q);if(!current())return;
+  const admittedSeed=seed&&!seed.used&&seed.binding===key&&seed.version===version&&seed.kind===(admin?'overview':'cohort')&&Date.now()-seed.startedAt>=0&&Date.now()-seed.startedAt<=30000?seed:null;if(seed)seed.used=true;
+  let firstPage=admittedSeed?.page;
+  try{if(admittedSeed?.error)throw Error(admittedSeed.error.message);do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),r=firstPage?(await Promise.resolve(firstPage)):await apiFetch(path+'?'+q);firstPage=null;if(!current())return;
    if(r.start!==range.start||r.end!==range.end)throw Error('The Calendar month changed. Retry.');
    if(admin){if(r.readOnly!==true||!Array.isArray(r.interviews)||r.interviews.length>2000)throw Error('The student schedule response was invalid.');for(const i of r.interviews){if(!fresh.interviews.some(x=>x.id===i.id))fresh.interviews.push(i);}fresh.unmapped+=r.unmapped||0;cursor=r.nextAfter;}
    else{if(r.deidentified!==true||!Array.isArray(r.events)||r.events.length>200)throw Error('The cohort response was invalid.');const fields=['event_ref','program_id','program_name','specialty','track','local_date','local_time','timezone','start_at','fold','all_day','format','event_type','lifecycle','same_program'];for(const e of r.events){if(!/^[a-f0-9-]{36}$/.test(e.event_ref||'')||typeof e.program_name!=='string'||e.program_name.length>500||typeof e.local_date!=='string')throw Error('The cohort event was invalid.');if(!fresh.events.some(x=>x.event_ref===e.event_ref))fresh.events.push(Object.fromEntries(fields.map(k=>[k,e[k]])));}cursor=r.nextCursor;}

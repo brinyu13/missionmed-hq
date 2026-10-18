@@ -234,6 +234,12 @@ check('malformed manifest fails closed without uncaught parse error', function (
 
 if (defined('IIQ_TEST_FIXTURE_ONLY') && IIQ_TEST_FIXTURE_ONLY) { return; }
 
+check('Calendar bootstrap bundle has strict bounded date query', function () {
+ $r=mmiiqg_api_route('GET','/interviewiq/api/bootstrap');
+ eq(mmiiqg_query($r,'view=calendar&start=2026-10-01&end=2026-10-31'),'?view=calendar&start=2026-10-01&end=2026-10-31');
+ foreach(array('view=calendar&start=2026-02-30&end=2026-03-31','view=calendar&start=2026-10-31&end=2026-10-01','view=calendar&start=2026-10-01&end=2027-01-01','view=calendar&start[]=2026-10-01&end=2026-10-31','view=calendar&start=2026-10-01&start=2026-10-02&end=2026-10-31','view=calendar&start=2026-10-01&end=2026-10-31&owner=other') as $q)eq(mmiiqg_query($r,$q),false);
+});
+
 $results = array();
 foreach ($tests as [$name, $fn]) {
     reset_state();

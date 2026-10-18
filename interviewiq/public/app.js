@@ -355,10 +355,15 @@ async function refreshSession(){
   })();sessionRefresh=work;
   try{return await work;}finally{if(sessionRefresh===work)sessionRefresh=null;}
 }
+function calendarBootstrapPath(path){
+ if(['/bootstrap','/bootstrap?view=calendar'].includes(path))return true;
+ const m=/^\/bootstrap\?view=calendar&start=(\d{4}-\d{2}-\d{2})&end=(\d{4}-\d{2}-\d{2})$/.exec(path);if(!m)return false;
+ const a=Date.parse(m[1]+'T00:00:00Z'),b=Date.parse(m[2]+'T00:00:00Z');return Number.isFinite(a)&&Number.isFinite(b)&&new Date(a).toISOString().slice(0,10)===m[1]&&new Date(b).toISOString().slice(0,10)===m[2]&&b>=a&&b-a<90*86400000;
+}
 async function apiFetch(path,options={},retried=false){
   const callEpoch=sessionEpoch;
   if(studentPreview())throw previewError();
-  if(coreOnly()&&!(calendarV2()&&(path.startsWith('/calendar/')||/^\/interviews\/[a-f0-9-]{36}\/itinerary/.test(path)))&&!['/bootstrap','/bootstrap?view=calendar'].includes(path)&&!((deepResearch()||loiCanonicalLookup()||intakeEnabled()||mrxUI())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
+  if(coreOnly()&&!(calendarV2()&&(path.startsWith('/calendar/')||/^\/interviews\/[a-f0-9-]{36}\/itinerary/.test(path)))&&!calendarBootstrapPath(path)&&!((deepResearch()||loiCanonicalLookup()||intakeEnabled()||mrxUI())&&path.startsWith('/programs?'))&&!(path==='/commands'&&coreCommand(JSON.parse(options.body||'{}').command))){openComingSoon('This integration');const error=Error('COMING SOON: this integration is not active.');error.code='coming_soon';throw error;}
   if(!session||session.expiresAt<Date.now()+15000){try{await refreshSession();}catch(error){if(callEpoch===sessionEpoch&&(error.status===401||error.status===403))lockWorkspace('Your session ended. Sign in through MissionMed and reopen the workspace.');throw error;}}
   const sentSession=session,requestEpoch=sessionEpoch;
   const headers=new Headers(options.headers||{});headers.set('Authorization','Bearer '+session.token);headers.set('Accept','application/json');
@@ -561,7 +566,7 @@ function calendarLoadingPresentation(pending,error){
  return calendarLoadingWaitExpired?'slow':'cohort';
 }
 function calendarLoadingMarkup(stage){
- const stages=[['connecting','Connecting to your MissionMed workspace.'],['personal','Loading your interviews.'],['cohort',"Gathering your fellow doctors' interviews."],['ready','Your Calendar is ready!']],recovery=['error','slow'].includes(stage),index=recovery?2:stages.findIndex(([key])=>key===stage);
+ const combined=stage==='calendar',stages=combined?[['connecting','Connecting to your MissionMed workspace.'],['calendar','Loading your interviews and authorized cohort.'],['ready','Your Calendar is ready!']]:[['connecting','Connecting to your MissionMed workspace.'],['personal','Loading your interviews.'],['cohort',"Gathering your fellow doctors' interviews."],['ready','Your Calendar is ready!']],recovery=['error','slow'].includes(stage),index=recovery?2:stages.findIndex(([key])=>key===stage);
  if(index<0)return '';
  if(stage==='ready')return '<span class="calendar-ready" role="status">✓ Your Calendar is ready!</span>';
  const title=recovery?(stage==='slow'?'Your cohort is taking a little longer.':'Cohort loading did not finish.'):stages[index][1];
@@ -599,9 +604,16 @@ async function boot(){
   const entry=parseInterviewIQEntry(location.search);
   try{
     if(!session||session.expiresAt<Date.now()+15000)await refreshSession();
-    const loading=document.querySelector('[data-calendar-loading]');if(loading)loading.outerHTML=calendarLoadingMarkup('personal');
-    let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
-    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar();render();const identity=actor.id,epoch=sessionEpoch;
+    const loading=document.querySelector('[data-calendar-loading]');if(loading)loading.outerHTML=calendarLoadingMarkup('calendar');
+    const range=calendarRangeForMonth(S?.ui?.cal?.ym||dateKeyInZone(now(),session?.actor?.zone||'UTC').slice(0,7)),startedAt=Date.now(),epochAtStart=sessionEpoch;
+    let b;try{b=await apiFetch('/bootstrap?view=calendar&start='+range.start+'&end='+range.end);}
+    catch(error){
+      if(error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');
+      else if(error.status===400&&['invalid_query','query_not_supported'].includes(error.code)){try{b=await apiFetch('/bootstrap?view=calendar');}catch(legacy){if(legacy.status===400&&legacy.code==='invalid_query'||legacy.status===503&&legacy.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw legacy;}}else throw error;
+    }
+    if(sequence!==bootSequence||epochAtStart!==sessionEpoch)return;
+    if(b.calendarBundle&&(Date.now()-startedAt<0||Date.now()-startedAt>30000))throw Error('Calendar loading took too long to verify. Reopen Calendar to try again.');
+    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar(calendarBootstrapSeed(b.calendarBundle,range,startedAt));render();const identity=actor.id,epoch=sessionEpoch;
     applyInterviewIQEntry(entry,identity,epoch);
     // Complete optional workspace details after the visible cohort read, not in competition with it.
     void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace().then(()=>scheduleCalendarPrefetch());});
@@ -2400,7 +2412,13 @@ function calendarCacheAuthorized(){return calendarV2()&&S&&session&&session.expi
 function cohortBinding(range=calendarMonthRange()){return JSON.stringify([actor?.id,actor?.role,actor?.tier,calendarEpoch,sessionEpoch,actor?.zone||F?.student_zone,calendarCacheRevision,range.start,range.end]);}
 function usableCalendarPage(page){return calendarCacheAuthorized()&&page?.complete&&page.binding===cohortBinding({start:page.start,end:page.end})&&Date.now()-page.completedAt<=30000;}
 function rememberCalendarPage(page){cohortPages.delete(page.binding);cohortPages.set(page.binding,page);while(cohortPages.size>3){const keep=new Set([S.ui.cal.ym,shiftYm(S.ui.cal.ym,1),shiftYm(S.ui.cal.ym,-1)]),old=[...cohortPages].find(([,p])=>!keep.has(p.ym));cohortPages.delete(old?.[0]||cohortPages.keys().next().value);}scheduleCalendarCacheExpiry();}
-function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true});}
+function calendarBootstrapSeed(bundle,range,startedAt){
+ const age=Date.now()-startedAt,kind=actor?.role==='admin'?'overview':'cohort';
+ if(!calendarCacheAuthorized()||!bundle||bundle.kind!==kind||!['id','role','tier'].every(k=>bundle.actor?.[k]===actor[k])||bundle.start!==range.start||bundle.end!==range.end||range.start!==calendarMonthRange().start||range.end!==calendarMonthRange().end||age<0||age>30000)return null;
+ if(bundle.error&&bundle.error.code!=='calendar_bundle_partial')throw Error('The Calendar startup response was invalid.');
+ return {page:bundle.page,error:bundle.error,kind,binding:cohortBinding(range),version,startedAt,used:false};
+}
+function warmCalendar(seed=null){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true,seed});}
 function scheduleCalendarCacheExpiry(){
  clearTimeout(calendarCacheExpiryTimer);calendarCacheExpiryTimer=null;
  const pages=[cohortPage,...cohortPages.values()].filter(p=>p?.complete);
@@ -2442,15 +2460,15 @@ function scheduleCalendarPrefetch(){
  if(!range)return;
  calendarPrefetchTimer=setTimeout(()=>{calendarPrefetchTimer=null;if(!calendarCacheAuthorized()||cohortBinding()!==key||S.ui.drawer||calendarMutationBusy||workspaceReadFlight||cohortReads.size)return;calendarPrefetchAttempted.add(cohortBinding(range));while(calendarPrefetchAttempted.size>12)calendarPrefetchAttempted.delete(calendarPrefetchAttempted.values().next().value);const flight=readCalendarRange(range,{prefetch:true});calendarPrefetchFlight=flight;void flight.finally(()=>{if(calendarPrefetchFlight===flight){calendarPrefetchFlight=null;if(calendarCacheAuthorized()&&cohortBinding()===key)scheduleCalendarPrefetch();}});},120);
 }
-function loadCohort({background=false,force=false}={}){
+function loadCohort({background=false,force=false,seed=null}={}){
  if(!calendarV2()||!S||background&&S.ui.calendarScope&&S.ui.calendarScope!=='all')return;
  if(!background)S.ui.calendarScope='all';
  const range=calendarMonthRange(),key=cohortBinding(range),cached=cohortPages.get(key),existing=cohortReads.get(key);
  if(existing){cohortPage=existing.page;cohortFlight=existing;return existing.promise;}
  if(!force&&usableCalendarPage(cached)){rememberCalendarPage(cached);cohortPage=cached;cohortFlight=null;if(!background&&S.ui.route==='calendar'&&!S.ui.drawer)render();scheduleCalendarPrefetch();return Promise.resolve();}
- return readCalendarRange(range,{background});
+ return readCalendarRange(range,{background,seed});
 }
-function readCalendarRange(range,{background=false,prefetch=false}={}){
+function readCalendarRange(range,{background=false,prefetch=false,seed=null}={}){
  const a=calendarAuthority(),tier=actor.tier,epoch=sessionEpoch,revision=calendarCacheRevision,zone=actor.zone||F?.student_zone,key=cohortBinding(range),admin=actor.role==='admin',cached=cohortPages.get(key);
  const current=()=>currentCalendar(a)&&actor.tier===tier&&sessionEpoch===epoch&&calendarCacheRevision===revision&&(actor.zone||F?.student_zone)===zone;
  const show=()=>current()&&cohortPage===page&&S.ui.cal.ym===range.ym&&(!S.ui.calendarScope||S.ui.calendarScope==='all');
@@ -2462,7 +2480,9 @@ function readCalendarRange(range,{background=false,prefetch=false}={}){
   if(!prefetch&&calendarPrefetchFlight)await calendarPrefetchFlight;
   if(!current())return;
   const fresh={events:[],interviews:[],unmapped:0};let cursor=null;const seen=new Set();
-  try{do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),r=await apiFetch(path+'?'+q);if(!current())return;
+  const admittedSeed=seed&&!seed.used&&seed.binding===key&&seed.version===version&&seed.kind===(admin?'overview':'cohort')&&Date.now()-seed.startedAt>=0&&Date.now()-seed.startedAt<=30000?seed:null;if(seed)seed.used=true;
+  let firstPage=admittedSeed?.page;
+  try{if(admittedSeed?.error)throw Error(admittedSeed.error.message);do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),r=firstPage?(await Promise.resolve(firstPage)):await apiFetch(path+'?'+q);firstPage=null;if(!current())return;
    if(r.start!==range.start||r.end!==range.end)throw Error('The Calendar month changed. Retry.');
    if(admin){if(r.readOnly!==true||!Array.isArray(r.interviews)||r.interviews.length>2000)throw Error('The student schedule response was invalid.');for(const i of r.interviews){if(!fresh.interviews.some(x=>x.id===i.id))fresh.interviews.push(i);}fresh.unmapped+=r.unmapped||0;cursor=r.nextAfter;}
    else{if(r.deidentified!==true||!Array.isArray(r.events)||r.events.length>200)throw Error('The cohort response was invalid.');const fields=['event_ref','program_id','program_name','specialty','track','local_date','local_time','timezone','start_at','fold','all_day','format','event_type','lifecycle','same_program'];for(const e of r.events){if(!/^[a-f0-9-]{36}$/.test(e.event_ref||'')||typeof e.program_name!=='string'||e.program_name.length>500||typeof e.local_date!=='string')throw Error('The cohort event was invalid.');if(!fresh.events.some(x=>x.event_ref===e.event_ref))fresh.events.push(Object.fromEntries(fields.map(k=>[k,e[k]])));}cursor=r.nextCursor;}
