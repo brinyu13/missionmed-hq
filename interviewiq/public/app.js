@@ -2423,8 +2423,8 @@ function scheduleCalendarCacheExpiry(){
  clearTimeout(calendarCacheExpiryTimer);calendarCacheExpiryTimer=null;
  const pages=[cohortPage,...cohortPages.values()].filter(p=>p?.complete);
  if(!pages.length)return;
- const refreshAt=cohortPage?.completedAt+15001,active=usableCalendarPage(cohortPage)&&S.ui.route==='calendar'&&!S.ui.drawer&&!document.hidden&&!calendarMutationBusy&&!workspaceReadFlight&&!cohortReads.has(cohortPage.binding)&&!cohortPage.error;
- const deadline=Math.min(session?.expiresAt||0,...pages.map(p=>p.completedAt+30000),active&&refreshAt>Date.now()?refreshAt:Infinity);
+ const refreshAt=Math.min(cohortPage?.completedAt+15001,(session?.expiresAt||0)-15000),active=usableCalendarPage(cohortPage)&&S.ui.route==='calendar'&&!S.ui.drawer&&!document.hidden&&!calendarMutationBusy&&!workspaceReadFlight&&!cohortReads.has(cohortPage.binding)&&!cohortPage.error;
+ const deadline=Math.min(session?.expiresAt||0,...pages.map(p=>p.completedAt+30000),active?Math.max(Date.now(),refreshAt):Infinity);
  calendarCacheExpiryTimer=setTimeout(()=>{
   calendarCacheExpiryTimer=null;const visible=cohortPage;
   for(const [key,page]of cohortPages)if(!usableCalendarPage(page))cohortPages.delete(key);
@@ -2441,7 +2441,7 @@ function expireWarmCalendar(){
  const key=cohortBinding(),cached=cohortPages.get(key),expired=cohortPage?.complete&&!usableCalendarPage(cohortPage);
  if(expired){cohortPage.events=[];cohortPage.interviews=[];cohortPage.complete=false;cohortPage.refreshing=false;cohortPage.loading=cohortReads.has(key);cohortPages.delete(cohortPage.binding);}
  if(cohortPage?.binding!==key||expired){cohortPage=usableCalendarPage(cached)?cached:cohortReads.get(key)?.page||(expired&&cohortPage?.binding===key&&cohortPage?.error?cohortPage:null);cohortFlight=null;}
- if(cohortPage?.complete&&Date.now()-cohortPage.completedAt>15000&&!cohortReads.has(key)&&!cohortPage.error&&!S.ui.drawer&&!document.hidden&&!calendarMutationBusy&&!workspaceReadFlight)queueMicrotask(()=>{if(calendarV2()&&S?.ui.route==='calendar'&&cohortBinding()===key)void loadCohort({background:true,force:true});});
+ if(cohortPage?.complete&&(Date.now()-cohortPage.completedAt>15000||session.expiresAt<Date.now()+15000)&&!cohortReads.has(key)&&!cohortPage.error&&!S.ui.drawer&&!document.hidden&&!calendarMutationBusy&&!workspaceReadFlight)queueMicrotask(()=>{if(calendarV2()&&S?.ui.route==='calendar'&&cohortBinding()===key)void loadCohort({background:true,force:true});});
 }
 function invalidateCalendarSnapshots(){
  calendarCacheRevision++;cohortPages.clear();cohortReads.clear();calendarPrefetchAttempted.clear();clearTimeout(calendarPrefetchTimer);calendarPrefetchTimer=null;calendarPrefetchFlight=null;cohortFlight=null;
