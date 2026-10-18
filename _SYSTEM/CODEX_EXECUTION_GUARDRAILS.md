@@ -1,8 +1,8 @@
 # CODEX EXECUTION GUARDRAILS -- HARD SAFETY SYSTEM
 
 **Authority:** MR-079
-**Version:** 1.0
-**Date:** 2026-04-24
+**Version:** 1.1
+**Date:** 2026-10-18
 **Risk Level:** HIGH
 **Status:** LOCKED -- NON-NEGOTIABLE
 **Depends On:** MR-078A (Migration Protocol), MR-078B (Data Flow Contract), MM-AUTH-ARCH-001
@@ -661,3 +661,12 @@ Save outputs to /Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/ and save
 Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes on the scoped branch, and commit that curated summary with related work.
 Do not run reset, git clean, destructive cleanup, deploy, push, pull, rebase, or merge unless explicitly authorized.
 ```
+
+
+## Exact IVOC G2 supported migration API exception - MR-IVOC-8200-G2-SUPPORTED-MIGRATION-API
+
+For only source40b1c62dc2951cc19380baa874ced58d994aa049 file supabase/migrations/20261015174803_ivoc_native_voice_admission_ledger.sql SHA256972213128023be285ab2202040f4667977828aaf6c9debff20e6ddb4c24ed442 and project bscnrgqlwsyygyfrbhfn, a dedicated canonical production grant may select the supported POST-backed Supabase MCP apply_migration executor under MR078A section7.1. This exact exception supersedes section8.2's CLI-managed-only wording solely for automatic provider-managed history from that one admitted migration operation. It does not authorize agent-authored INSERT/UPDATE/DELETE against schema_migrations, SQL Editor plus separate registration, repair, squash, reset or historical rewrite.
+
+Justification/root cause: the newly identified official Supabase for Platforms contract documents automatic migration recording/execution and schema-failure rollback. It supports a least-disruptive route without database-wide SSL/JIT/restart or password reset, while requiring honest limits rather than claiming tested CLI-equivalent history-error atomicity. Actual server-generated history version is mapped to unchanged source provenance; source rename and fabricated version equality remain forbidden.
+
+Impact analysis: MR078A section7.1 supplies exact body, request, history/catalog, once-only, native custody and read-only UNKNOWN recovery requirements. MR078B identity, data-flow, RLS, entitlement and student-data invariants are unchanged. All other commands, systems, projects and execution controls remain governed by this document; MR-G8 workspace hygiene and independent publication custody are unchanged. No production SQL, deployment, setting, login-role, mapping, credential reset, provider use or retry is granted by this document alone. Eligibility requires both exact amendments, canonical dependency closure, the dedicated production decision, independent invocation review and fresh GO.

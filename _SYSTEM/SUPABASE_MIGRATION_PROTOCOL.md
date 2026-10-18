@@ -1,8 +1,8 @@
 # SUPABASE MIGRATION PROTOCOL -- PERMANENT HARDENING
 
 **Authority:** MR-078A
-**Version:** 1.1
-**Date:** 2026-10-17
+**Version:** 1.2
+**Date:** 2026-10-18
 **Risk Level:** HIGH
 **Status:** LOCKED -- NON-NEGOTIABLE
 
@@ -456,6 +456,22 @@ Use a private external execution workspace containing the actual complete remote
 The CLI's history-table bootstrap prelude is permitted only when independently verified existing schema/table/columns make every IF NOT EXISTS/ADD COLUMN IF NOT EXISTS operation structurally inert; empty vault and no-seed settings are mandatory. Exact installed binary/config/cache/workspace/target, memory-only credentials, bounded timeouts and owned-process cleanup, current native database fencing, at most one candidate application attempt, tested recovery and independent pre/post catalog/history checks require a dedicated canonical production grant. This amendment is not that grant and does not arm any provider grant or permit a paid session.
 
 All other sections, prohibitions, predeploy checks and unrelated project requirements remain in force. Eligibility remains blocked while independent gates are missing. This exception expires when its single admitted application reaches a confirmed terminal outcome or on Founder revocation; any material drift stops the affected operation for renewed review. An uncertain outcome is preserved for read-only diagnosis; it supplies no retry permission.
+
+### 7.1 Exact supported migration API alternative - MR-IVOC-8200-G2-SUPPORTED-MIGRATION-API
+
+This alternative applies only to the same source commit, filename and SHA256972213128023be285ab2202040f4667977828aaf6c9debff20e6ddb4c24ed442 in section7 and production project bscnrgqlwsyygyfrbhfn. Its dedicated canonical production grant must select this route explicitly; this protocol amendment is not execution permission. The CLI route remains separately gated, never an automatic fallback.
+
+Root cause and new evidence: the earlier API reference lacked transactional detail, while the subsequently located official Supabase for Platforms guide, Make database changes, documents that POST /v1/projects/{ref}/database/migrations automatically records and runs a migration and rolls changes back on schema-migration failure. Reference https://supabase.com/docs/guides/integrations/supabase-for-platforms#make-database-changes; pinned official source7425d4930528931400fb3e656e860b1094cb224e, apps/docs/content/guides/integrations/supabase-for-platforms.mdx SHA256e2f84a8746d92da2a4558fea5c215786cae74d2dabe372e81b59c590e9059795. This supported contract permits a less disruptive credential route without SSL/JIT/restart. It does not establish proprietary implementation details, history-insert-error body rollback, exactly-once transport or post-commit disaster restoration. Do not describe it as the tested CLI body/history transaction.
+
+For this exact alternative, an independently reviewed invocation of the supported Supabase MCP apply_migration(name, project_id, query), verified to call that POST endpoint, may replace the CLI executor. Use name ivoc_native_voice_admission_ledger, exact project above and unchanged source SQL as query. Retain immutable external header provenance and Idempotent: NO. No explicit transaction wrapper, alternate SQL, rollback body, manual history DML, repair, source edit/rename, include-all or bulk push. Raw SQL Editor Run, execute_sql for the migration body, and a separate history-registration call are not substitutes. Existing connector authentication requires no new password, role, JIT mapping or settings grant.
+
+The provider-generated actual migration version is permitted to differ from source timestamp20261015174803. Independently bind the actual new row/version/name/statements to the immutable source filename/commit/hash and exact request in a durable mapping; never rename source or rewrite history to manufacture equality. A reviewed deterministic nonlossy representation must prove the recorded statements correspond to the submitted body. Preserve every actual predecessor row and statement. Future CLI custody must honor this mapping and must not reapply the original source timestamp; no broad history-reconciliation authority is implied.
+
+Before the single application, require the dedicated grant's complete actual history/catalog preimage, no candidate history/objects, exact private-RLS/INVOKER/service-grant expectations, native database custody and competing-writer controls, durable once marker, exact invocation review and fresh GO. Existing local SQL/ACL and CLI recovery evidence remains valid only for its tested scope, not proof of API backend or production PG17 failure behavior. No new test attempt is created here. The CLI-only workspace/fetch/bootstrap/vault conditions apply when CLI is selected; the API alternative instead binds its complete authoritative history/catalog reads and supported endpoint behavior. No separate bootstrap, vault or seed mutation is authorized.
+
+Success requires independent readback of unchanged predecessors, exactly one correctly mapped new history entry, the exact expected catalog/ACL/RLS and empty unarmed ledger. Tool success alone is insufficient. Schema failure uses the documented rollback contract but rollback confirmation requires readback; even confirmed rollback creates no retry permission. Lost response, timeout, malformed result, partial/mismatched history or objects stops downstream mutations. The request may still be running remotely: immediate absence, local cancellation and closed transport do not establish terminal rollback. Preserve UNKNOWN and use only the dedicated grant's finite exact read-only reconciliation; no replay, repair, compensating SQL, deletion or deployment.
+
+MR079's exact companion exception is mandatory. This section supersedes only section7's CLI-only executor, filename-derived remote-version equality and CLI-specific preparation for the selected API alternative. All unrelated MR078A/MR078B safeguards, independent gates and separate release/provider permissions remain unchanged.
 
 ---
 
