@@ -2463,7 +2463,7 @@ function readCalendarRange(range,{background=false,prefetch=false}={}){
  }catch(e){if(current()){if(e.status===401||e.status===403){lockWorkspace('Your current Calendar access could not be verified. Reopen your workspace.');return;}page.loading=false;page.refreshing=false;page.error=e.message||'Calendar is unavailable.';if(!usableCalendarPage(page)){page.events=[];page.interviews=[];page.complete=false;cohortPages.delete(key);}repaint();}}
  })();
  const flight={key,promise,page};cohortReads.set(key,flight);if(!prefetch)cohortFlight=flight;
- void promise.finally(()=>{if(cohortReads.get(key)===flight)cohortReads.delete(key);if(cohortFlight===flight)cohortFlight=null;if(current()&&!prefetch)scheduleCalendarPrefetch();});return promise;
+ void promise.finally(()=>{if(cohortReads.get(key)===flight)cohortReads.delete(key);if(cohortFlight===flight)cohortFlight=null;if(current())scheduleCalendarCacheExpiry();if(current()&&!prefetch)scheduleCalendarPrefetch();});return promise;
 }
 async function loadCalendarRoster(q='',tier='all'){
  if(!calendarV2()||actor.role!=='admin')return;const a=calendarAuthority(),seq=++calendarRosterSequence;
