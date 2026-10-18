@@ -98,3 +98,36 @@ test('actual mount reservation binds server billing context, with browser contex
   captured=null;await invoke({...body,billingContext:{organization:'foreign',project:'foreign'}});
   assert.equal(captured,null,'browser billing context must be rejected before reservation');assert.equal(creates,0);
 });
+
+function riskReceipt(patch = {}) {
+  return { financial_mode: 'RISK_ACCEPTED_SUPERVISED', hard_ceiling_verified: false,
+    maximum_exposure_minor: null, risk_acceptance_sha256: 'b4ea2e2197cd7838b888ca2675b07fb70f9df36d71032ae0f65bf1e9bcc8b9b0',
+    authority_reference: 'IVOC-8200-RISK-ACCEPTED-ONE-TEST-20261018', authority_sha256: 'cb863c68de753a629c647a7eeec342918ef3720a72bedc12129d073f967c37d9',
+    residual_exposure: 'Synthetic risk acceptance: intended duration is not a guaranteed dollar ceiling.',
+    authorization_expires_at: new Date(NOW + 360000).toISOString(),
+    duration_ms: 360000, startup_ms: 15000,
+    startup_deadline_at: new Date(NOW + 15000).toISOString(), ...patch };
+}
+test('explicit supervised risk receipt preserves false ceiling and one-use permit', async () => {
+  const h = fixture({ patch: riskReceipt() }); const r = await h.policy.reserve(binding());
+  assert.equal(r.hard_ceiling_verified, false); assert.equal(r.maximum_exposure_minor, null);
+  assert.equal(r.financial_mode, 'RISK_ACCEPTED_SUPERVISED'); assert.ok(Object.isFrozen(r));
+  const permit = await h.policy.claim(r, binding());
+  consumeNativeCreatePermit(permit, 'c'.repeat(64), NOW);
+  assert.throws(() => consumeNativeCreatePermit(permit, 'c'.repeat(64), NOW), /funded/);
+  await assert.rejects(h.policy.claim(r, binding()), /consumed/);
+});
+test('risk mode cannot launder a ceiling, missing approval, stale authority or oversized duration', async () => {
+  for (const patch of [{financial_mode:'UNLIMITED'}, {financial_mode:undefined},
+    {hard_ceiling_verified:true}, {maximum_exposure_minor:500},
+    {risk_acceptance_sha256:''}, {risk_acceptance_sha256:'e'.repeat(64)}, {authority_reference:''}, {authority_reference:'other'}, {authority_sha256:''}, {authority_sha256:'f'.repeat(64)},
+    {residual_exposure:''}, {residual_exposure:'x'.repeat(2049)},
+    {authorization_expires_at:new Date(NOW).toISOString()},
+    {duration_ms:360001}, {duration_ms:0}, {startup_ms:15001}, {startup_ms:0},
+    {duration_ms:1000}, {deadline_at:new Date(NOW+360001).toISOString()},
+    {startup_deadline_at:new Date(NOW+15001).toISOString()}]) {
+    const h=fixture({patch:riskReceipt(patch)});
+    await assert.rejects(h.policy.reserve(binding()), /funded/);
+    assert.equal(h.calls.some(c=>c[0]==='claim'), false);
+  }
+});

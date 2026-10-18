@@ -29,11 +29,32 @@ function identity(binding) {
     || !SHA.test(binding.credentialFingerprint || '')) throw nativeVoiceDenied();
   return Object.freeze({ ...binding, model: NATIVE_VOICE_MODEL });
 }
+function financialReceipt(value, now) {
+  // Missing mode is the already deployed verified-ceiling RPC contract only.
+  // A risk-accepted grant is explicit and can originate only in the private ledger.
+  if (value?.financial_mode === undefined || value?.financial_mode === 'HARD_CEILING_VERIFIED') {
+    return value?.hard_ceiling_verified === true;
+  }
+  if (value?.financial_mode !== 'RISK_ACCEPTED_SUPERVISED') return false;
+  const expires = Date.parse(value.authorization_expires_at);
+  return value.hard_ceiling_verified === false && value.maximum_exposure_minor === null
+    && value.risk_acceptance_sha256 === 'b4ea2e2197cd7838b888ca2675b07fb70f9df36d71032ae0f65bf1e9bcc8b9b0'
+    && value.authority_sha256 === 'cb863c68de753a629c647a7eeec342918ef3720a72bedc12129d073f967c37d9'
+    && value.authority_reference === 'IVOC-8200-RISK-ACCEPTED-ONE-TEST-20261018'
+    && typeof value.residual_exposure === 'string' && value.residual_exposure.trim().length > 0
+    && value.residual_exposure.length <= 2048
+    && Number.isSafeInteger(value.duration_ms) && value.duration_ms >= 1 && value.duration_ms <= 360000
+    && Number.isSafeInteger(value.startup_ms) && value.startup_ms >= 1
+    && value.startup_ms <= Math.min(15000, value.duration_ms)
+    && Number.isFinite(expires) && expires > now
+    && Date.parse(value.deadline_at) <= Math.min(expires, now + value.duration_ms)
+    && Date.parse(value.startup_deadline_at) <= Math.min(expires, now + value.startup_ms);
+}
 function receipt(value, binding, now) {
   if (!value || value.ok !== true || !UUID.test(value.reservation_id || '') || !UUID.test(value.generation || '')
     || value.owner_subject !== binding.ownerSubject || value.session_id !== binding.ivocSessionId
     || value.model !== NATIVE_VOICE_MODEL || value.credential_fingerprint !== binding.credentialFingerprint
-    || !SHA.test(value.account_fingerprint || '') || value.hard_ceiling_verified !== true
+    || !SHA.test(value.account_fingerprint || '') || !financialReceipt(value, now)
     || !Number.isSafeInteger(value.cleanup_ms) || value.cleanup_ms < 1 || value.cleanup_ms > 60000
     || !Number.isSafeInteger(value.presence_ms) || value.presence_ms < 1
     || !Number.isSafeInteger(value.heartbeat_ms) || value.heartbeat_ms < 1 || value.heartbeat_ms * 2 > value.presence_ms) throw nativeVoiceDenied();
