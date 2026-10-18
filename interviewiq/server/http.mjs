@@ -1,3 +1,4 @@
+import {performance} from 'node:perf_hooks';
 import {createCalendarDirectory,readCalendarRoster,readCalendarStudent,readCalendarOverview} from './calendar-directory.mjs';
 import {calendarEnabled,requireCalendar,createCalendarAdmission} from './calendar-admission.mjs';
 import {readCohort,cohortRange} from './calendar-cohort.mjs';
@@ -30,7 +31,13 @@ export function publicError(error) {
 export function createHandler({config,database,authorize,commands,owners,recordings=null,researchProof=null,ownerReadReceipts=null,logger=()=>{},calendarAdmission=null,calendarDirectory=null}) {
   const admit=calendarAdmission||createCalendarAdmission(config),directory=calendarDirectory||createCalendarDirectory(config);
   return async function handle(req,res) {
-    const requestId=randomUUID();
+    const requestId=randomUUID(),requestStarted=performance.now();
+    let calendarTimings=null;
+    const measure=async(stage,operation)=>{
+      if(!calendarTimings)return operation();
+      const started=performance.now();
+      try{return await operation();}finally{calendarTimings[stage].count++;calendarTimings[stage].ms+=performance.now()-started;}
+    };
     const send=(status,value)=>{
       if(res.destroyed || res.writableEnded)return;
       const body=JSON.stringify(value);
@@ -38,6 +45,12 @@ export function createHandler({config,database,authorize,commands,owners,recordi
         'Cache-Control':'private, no-store','Pragma':'no-cache','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
         'Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'",'X-Request-ID':requestId});
       res.end(body);
+      if(calendarTimings){
+        const stages=Object.fromEntries(Object.entries(calendarTimings).map(([stage,value])=>[stage,{count:value.count,ms:Math.round(value.ms*10)/10}]));
+        calendarTimings=null;
+        // Fixed names/durations only; no identity, range, payload, headers or SQL.
+        try{logger({event:'calendar_bootstrap_timing',requestId,method:'GET',path:'/api/bootstrap',status,totalMs:Math.round((performance.now()-requestStarted)*10)/10,stages});}catch{}
+      }
     };
     let path='unparsed';
     try {
@@ -54,14 +67,15 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       requireValue(secretEquals(req.headers['x-mmed-iiq-gateway'],config.gatewaySecret),'gateway_required','Use the MissionMed InterviewIQ entry.',403);
       requireValue(req.headers.origin===config.publicOrigin && !req.headers.cookie,'origin_denied','This request did not come through the authorized entry.',403);
       const route=resolveRoute(req.method,path,url);
-      const actor=await authorize(req,`${req.method} ${path}`);
+      if(route==='bootstrap'&&url.searchParams.has('start'))calendarTimings=Object.fromEntries(['owner','cohort','own','admission','directory'].map(stage=>[stage,{count:0,ms:0}]));
+      const actor=await measure('owner',()=>authorize(req,`${req.method} ${path}`));
       if(config.coreOnly) {
         requireValue(actor.role==='admin' || (actor.role==='student' && ['360','ivprep_complete'].includes(actor.tier)), 'core_access_required','InterviewIQ is not available for your current access.',403);
         requireValue(route==='bootstrap' || route==='commands'||route==='student-preview'||route.startsWith('calendar-')&&calendarEnabled(config,actor)||route.startsWith('itinerary-')&&calendarEnabled(config,actor)||route==='programs'&&(researchEnabled(config,actor)||deepResearchEnabled(config,actor)||loiCanonicalLookup(config,actor)||intakeEnabled(config,actor)),'coming_soon','COMING SOON — this integration is not active. Your saved calendar is unchanged.',503);
       }
       requireValue(!req.headers['x-iiq-student-preview']||route==='student-preview','student_preview_restricted','Student Preview cannot read or save private work.',403);
       if(route==='student-preview'){requireCalendar(config,actor);return send(200,emptyStudentPreview(actor));}
-      const calendarContext={database,actor,config,owners,admit,directory,eventRef:path.split('/')[4],interviewId:path.split('/')[3],attachmentId:path.split('/')[5],targetRef:req.headers['x-iiq-calendar-target']};
+      const calendarContext={database,actor,config,owners,admit:(...args)=>measure('admission',()=>admit(...args)),directory:(...args)=>measure('directory',()=>directory(...args)),eventRef:path.split('/')[4],interviewId:path.split('/')[3],attachmentId:path.split('/')[5],targetRef:req.headers['x-iiq-calendar-target']};
       if(route==='calendar-roster')return send(200,await readCalendarRoster(calendarContext,Object.fromEntries(url.searchParams)));
       if(route==='calendar-student')return send(200,await readCalendarStudent(calendarContext,path.split('/')[4]));
       if(route==='calendar-overview')return send(200,await readCalendarOverview(calendarContext,Object.fromEntries(url.searchParams)));
@@ -77,18 +91,18 @@ export function createHandler({config,database,authorize,commands,owners,recordi
         if(!url.searchParams.has('start'))return send(200,await bootstrap(actor));
         requireValue(config.coreOnly&&calendarEnabled(config,actor),'calendar_unavailable','Calendar startup is unavailable.',503);requireCalendar(config,actor);const {start,end}=cohortRange({start:url.searchParams.get('start'),end:url.searchParams.get('end')}),range={start,end},kind=actor.role==='admin'?'overview':'cohort';
         let page;
-        try{page=await (kind==='overview'?readCalendarOverview(calendarContext,range):readCohort({...calendarContext,input:range}));}
+        try{page=await measure('cohort',()=>kind==='overview'?readCalendarOverview(calendarContext,range):readCohort({...calendarContext,input:range}));}
         catch(error){
           const safe=publicError(error);if(safe.status===401||safe.status===403)throw safe;
           // Admission-unavailable may include revocation. Prove current owner access again
           // before returning any own-only fallback; never retry the failed cohort operation.
-          const fresh=await authorize(req,`${req.method} ${path}`);
+          const fresh=await measure('owner',()=>authorize(req,`${req.method} ${path}`));
           requireValue(['id','role','tier','wpUserId'].every(k=>fresh[k]===actor[k])&&readOwnerSession(fresh),'session_unavailable','Your current access changed. Reopen your workspace.',401);
-          const own=await bootstrap(fresh);requireValue(readOwnerSession(fresh),'session_unavailable','Your current access expired. Reopen your workspace.',401);
+          const own=await measure('own',()=>bootstrap(fresh));requireValue(readOwnerSession(fresh),'session_unavailable','Your current access expired. Reopen your workspace.',401);
           return send(200,{...own,calendarBundle:{kind,start:range.start,end:range.end,actor:{id:fresh.id,role:fresh.role,tier:fresh.tier},error:{code:'calendar_bundle_partial',message:'The shared Calendar did not finish loading. Your personal interviews are available.'}}});
         }
         requireValue(readOwnerSession(actor),'session_unavailable','Your current access expired. Reopen your workspace.',401);
-        const own=await bootstrap(actor);requireValue(readOwnerSession(actor),'session_unavailable','Your current access expired. Reopen your workspace.',401);
+        const own=await measure('own',()=>bootstrap(actor));requireValue(readOwnerSession(actor),'session_unavailable','Your current access expired. Reopen your workspace.',401);
         return send(200,{...own,calendarBundle:{kind,start:range.start,end:range.end,actor:{id:actor.id,role:actor.role,tier:actor.tier},page}});
       }
       if(route==='programs'){

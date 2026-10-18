@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {createServer} from 'node:http';import {createHash} from 'node:crypto';
 import {createHandler} from '../../server/http.mjs';import {bindOwnerSession} from '../../server/owner-session.mjs';import {createCalendarDirectory} from '../../server/calendar-directory.mjs';import {admissionProof} from '../../server/calendar-admission.mjs';import {AppError} from '../../server/errors.mjs';
 const own='00000000-0000-4000-8000-000000000001',peer='00000000-0000-4000-8000-000000000002',ref='00000000-0000-4000-8000-000000000003';
-async function fixture({role='student',fail=false,revoke=false,changeTier=false,expire=false,expireDuringBootstrap=false,calendarEnabled=true,coreOnly=true}={},run){
+async function fixture({role='student',fail=false,revoke=false,changeTier=false,expire=false,onLog=()=>{},expireDuringBootstrap=false,calendarEnabled=true,coreOnly=true}={},run){
  const config={enabled:true,coreOnly,calendar:{enabled:calendarEnabled},gatewaySecret:'synthetic-gateway-secret-of-at-least-32-characters',ownerProofSecret:'synthetic-owner-proof-secret',publicOrigin:'https://missionmedinstitute.com',jwtIssuer:'https://missionmedinstitute.com',ownerIntrospectionUrl:'https://missionmedinstitute.com/wp-json/missionmed-interviewiq/v1/introspect'};
  let ownerChecks=0,peerChecks=0,directoryChecks=0,bootstrapReads=0,expired=false;
  const actor=()=>bindOwnerSession(Object.freeze({id:own,wpUserId:1,role,tier:changeTier&&ownerChecks>1?'ivprep_complete':role==='admin'?'admin':'360',eligible:true}),{verifier:'a'.repeat(64),expiresAt:Date.now()+(expire&&expired?-1:30000)});
@@ -11,7 +11,7 @@ async function fixture({role='student',fail=false,revoke=false,changeTier=false,
  const calendarAdmission=async(_a,pairs)=>{peerChecks++;if(fail)throw new AppError(503,'calendar_admission_unavailable','Access cannot be verified');if(expire&&peerChecks===2)bindOwnerSession(_a,{verifier:'a'.repeat(64),expiresAt:Date.now()-1});return{pairs:pairs.map(x=>({...x,allowed:true}))};};
  const calendarDirectory=createCalendarDirectory(config,{fetchImpl:async(_u,{body})=>{directoryChecks++;const p=JSON.parse(body),iat=Math.floor(Date.now()/1000),payload=JSON.stringify({audience:p.audience,subject:p.subject,wp_user_id:p.wp_user_id,nonce:p.nonce,request_sha256:createHash('sha256').update(body).digest('hex'),action:p.action,allowed:true,role:'admin',tier:'admin',students:[],nextAfter:null,iat,exp:iat+30});return new Response(JSON.stringify({payload,signature:admissionProof(config.ownerProofSecret,'mmiiq-directory-response-v1',payload)}),{headers:{'content-type':'application/json'}});}});
  const commands={bootstrap:async a=>{bootstrapReads++;if(expireDuringBootstrap)bindOwnerSession(a,{verifier:'a'.repeat(64),expiresAt:Date.now()-1});return{actor:{id:a.id,role:a.role,tier:a.tier},version:4,state:{interviews:[{id:'own-saved'}]},workspacePhase:'calendar'};}};
- const server=createServer(createHandler({config,database,authorize,commands,calendarAdmission,calendarDirectory}));await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const server=createServer(createHandler({config,database,authorize,commands,calendarAdmission,calendarDirectory,logger:onLog}));await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const get=async query=>{const r=await fetch(`http://127.0.0.1:${server.address().port}/api/bootstrap${query}`,{headers:{Origin:config.publicOrigin,'X-MMED-IIQ-Gateway':config.gatewaySecret}});return{status:r.status,cache:r.headers.get('cache-control'),body:await r.json()};};
  try{await run({get,counts:()=>({ownerChecks,peerChecks,directoryChecks,bootstrapReads})});}finally{await new Promise(r=>server.close(r));}
 }
@@ -26,3 +26,15 @@ test('owner proof expiry after successful peer reads fails closed before own boo
 
 test('owner expiry during own read denies both successful and partial bundles',async()=>{for(const fail of [false,true])await fixture({fail,expireDuringBootstrap:true},async f=>{const r=await f.get(bounded);assert.equal(r.status,401);assert.equal(r.body.state,undefined);assert.equal(f.counts().bootstrapReads,1);});});
 test('disabled Calendar keeps ordinary bootstrap and full mode compatible',async()=>{for(const coreOnly of [true,false])await fixture({coreOnly,calendarEnabled:false},async f=>{const r=await f.get(bounded);assert.equal(r.status,503);assert.equal(r.body.error.code,'calendar_unavailable');assert.equal((await f.get('')).status,200);assert.equal(f.counts().peerChecks,0);});});
+
+// Timing must remain non-authorizing and must not leak private payloads.
+test('bounded startup timing records fixed numeric spans without private request or response data',async()=>{
+ const logs=[];await fixture({onLog:x=>logs.push(x)},async f=>{assert.equal((await f.get(bounded)).status,200);});
+ const entry=logs.find(x=>x.event==='calendar_bootstrap_timing');assert.ok(entry);assert.deepEqual(Object.keys(entry).sort(),['event','method','path','requestId','stages','status','totalMs']);assert.equal(entry.status,200);assert.equal(entry.stages.owner.count,1);assert.equal(entry.stages.admission.count,2);assert.equal(entry.stages.cohort.count,1);assert.equal(entry.stages.own.count,1);assert.equal(entry.stages.directory.count,0);
+ for(const span of Object.values(entry.stages)){assert.ok(Number.isFinite(span.ms)&&span.ms>=0);assert.deepEqual(Object.keys(span).sort(),['count','ms']);}
+ const text=JSON.stringify(entry);for(const secret of [own,peer,ref,'2026-10-01','Synthetic program','own-saved'])assert.ok(!text.includes(secret));
+});
+test('timing is absent on legacy bootstrap and diagnostic logger failure cannot break a successful read',async()=>{
+ const logs=[];await fixture({onLog:x=>logs.push(x)},async f=>{assert.equal((await f.get('?view=calendar')).status,200);assert.equal((await f.get('')).status,200);});assert.ok(!logs.some(x=>x.event==='calendar_bootstrap_timing'));
+ await fixture({onLog:()=>{throw Error('diagnostic sink unavailable');}},async f=>{const r=await f.get(bounded);assert.equal(r.status,200);assert.equal(r.body.calendarBundle.page.events.length,1);});
+});
