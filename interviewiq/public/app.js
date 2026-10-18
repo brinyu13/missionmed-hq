@@ -281,10 +281,11 @@ function validateGeneratedLoiQuality(row,refs,program){
 }
 
 let cohortFlight=null;
+const cohortPages=new Map(),cohortReads=new Map(),calendarPrefetchAttempted=new Set();let calendarCacheRevision=0,calendarCacheExpiryTimer=null,calendarPrefetchTimer=null,calendarPrefetchFlight=null;
 let calendarRoster=null,calendarSelection=null,calendarSchedule=null,calendarLoadSequence=0,calendarRosterSequence=0;
 let calendarEpoch=0,cohortPage=null,itineraryPage=null,itineraryPending=null,adminCalendarTarget=null,calendarMutationPending=null,calendarMutationBusy=false,calendarTargetReadSequence=0,itineraryReadSequence=0;
 const calendarV2=()=>capabilities.calendarV2===true&&!studentPreview()&&['student','admin'].includes(actor?.role);
-function clearCalendarMemory(){cohortFlight=null;calendarRoster=null;calendarSelection=null;calendarSchedule=null;calendarLoadSequence++;calendarRosterSequence++;calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
+function clearCalendarMemory(){clearTimeout(calendarCacheExpiryTimer);calendarCacheExpiryTimer=null;cohortPages.clear();cohortReads.clear();calendarPrefetchAttempted.clear();calendarCacheRevision++;clearTimeout(calendarPrefetchTimer);calendarPrefetchTimer=null;calendarPrefetchFlight=null;cohortFlight=null;calendarRoster=null;calendarSelection=null;calendarSchedule=null;calendarLoadSequence++;calendarRosterSequence++;calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
 'use strict';
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
@@ -348,7 +349,7 @@ async function refreshSession(){
   let signed;try{signed=await exchange();}catch(error){if(seed&&error.status===403&&error.code==='csrf_failed'){first=await readJSON(await fetchResult());signed=await exchange();}else throw error;}
   if(epoch!==sessionEpoch||identity!==actor?.id)throw Error('The workspace changed while its session was loading.');
   if(!signed.token)throw Error('MissionMed did not return a signed InterviewIQ session.');
-  if(actor&&signed.actor?.id&&signed.actor.id!==actor.id){lockWorkspace('Your MissionMed account changed. Reopen the workspace to continue.');throw Error('Your account changed. Reopen the workspace.');}
+  if(actor&&signed.actor?.id&&(signed.actor.id!==actor.id||normalizeRole(signed.actor.role)!==actor.role||signed.actor.tier!==actor.tier)){lockWorkspace('Your MissionMed account changed. Reopen the workspace to continue.');throw Error('Your account changed. Reopen the workspace.');}
   const expires=typeof signed.expires_at==='number'?signed.expires_at*1000:Date.parse(signed.expires_at||'');
   session={actor:signed.actor||null,token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
   })();sessionRefresh=work;
@@ -377,6 +378,7 @@ function clearLoiMemory(){
 }
 function applyBootstrap(input){
   const b=input?.bootstrap||input;
+  const previousCalendarVersion=version;
   researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
   workspaceLoadSequence++;workspacePhase=b.workspacePhase==='calendar'?'calendar':'full';workspaceLoadError=null;
@@ -403,6 +405,7 @@ function applyBootstrap(input){
   if(!loiTargetsEnabled())delete S.loiTargets;else{S.loiTargets=b.state.loiTargets||{targets:[],savedPrograms:null,savedStatus:'unavailable'};loiSavedPage=null;}
 
   if(!loiCompositionEnabled())delete S.loiPreferences;
+  if(sameActor&&hadCalendar&&previousCalendarVersion!==b.version)invalidateCalendarSnapshots();
   S.reviewQueue=b.state.reviewQueue||[];S.mentorAssigned=b.state.mentorAssigned||[];S.changes=b.state.changes||[];
   S.contrib={missions:{},submissions:[],ledger:[],grants:{},...(b.state.contrib||{})};
   S.policy={audit:[],suspended:{},...(b.state.policy||{})};S.lastVisit=b.state.lastVisit||now();
@@ -581,12 +584,11 @@ async function boot(){
   const entry=parseInterviewIQEntry(location.search);
   try{
     if(!session||session.expiresAt<Date.now()+15000)await refreshSession();
-    const prefetched=beginCalendarBootRead(sequence);
     let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
-    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar(prefetched);render();const identity=actor.id,epoch=sessionEpoch;
+    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar();render();const identity=actor.id,epoch=sessionEpoch;
     applyInterviewIQEntry(entry,identity,epoch);
     // Complete optional workspace details after the visible cohort read, not in competition with it.
-    void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace();});
+    void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace().then(()=>scheduleCalendarPrefetch());});
   }catch(error){if(sequence===bootSequence)lockWorkspace(error.message);}
 }
 
@@ -1582,7 +1584,7 @@ function renderCalendar(){
  let last='';const rows=agenda.map(it=>{const head=last!==it.key?`<h3 class="mcv2-agenda-date">${esc(fmtDateOnly(it.key))}</h3>`:'';last=it.key;return head+calendarEventButton(it,true);}).join('');
  const f=S.ui.calendarFilters||{},programs=[...new Map(all.slice().reverse().map(i=>[i.program,i.programLabel||i.title])).entries()],specialties=[...new Set(all.map(i=>i.specialty))];
  const pending=S.ui.calendarScope==='all'&&cohortPage?.loading||S.ui.calendarScope==='student'&&calendarSchedule?.loading,error=S.ui.calendarScope==='all'?cohortPage?.error:S.ui.calendarScope==='student'?calendarSchedule?.error:null;
-  const message=pending?(admin?'Loading authorized student schedules…':'Loading shared schedules… Your saved interviews are available.'):error?'The schedule did not finish loading. Retry to see complete results.':!agenda.length&&!undated.length?(all.length&&(f.program&&f.program!=='all'||f.specialty&&f.specialty!=='all')?'No events match these filters.':'No saved interviews are dated in this month. Choose another month or check Date unknown.'):'';
+  const message=cohortPage?.refreshing?'Refreshing shared schedules… Previously verified events remain visible.':pending?(admin?'Loading authorized student schedules…':'Loading shared schedules… Your saved interviews are available.'):error?'The schedule did not finish loading. Retry to see complete results.':!agenda.length&&!undated.length?(all.length&&(f.program&&f.program!=='all'||f.specialty&&f.specialty!=='all')?'No events match these filters.':'No saved interviews are dated in this month. Choose another month or check Date unknown.'):'';
  const activeFilters=[f.program&&f.program!=='all',f.specialty&&f.specialty!=='all'].filter(Boolean).length;
  const privacy=admin?'Student identity is available only to authorized administrators. Private notes, files, contacts and joining links are excluded from this overview.':'★ Green dates contain your interviews; gold stars mark your entries. Peer events are de-identified; names, joining details and private notes are never shared.';
  const grid=cal.view==='month'?`<div class="calendar-grid-scroll" tabindex="0" aria-label="Month calendar"><div class="mcv2-month" role="grid" aria-label="${esc(model.title)}" style="--calendar-weeks:${model.days.length/7}"><div class="mcv2-weekdays" role="row">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="mcv2-weekday" role="columnheader">${d}</div>`).join('')}</div><div class="mcv2-month-grid">${model.days.map(day=>{const ev=by[day.key]||[],first=ev.find(it=>it.own)||ev[0],own=ev.some(it=>it.own);return `<div class="mcv2-month-day${day.outside?' is-outside':''}${day.today?' is-today':''}${own?' is-own-day':''}" role="gridcell" tabindex="${focusDay===day.key?0:-1}" data-cal-day="${day.key}" aria-label="${esc(day.fullLabel)}, ${ev.length} events${own?', includes your interview':''}"><span class="mcv2-day-number">${day.label}</span><button type="button" class="mcv2-compact-day${own?' is-own':''}" data-act="cal-day" data-day="${day.key}" tabindex="-1" aria-label="${esc(day.fullLabel)}, ${ev.length} events${own?', includes your interview':''}"><span>${day.label}</span>${ev.length?`<b>${own?'★ ':''}${ev.length}</b>`:''}</button><div class="mcv2-day-events">${ev.length>1?`<button type="button" class="mcv2-event mcv2-day-summary${own?' is-own':' is-peer'}" data-act="cal-day" data-day="${day.key}" aria-label="${esc(day.fullLabel+': '+ev.length+' events, including '+first.title+'. Open all details.')}" ><span class="mcv2-event-copy"><strong>${own?'★ ':''}${esc(first.title)}</strong><small>${esc(first.time)} · +${ev.length-1} more</small></span></button>`:first?calendarEventButton(first):''}</div></div>`;}).join('')}</div></div></div>`:`<section class="mcv2-list-panel" aria-label="${cal.view==='list'?'Interview list':'Agenda'}"><p>${cal.view==='list'&&S.ui.calendarScope!=='all'?'All saved dates':esc(model.title)} · times in ${esc(F.student_zone)}</p>${rows||(!pending&&!error?'<p>No dated interviews in this view.</p>':'')}</section>`;
@@ -2371,44 +2373,87 @@ async function calendarMutation(path,intent,body,headers={}){
  if(calendarMutationPending&&calendarMutationPending.key!==key)throw Error('The earlier Calendar action has an uncertain outcome. Retry that same action first.');
  calendarMutationPending||={key,path,body:JSON.stringify({...body,requestId:crypto.randomUUID()})};
  const pending=calendarMutationPending;calendarMutationBusy=true;
- try{const r=await apiFetch(path,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:pending.body});if(!currentCalendar(a))throw Error('Calendar authority changed.');calendarMutationPending=null;return r;}
+ try{const r=await apiFetch(path,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:pending.body});if(!currentCalendar(a))throw Error('Calendar authority changed.');calendarMutationPending=null;if(path.startsWith('/calendar/admin/'))invalidateCalendarSnapshots();return r;}
  catch(error){if(currentCalendar(a)&&error.status>=400&&error.status<500)calendarMutationPending=null;throw error;}
  finally{if(currentCalendar(a))calendarMutationBusy=false;}
 }
-function calendarMonthRange(){const m=monthModel(S.ui.cal.ym),shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);return {start:shift(m.days[0].key,-1),end:shift(m.days.at(-1).key,1),ym:S.ui.cal.ym};}
-function cohortBinding(){return JSON.stringify([actor?.id,actor?.role,actor?.tier,calendarEpoch,sessionEpoch,S?.ui?.cal?.ym]);}
-function beginCalendarBootRead(sequence){
- if(studentPreview()||!session?.actor||!['student','admin'].includes(session.actor.role)||!['360','ivprep_complete','admin'].includes(session.actor.tier))return null;
- const authority={id:session.actor.id,role:session.actor.role,tier:session.actor.tier},ym=defaultUI().cal.ym,m=monthModel(ym),shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10),range={start:shift(m.days[0].key,-1),end:shift(m.days.at(-1).key,1),ym};
- const held={authority,range,sequence,startedAt:Date.now(),epoch:sessionEpoch,session,used:false};
- const path=authority.role==='admin'?'/calendar/overview':'/calendar/cohort';
- // Hold data/error privately until bootstrap independently confirms this exact scope.
- held.promise=fetch(session.apiBase+path+'?'+new URLSearchParams({start:range.start,end:range.end}),{headers:{Authorization:'Bearer '+session.token,Accept:'application/json'},credentials:'same-origin',cache:'no-store'}).then(readJSON).then(value=>({value}),error=>({error}));
- return held;
+function calendarRangeForMonth(ym){const m=monthModel(ym),shift=(d,n)=>new Date(Date.parse(d+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);return {start:shift(m.days[0].key,-1),end:shift(m.days.at(-1).key,1),ym};}
+function calendarMonthRange(){return calendarRangeForMonth(S.ui.cal.ym);}
+function calendarCacheAuthorized(){return calendarV2()&&S&&session&&session.expiresAt>Date.now()&&session.actor&&['id','role','tier'].every(k=>session.actor[k]===actor[k]);}
+function cohortBinding(range=calendarMonthRange()){return JSON.stringify([actor?.id,actor?.role,actor?.tier,calendarEpoch,sessionEpoch,actor?.zone||F?.student_zone,calendarCacheRevision,range.start,range.end]);}
+function usableCalendarPage(page){return calendarCacheAuthorized()&&page?.complete&&page.binding===cohortBinding({start:page.start,end:page.end})&&Date.now()-page.completedAt<=30000;}
+function rememberCalendarPage(page){cohortPages.delete(page.binding);cohortPages.set(page.binding,page);while(cohortPages.size>3){const keep=new Set([S.ui.cal.ym,shiftYm(S.ui.cal.ym,1),shiftYm(S.ui.cal.ym,-1)]),old=[...cohortPages].find(([,p])=>!keep.has(p.ym));cohortPages.delete(old?.[0]||cohortPages.keys().next().value);}scheduleCalendarCacheExpiry();}
+function warmCalendar(){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true});}
+function scheduleCalendarCacheExpiry(){
+ clearTimeout(calendarCacheExpiryTimer);calendarCacheExpiryTimer=null;
+ const pages=[cohortPage,...cohortPages.values()].filter(p=>p?.complete);
+ if(!pages.length)return;
+ const deadline=Math.min(session?.expiresAt||0,...pages.map(p=>p.completedAt+30000));
+ calendarCacheExpiryTimer=setTimeout(()=>{
+  calendarCacheExpiryTimer=null;const visible=cohortPage;
+  for(const [key,page]of cohortPages)if(!usableCalendarPage(page))cohortPages.delete(key);
+  expireWarmCalendar();
+  if(visible?.complete===false||visible!==cohortPage)if(S?.ui.route==='calendar'&&!S.ui.drawer)render();
+  scheduleCalendarCacheExpiry();
+ },Math.max(1,deadline-Date.now()+1));
 }
-function takeCalendarBootRead(held,range){
- if(!held||held.used||Date.now()-held.startedAt>30000||studentPreview()||!calendarV2()||held.sequence!==bootSequence||held.epoch!==sessionEpoch||held.session!==session||held.range.ym!==range.ym||held.range.start!==range.start||held.range.end!==range.end||['id','role','tier'].some(k=>held.authority[k]!==actor[k]))return null;
- held.used=true;return held.promise.then(result=>{if(Date.now()-held.startedAt>30000)return null;if(result.error)throw result.error;return result.value;});
+function expireWarmCalendar(){
+ if(!calendarV2()||!S)return;
+ const key=cohortBinding(),cached=cohortPages.get(key),expired=cohortPage?.complete&&!usableCalendarPage(cohortPage);
+ if(expired){cohortPage.events=[];cohortPage.interviews=[];cohortPage.complete=false;cohortPage.refreshing=false;cohortPage.loading=cohortReads.has(key);cohortPages.delete(cohortPage.binding);}
+ if(cohortPage?.binding!==key||expired){cohortPage=usableCalendarPage(cached)?cached:cohortReads.get(key)?.page||null;cohortFlight=null;}
+ if(cohortPage?.complete&&Date.now()-cohortPage.completedAt>15000&&!cohortReads.has(key)&&!cohortPage.error)queueMicrotask(()=>{if(calendarV2()&&S?.ui.route==='calendar'&&cohortBinding()===key)void loadCohort({background:true,force:true});});
 }
-function warmCalendar(prefetched=null){if(calendarV2()&&S&&!cohortPage&&(!S.ui.calendarScope||S.ui.calendarScope==='all'))return loadCohort({background:true,prefetched});}
-function expireWarmCalendar(){if(cohortPage?.background&&(!calendarV2()||cohortPage.binding!==cohortBinding()||cohortPage.complete&&Date.now()-cohortPage.completedAt>30000)){calendarLoadSequence++;cohortFlight=null;cohortPage=null;}}
-function loadCohort({background=false,prefetched=null}={}){
+function invalidateCalendarSnapshots(){
+ calendarCacheRevision++;cohortPages.clear();cohortReads.clear();calendarPrefetchAttempted.clear();clearTimeout(calendarPrefetchTimer);calendarPrefetchTimer=null;calendarPrefetchFlight=null;cohortFlight=null;
+ // Own records come from the confirmed command/bootstrap response immediately.
+ // Retain only the already admitted peer snapshot; recompute connections freshly.
+ if(cohortPage?.complete&&cohortPage.start===calendarMonthRange().start&&cohortPage.end===calendarMonthRange().end&&Date.now()-cohortPage.completedAt<=30000&&calendarCacheAuthorized()){
+  cohortPage={...cohortPage,events:cohortPage.events.map(e=>({...e,same_program:false})),binding:cohortBinding(),refreshing:true,error:null};rememberCalendarPage(cohortPage);
+  queueMicrotask(()=>{if(calendarV2()&&S?.ui.calendarScope==='all')void loadCohort({background:true,force:true});});
+ }else cohortPage=null;
+}
+function scheduleCalendarPrefetch(){
+ clearTimeout(calendarPrefetchTimer);calendarPrefetchTimer=null;
+ if(!calendarCacheAuthorized()||S.ui.route!=='calendar'||S.ui.drawer||calendarMutationBusy||workspaceReadFlight||calendarPrefetchFlight)return;
+ const key=cohortBinding(),ym=S.ui.cal.ym;
+ const range=[1,-1].map(n=>calendarRangeForMonth(shiftYm(ym,n))).find(r=>!usableCalendarPage(cohortPages.get(cohortBinding(r)))&&!cohortReads.has(cohortBinding(r))&&!calendarPrefetchAttempted.has(cohortBinding(r)));
+ if(!range)return;
+ calendarPrefetchTimer=setTimeout(()=>{calendarPrefetchTimer=null;if(!calendarCacheAuthorized()||cohortBinding()!==key||S.ui.drawer||calendarMutationBusy||workspaceReadFlight||cohortReads.size)return;calendarPrefetchAttempted.add(cohortBinding(range));while(calendarPrefetchAttempted.size>12)calendarPrefetchAttempted.delete(calendarPrefetchAttempted.values().next().value);const flight=readCalendarRange(range,{prefetch:true});calendarPrefetchFlight=flight;void flight.finally(()=>{if(calendarPrefetchFlight===flight){calendarPrefetchFlight=null;if(calendarCacheAuthorized()&&cohortBinding()===key)scheduleCalendarPrefetch();}});},120);
+}
+function loadCohort({background=false,force=false}={}){
  if(!calendarV2()||!S||background&&S.ui.calendarScope&&S.ui.calendarScope!=='all')return;
- const key=cohortBinding();if(cohortFlight?.key===key&&cohortFlight.seq===calendarLoadSequence&&cohortFlight.page===cohortPage){if(!background)S.ui.calendarScope='all';return cohortFlight.promise;}
- const a=calendarAuthority(),seq=++calendarLoadSequence,range=calendarMonthRange(),admin=actor.role==='admin',tier=actor.tier,sessionAtStart=sessionEpoch;
- if(!background)S.ui.calendarScope='all';const page={events:[],interviews:[],start:range.start,end:range.end,loading:true,unmapped:0,background,binding:key};cohortPage=page;
- const repaint=()=>{if(S.ui.route==='calendar'&&!S.ui.drawer)render();};if(!background)repaint();
- const firstPage=takeCalendarBootRead(prefetched,range);
- const promise=(async()=>{ 
- const current=()=>currentCalendar(a)&&actor.tier===tier&&sessionEpoch===sessionAtStart&&seq===calendarLoadSequence&&cohortPage===page&&S.ui.cal.ym===range.ym&&(!S.ui.calendarScope||S.ui.calendarScope==='all');let cursor=null;const seen=new Set();
- try{do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),first=!cursor&&firstPage?await firstPage:null,r=first||await apiFetch(path+'?'+q);if(!current())return;
+ if(!background)S.ui.calendarScope='all';
+ const range=calendarMonthRange(),key=cohortBinding(range),cached=cohortPages.get(key),existing=cohortReads.get(key);
+ if(existing){cohortPage=existing.page;cohortFlight=existing;return existing.promise;}
+ if(!force&&usableCalendarPage(cached)){rememberCalendarPage(cached);cohortPage=cached;cohortFlight=null;if(!background&&S.ui.route==='calendar'&&!S.ui.drawer)render();scheduleCalendarPrefetch();return Promise.resolve();}
+ return readCalendarRange(range,{background});
+}
+function readCalendarRange(range,{background=false,prefetch=false}={}){
+ const a=calendarAuthority(),tier=actor.tier,epoch=sessionEpoch,revision=calendarCacheRevision,zone=actor.zone||F?.student_zone,key=cohortBinding(range),admin=actor.role==='admin',cached=cohortPages.get(key);
+ const current=()=>currentCalendar(a)&&actor.tier===tier&&sessionEpoch===epoch&&calendarCacheRevision===revision&&(actor.zone||F?.student_zone)===zone;
+ const show=()=>current()&&cohortPage===page&&S.ui.cal.ym===range.ym&&(!S.ui.calendarScope||S.ui.calendarScope==='all');
+ const page=usableCalendarPage(cached)?{...cached,refreshing:true,error:null}:{events:[],interviews:[],start:range.start,end:range.end,loading:true,unmapped:0,background,binding:key,ym:range.ym};
+ if(!prefetch)cohortPage=page;
+ const repaint=()=>{if(show()&&S.ui.route==='calendar'&&!S.ui.drawer)render();};if(!prefetch&&(!background||page.refreshing))repaint();
+ const promise=(async()=>{
+  // A foreground range waits for an already dispatched optional read; no fan-out.
+  if(!prefetch&&calendarPrefetchFlight)await calendarPrefetchFlight;
+  if(!current())return;
+  const fresh={events:[],interviews:[],unmapped:0};let cursor=null;const seen=new Set();
+  try{do{const path=admin?'/calendar/overview':'/calendar/cohort',q=new URLSearchParams({start:range.start,end:range.end,...(cursor?{[admin?'after':'cursor']:String(cursor)}:{})}),r=await apiFetch(path+'?'+q);if(!current())return;
    if(r.start!==range.start||r.end!==range.end)throw Error('The Calendar month changed. Retry.');
-   if(admin){if(r.readOnly!==true||!Array.isArray(r.interviews)||r.interviews.length>2000)throw Error('The student schedule response was invalid.');for(const i of r.interviews){if(!page.interviews.some(x=>x.id===i.id))page.interviews.push(i);}page.unmapped+=r.unmapped||0;cursor=r.nextAfter;}
-   else{if(r.deidentified!==true||!Array.isArray(r.events)||r.events.length>200)throw Error('The cohort response was invalid.');const fields=['event_ref','program_id','program_name','specialty','track','local_date','local_time','timezone','start_at','fold','all_day','format','event_type','lifecycle','same_program'];for(const e of r.events){if(!/^[a-f0-9-]{36}$/.test(e.event_ref||'')||typeof e.program_name!=='string'||e.program_name.length>500||typeof e.local_date!=='string')throw Error('The cohort event was invalid.');if(!page.events.some(x=>x.event_ref===e.event_ref))page.events.push(Object.fromEntries(fields.map(k=>[k,e[k]])));}cursor=r.nextCursor;}
-   if(cursor!=null){if(seen.has(String(cursor)))throw Error('Calendar paging did not advance. Retry.');seen.add(String(cursor));}repaint();
-  }while(cursor!=null);if(current()){page.loading=false;page.complete=true;page.completedAt=Date.now();repaint();}
- }catch(e){if(current()){if(firstPage&&(e.status===401||e.status===403)){lockWorkspace('Your current Calendar access could not be verified. Reopen your workspace.');return;}page.loading=false;page.error=e.message||'Calendar is unavailable.';repaint();}}
- })();const flight={key,promise,seq,page};cohortFlight=flight;void promise.finally(()=>{if(cohortFlight===flight)cohortFlight=null;});return promise;
+   if(admin){if(r.readOnly!==true||!Array.isArray(r.interviews)||r.interviews.length>2000)throw Error('The student schedule response was invalid.');for(const i of r.interviews){if(!fresh.interviews.some(x=>x.id===i.id))fresh.interviews.push(i);}fresh.unmapped+=r.unmapped||0;cursor=r.nextAfter;}
+   else{if(r.deidentified!==true||!Array.isArray(r.events)||r.events.length>200)throw Error('The cohort response was invalid.');const fields=['event_ref','program_id','program_name','specialty','track','local_date','local_time','timezone','start_at','fold','all_day','format','event_type','lifecycle','same_program'];for(const e of r.events){if(!/^[a-f0-9-]{36}$/.test(e.event_ref||'')||typeof e.program_name!=='string'||e.program_name.length>500||typeof e.local_date!=='string')throw Error('The cohort event was invalid.');if(!fresh.events.some(x=>x.event_ref===e.event_ref))fresh.events.push(Object.fromEntries(fields.map(k=>[k,e[k]])));}cursor=r.nextCursor;}
+   if(cursor!=null){if(seen.has(String(cursor)))throw Error('Calendar paging did not advance. Retry.');seen.add(String(cursor));}
+  }while(cursor!=null);
+  if(current()){
+   Object.assign(page,fresh,{loading:false,refreshing:false,complete:true,completedAt:Date.now(),error:null});rememberCalendarPage(page);repaint();
+  }
+ }catch(e){if(current()){if(e.status===401||e.status===403){lockWorkspace('Your current Calendar access could not be verified. Reopen your workspace.');return;}page.loading=false;page.refreshing=false;page.error=e.message||'Calendar is unavailable.';if(!usableCalendarPage(page)){page.events=[];page.interviews=[];page.complete=false;cohortPages.delete(key);}repaint();}}
+ })();
+ const flight={key,promise,page};cohortReads.set(key,flight);if(!prefetch)cohortFlight=flight;
+ void promise.finally(()=>{if(cohortReads.get(key)===flight)cohortReads.delete(key);if(cohortFlight===flight)cohortFlight=null;if(current()&&!prefetch)scheduleCalendarPrefetch();});return promise;
 }
 async function loadCalendarRoster(q='',tier='all'){
  if(!calendarV2()||actor.role!=='admin')return;const a=calendarAuthority(),seq=++calendarRosterSequence;

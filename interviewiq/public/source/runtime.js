@@ -1,8 +1,9 @@
 let cohortFlight=null;
+const cohortPages=new Map(),cohortReads=new Map(),calendarPrefetchAttempted=new Set();let calendarCacheRevision=0,calendarCacheExpiryTimer=null,calendarPrefetchTimer=null,calendarPrefetchFlight=null;
 let calendarRoster=null,calendarSelection=null,calendarSchedule=null,calendarLoadSequence=0,calendarRosterSequence=0;
 let calendarEpoch=0,cohortPage=null,itineraryPage=null,itineraryPending=null,adminCalendarTarget=null,calendarMutationPending=null,calendarMutationBusy=false,calendarTargetReadSequence=0,itineraryReadSequence=0;
 const calendarV2=()=>capabilities.calendarV2===true&&!studentPreview()&&['student','admin'].includes(actor?.role);
-function clearCalendarMemory(){cohortFlight=null;calendarRoster=null;calendarSelection=null;calendarSchedule=null;calendarLoadSequence++;calendarRosterSequence++;calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
+function clearCalendarMemory(){clearTimeout(calendarCacheExpiryTimer);calendarCacheExpiryTimer=null;cohortPages.clear();cohortReads.clear();calendarPrefetchAttempted.clear();calendarCacheRevision++;clearTimeout(calendarPrefetchTimer);calendarPrefetchTimer=null;calendarPrefetchFlight=null;cohortFlight=null;calendarRoster=null;calendarSelection=null;calendarSchedule=null;calendarLoadSequence++;calendarRosterSequence++;calendarEpoch++;cohortPage=null;itineraryPage=null;itineraryPending=null;adminCalendarTarget=null;calendarMutationPending=null;calendarMutationBusy=false;calendarTargetReadSequence++;itineraryReadSequence++;}
 'use strict';
 // Signed bootstrap is the only source of identity. Tokens and private drafts stay in memory.
 let S=null, F={}, actor=null, capabilities={}, integrations={}, version=null;
@@ -66,7 +67,7 @@ async function refreshSession(){
   let signed;try{signed=await exchange();}catch(error){if(seed&&error.status===403&&error.code==='csrf_failed'){first=await readJSON(await fetchResult());signed=await exchange();}else throw error;}
   if(epoch!==sessionEpoch||identity!==actor?.id)throw Error('The workspace changed while its session was loading.');
   if(!signed.token)throw Error('MissionMed did not return a signed InterviewIQ session.');
-  if(actor&&signed.actor?.id&&signed.actor.id!==actor.id){lockWorkspace('Your MissionMed account changed. Reopen the workspace to continue.');throw Error('Your account changed. Reopen the workspace.');}
+  if(actor&&signed.actor?.id&&(signed.actor.id!==actor.id||normalizeRole(signed.actor.role)!==actor.role||signed.actor.tier!==actor.tier)){lockWorkspace('Your MissionMed account changed. Reopen the workspace to continue.');throw Error('Your account changed. Reopen the workspace.');}
   const expires=typeof signed.expires_at==='number'?signed.expires_at*1000:Date.parse(signed.expires_at||'');
   session={actor:signed.actor||null,token:signed.token,nonce:signed.nonce||first.nonce,apiBase:sameOriginURL(first.api_base||'/interviewiq/api').pathname.replace(/\/$/,''),expiresAt:Number.isFinite(expires)?expires:Date.now()+(signed.ttl_seconds||60)*1000};
   })();sessionRefresh=work;
@@ -95,6 +96,7 @@ function clearLoiMemory(){
 }
 function applyBootstrap(input){
   const b=input?.bootstrap||input;
+  const previousCalendarVersion=version;
   researchBriefs.clear();
   if(!b?.actor?.id||!normalizeRole(b.actor.role)||!b.state)throw Error('The service returned an incomplete signed workspace.');
   workspaceLoadSequence++;workspacePhase=b.workspacePhase==='calendar'?'calendar':'full';workspaceLoadError=null;
@@ -121,6 +123,7 @@ function applyBootstrap(input){
   if(!loiTargetsEnabled())delete S.loiTargets;else{S.loiTargets=b.state.loiTargets||{targets:[],savedPrograms:null,savedStatus:'unavailable'};loiSavedPage=null;}
 
   if(!loiCompositionEnabled())delete S.loiPreferences;
+  if(sameActor&&hadCalendar&&previousCalendarVersion!==b.version)invalidateCalendarSnapshots();
   S.reviewQueue=b.state.reviewQueue||[];S.mentorAssigned=b.state.mentorAssigned||[];S.changes=b.state.changes||[];
   S.contrib={missions:{},submissions:[],ledger:[],grants:{},...(b.state.contrib||{})};
   S.policy={audit:[],suspended:{},...(b.state.policy||{})};S.lastVisit=b.state.lastVisit||now();
@@ -299,12 +302,11 @@ async function boot(){
   const entry=parseInterviewIQEntry(location.search);
   try{
     if(!session||session.expiresAt<Date.now()+15000)await refreshSession();
-    const prefetched=beginCalendarBootRead(sequence);
     let b;try{b=await apiFetch('/bootstrap?view=calendar');}catch(error){if(error.status===400&&error.code==='invalid_query'||error.status===503&&error.code==='calendar_unavailable')b=await apiFetch('/bootstrap');else throw error;}
-    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar(prefetched);render();const identity=actor.id,epoch=sessionEpoch;
+    if(sequence!==bootSequence)return;applyBootstrap(b);const calendarRead=warmCalendar();render();const identity=actor.id,epoch=sessionEpoch;
     applyInterviewIQEntry(entry,identity,epoch);
     // Complete optional workspace details after the visible cohort read, not in competition with it.
-    void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace();});
+    void Promise.resolve(calendarRead).then(()=>{if(sequence===bootSequence&&actor?.id===identity&&sessionEpoch===epoch)void completeWorkspace().then(()=>scheduleCalendarPrefetch());});
   }catch(error){if(sequence===bootSequence)lockWorkspace(error.message);}
 }
 
