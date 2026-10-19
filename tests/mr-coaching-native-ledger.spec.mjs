@@ -21,7 +21,7 @@ function command(name,args) {
 const connection=['-h',socket,'-p','55439','-d','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1'];
 function sql(statement) { return command('psql',[...connection,'-c',statement]).trim(); }
 function check(value,label) { assertions++; assert.ok(value,label); }
-function rpc(name,payload) { return JSON.parse(sql(`set role service_role; select to_jsonb(public.${name}('${JSON.stringify(payload).replaceAll("'","''")}'::jsonb));`)); }
+function rpc(name,payload) { const result=sql(`set role service_role; select to_jsonb(public.${name}('${JSON.stringify(payload).replaceAll("'","''")}'::jsonb));`);return result?JSON.parse(result):null; }
 function reject(name,payload,pattern) { assertions++; assert.throws(()=>rpc(name,payload),pattern); }
 function parallel(statement) {
  return new Promise((resolveResult)=>{ const child=spawn(bin+'psql',[...connection,'-c',statement],{stdio:['ignore','pipe','pipe']}); let out='';let error='';
@@ -40,12 +40,13 @@ function order(i,{sku='single',gateway='stripe',coupon='MATCHREADY2026',wp=9001}
 }
 function paid(o) { const p={...o,source:'canonical_woo_verified',event_type:'payment_complete',woo_status:'completed',is_paid:true,
  event_id:`event-${o.order_id}`,financial_fingerprint:digest(`bank-${o.order_id}`),payment_verified_at:new Date().toISOString()}; return p; }
-function reset() { sql('truncate mr_coaching.operations,mr_coaching.mutation_context,mr_coaching.services,mr_coaching.financial_observations,mr_coaching.financial_evidence,mr_coaching.terminal_unpaid_evidence,mr_coaching.activation_outbox,mr_coaching.orders,public.mm_appointment_audit_log,public.mm_appointment_notifications,public.mm_scheduler_idempotency_keys,public.mm_appointments cascade;'); }
+function reset() { sql('truncate mr_coaching.refund_evidence,mr_coaching.operations,mr_coaching.mutation_context,mr_coaching.services,mr_coaching.financial_observations,mr_coaching.financial_evidence,mr_coaching.terminal_unpaid_evidence,mr_coaching.activation_outbox,mr_coaching.orders,public.mm_appointment_audit_log,public.mm_appointment_notifications,public.mm_scheduler_idempotency_keys,public.mm_appointments cascade;'); }
 try {
  command('initdb',['-D',data,'--auth-local=trust','--auth-host=reject','--no-locale','--encoding=UTF8']);
  command('pg_ctl',['-D',data,'-l',join(dir,'postgres.log'),'-o',`-k ${socket} -p 55439 -c listen_addresses='' -c fsync=off`,'-w','start']); started=true;
  command('psql',[...connection,'-f',join(root,'tests/fixtures/mr-coaching-native-base.sql')]);
  command('psql',[...connection,'-f',join(root,'supabase/migrations/20261019162700_mr_coaching_native_contract.sql')]);
+ command('psql',[...connection,'-f',join(root,'supabase/migrations/20261019171856_mr_ir_commerce_0001_booking_refund_safety.sql')]);
  const nonce={issuer:'canonical_woo',nonce:'synthetic_durable_nonce_001',timestamp:Math.floor(Date.now()/1000)};
  check(rpc('mm_coaching_claim_bridge_nonce',nonce)===true,'first durable nonce claim');
  check(rpc('mm_coaching_claim_bridge_nonce',nonce)===false,'durable nonce replay denied');
@@ -54,6 +55,8 @@ try {
  for(const role of ['anon','authenticated']) {
   assertions++; assert.throws(()=>sql(`set role ${role}; select public.mm_coaching_admit_order('{}');`),/permission denied/);
   assertions++; assert.throws(()=>sql(`set role ${role}; select * from mr_coaching.orders;`),/permission denied/);
+  assertions++; assert.throws(()=>sql(`set role ${role}; select public.mm_coaching_observe_refund('{}');`),/permission denied/);
+  assertions++; assert.throws(()=>sql(`set role ${role}; select public.mm_coaching_lookup_operation('{}');`),/permission denied/);
  }
  sql(`insert into public.mm_schedule_providers(id,display_name) values('${provider}','LOCAL SYNTHETIC PROVIDER');
  insert into public.mm_appointment_types(id,slug,name,duration_minutes,active,status,min_notice_minutes,max_booking_window_days)
@@ -130,10 +133,11 @@ try {
  check(rpc('mm_coaching_verified_payment',paid(stripe)).state==='review','contradictory late money retained for review after release');
  reject('mm_coaching_release_unpaid_order',terminal,/financial_evidence_prevents_unpaid_release/);
  reset();
- const pack=order('five',{sku:'five'}); rpc('mm_coaching_admit_order',pack); rpc('mm_coaching_verified_payment',paid(pack));
+ const pack=order('five',{sku:'five'}); const packPayment=paid(pack);rpc('mm_coaching_admit_order',pack); rpc('mm_coaching_verified_payment',packPayment);
  reject('mm_coaching_release_unpaid_order',{...terminal,...pack,release_event_id:'cannot-release-paid'},/financial_evidence_prevents_unpaid_release/);
  let model=rpc('mm_coaching_read_model',identity);
  check(model.packages[0].services.length===9,'five package exact1strategy5mocks3debriefs');
+ check(model.packages[0].snapshot_digest===pack.snapshot_digest&&model.packages[0].booking_allowed,'readmodel exposes owned original snapshot digest and booking state');
  check(model.eligible_services.length===3&&model.eligible_services.every(s=>s.appointment_type_id!==s.donor_appointment_type_id),'owned readmodel exposes isolated service/type/approval mapping');
  reject('mm_coaching_read_model',{...identity,actor_user_id:randomUUID()},/identity_binding_conflict/);
  const credits=Object.fromEntries(model.packages[0].services.map(s=>[`${s.service}:${s.ordinal}`,s]));
@@ -142,7 +146,7 @@ try {
    end_at:new Date(Date.parse(start)+credit.minutes*60000).toISOString(),...extra}; }
  const monday='2031-07-07T13:00:00Z';
  reject('mm_coaching_mutate_appointment',booking('mock:1','2031-07-07T16:00:00Z'),/strategy_must_precede_mock/);
- const strat=booking('strategy:1',monday); const stratResult=rpc('mm_coaching_mutate_appointment',strat);
+ const strat=booking('strategy:1',monday,{client_request_digest:digest('original-strategy-request')}); const stratResult=rpc('mm_coaching_mutate_appointment',strat);
  check(rpc('mm_coaching_mutate_appointment',strat).idempotency_replay,'booking retry replays native result');
  const mock=booking('mock:1','2031-07-07T16:00:00Z'); const mockResult=rpc('mm_coaching_mutate_appointment',mock);
  const direct={...booking('mock:2','2031-07-12T13:00:00Z'),student_user_id:actor,student_wp_user_id:9001,actor_type:'admin'};
@@ -159,9 +163,19 @@ try {
  reject('mm_coaching_mutate_appointment',{...strat,action:'cancel',idempotency_key:randomUUID(),appointment_id:stratResult.appointment_id},/dependent_mock_sequence_requires_review/);
  reject('mm_coaching_mutate_appointment',{...strat,action:'reschedule',idempotency_key:randomUUID(),appointment_id:stratResult.appointment_id,start_at:'2031-07-07T21:00:00Z',end_at:'2031-07-07T23:00:00Z'},/dependent_mock_sequence_requires_review/);
  reject('mm_coaching_mutate_appointment',booking('mock:2','2031-07-07T16:00:00Z'),/outside_actual_authorized_rule/);
- const canceled=rpc('mm_coaching_mutate_appointment',{...mock,action:'cancel',idempotency_key:randomUUID(),appointment_id:mockResult.appointment_id});
+ const cancelRequest={...mock,action:'cancel',idempotency_key:randomUUID(),client_request_digest:digest('original-cancel-request'),appointment_id:mockResult.appointment_id};
+ const canceled=rpc('mm_coaching_mutate_appointment',cancelRequest);
  check(canceled.ok,'native cancellation');
  check(sql(`select state from mr_coaching.services where id='${credits['mock:1'].id}'`)==='available','>=24h cancellation releases credit');
+ const cancelLookup={...identity,action:'cancel',idempotency_key:cancelRequest.idempotency_key,client_request_digest:cancelRequest.client_request_digest};
+ const historical=rpc('mm_coaching_lookup_operation',cancelLookup);
+ check(historical.result.idempotency_replay&&historical.result.appointment_id===mockResult.appointment_id&&historical.appointment_type.id===isolatedTypes.mock,'owned cancel lookup survives released credit and returns original type snapshot');
+ check(historical.payload.service_credit_id===credits['mock:1'].id&&historical.payload.student_user_id===actor,'replay preserves server resolved credit and actor');
+ reject('mm_coaching_lookup_operation',{...cancelLookup,client_request_digest:digest('changed')},/booking_replay_mismatch/);
+ reject('mm_coaching_lookup_operation',{...cancelLookup,actor_user_id:randomUUID()},/booking_replay_mismatch/);
+ reject('mm_coaching_lookup_operation',{...cancelLookup,actor_wp_user_id:999},/booking_replay_mismatch/);
+ reject('mm_coaching_lookup_operation',{...cancelLookup,action:'book'},/booking_replay_mismatch/);
+ check(rpc('mm_coaching_lookup_operation',{...cancelLookup,idempotency_key:randomUUID()})===null,'unknown owned operation returns null');
  check(sql('select count(*) from public.mm_appointment_audit_log')==='4','actual native audit survives composition; failed mutations roll back');
  check(sql('select count(*) from public.mm_appointment_notifications')==='4','actual native notification placeholders retained');
  // Existing non-coaching appointment conflict is enforced by base exclusion.
@@ -180,10 +194,64 @@ try {
  check(weeklyRace.some(r=>r.error.includes('weekly_coaching_capacity_exceeded')),'weekly parallel loser fails capacity');
  const actualWeek=sql("select sum(extract(epoch from(ap.end_at-ap.start_at))/60)::integer from mr_coaching.services s join public.mm_appointments ap on ap.id=s.appointment_id where ap.status in ('booked','confirmed','completed');");
  check(actualWeek==='1195','actual persisted weekly allocation never exceeds1200');
+ model=rpc('mm_coaching_read_model',identity);
+ const usage=model.weekly_usage.find(w=>Date.parse(w.week_start_utc)===Date.parse('2031-07-07T04:00:00Z'));
+ check(Number(usage?.used_minutes)===1195&&Date.parse(usage.week_end_utc)===Date.parse('2031-07-14T04:00:00Z'),'readmodel NY-week total matches atomic SQL cap across all allocated services');
+ const unowned=rpc('mm_coaching_read_model',{...identity,actor_user_id:randomUUID(),actor_wp_user_id:9002});
+ check(unowned.packages.length===0&&unowned.weekly_usage.some(w=>Number(w.used_minutes)===1195),'global capacity is not incorrectly scoped to one student');
  check(sql("select count(*) from public.mm_appointments where student_wp_user_id=700;")==='1','existing appointment retained');
  const legacy=rpc('mm_scheduler_book_appointment',{actor_user_id:actor,student_user_id:actor,student_wp_user_id:701,actor_type:'student',
   appointment_type_id:type,provider_id:provider,start_at:'2031-07-13T13:00:00Z',end_at:'2031-07-13T16:00:00Z',timezone:'America/New_York',idempotency_key:randomUUID()});
  check(legacy.ok,'unchanged original native RPC still books unlinked legacy type');
+ const beforeRefund={services:sql('select count(*) from mr_coaching.services'),appointments:sql('select count(*) from public.mm_appointments'),paid:sql("select paid_at::text from mr_coaching.orders where order_id='fixture-order-five'")};
+ const refund={...pack,source:'canonical_woo_verified',event_type:'refund_observed',event_id:'refund-event-one',refund_id:'woo-refund-one',refund_record_verified:true,cumulative_refund_cents:100};
+ for(const invalid of [{...refund,wp_customer_id:9002},{...refund,snapshot_digest:digest('other')},{...refund,refund_record_verified:false},
+   {...refund,cumulative_refund_cents:0},{...refund,cumulative_refund_cents:100.5},{...refund,cumulative_refund_cents:pack.total_cents+1}])
+   reject('mm_coaching_observe_refund',invalid,/canonical_refund_snapshot_required|refund_exceeds_original_total/);
+ const observed=rpc('mm_coaching_observe_refund',refund);
+ check(observed.refund_review_required&&observed.state==='paid'&&!observed.activation_allowed,'genuine refund quarantines while retaining truthful paid state');
+ check(rpc('mm_coaching_observe_refund',refund).idempotency_replay,'identical refund observation is idempotent');
+ reject('mm_coaching_observe_refund',{...refund,cumulative_refund_cents:101},/refund_replay_mismatch/);
+ rpc('mm_coaching_observe_refund',{...refund,event_id:'refund-event-two',refund_id:'woo-refund-two',cumulative_refund_cents:300});
+ const delayed=rpc('mm_coaching_observe_refund',{...refund,event_id:'refund-event-delayed',refund_id:'woo-refund-delayed',cumulative_refund_cents:200});
+ check(delayed.cumulative_refund_cents===300&&sql('select count(*) from mr_coaching.refund_evidence')==='3','append-only out-of-order refund evidence never decreases cumulative observed amount');
+ assertions++;assert.throws(()=>sql("set role service_role; update mr_coaching.refund_evidence set cumulative_refund_cents=1;"),/permission denied/);
+ check(!rpc('mm_coaching_verified_payment',packPayment).activation_allowed,'paid event replay after refund never reactivates or grants');
+ check(!rpc('mm_coaching_admit_order',pack).activation_allowed,'admission replay after refund never advertises activation');
+ model=rpc('mm_coaching_read_model',identity);
+ check(model.packages[0].refund_review_required&&!model.packages[0].booking_allowed&&model.eligible_services.length===0,'stale HQ session receives quarantined package history and no eligible service');
+ reject('mm_coaching_mutate_appointment',booking('mock:1','2031-07-14T13:00:00Z'),/coaching_refund_review_required/);
+ reject('mm_coaching_mutate_appointment',{...strat,action:'reschedule',idempotency_key:randomUUID(),appointment_id:stratResult.appointment_id,start_at:'2031-07-14T13:00:00Z',end_at:'2031-07-14T15:00:00Z'},/coaching_refund_review_required/);
+ check(rpc('mm_coaching_lookup_operation',cancelLookup).result.refund_review_required,'historical replay reports later quarantine without mutable-state checks');
+ check(sql('select count(*) from mr_coaching.services')===beforeRefund.services&&sql('select count(*) from public.mm_appointments')===beforeRefund.appointments
+   &&sql("select paid_at::text from mr_coaching.orders where order_id='fixture-order-five'")===beforeRefund.paid,'refund observation never deletes services/appointments or falsifies original paid timestamp');
+ const allocated=JSON.parse(sql(`select jsonb_build_object('id',s.id,'appointment_id',s.appointment_id,'start_at',ap.start_at,'end_at',ap.end_at) from mr_coaching.services s join public.mm_appointments ap on ap.id=s.appointment_id where s.service='mock' and s.state='reserved' limit 1`));
+ check(rpc('mm_coaching_mutate_appointment',{...identity,action:'cancel',idempotency_key:randomUUID(),service_credit_id:allocated.id,appointment_id:allocated.appointment_id,start_at:allocated.start_at,end_at:allocated.end_at}).ok,'owned safe native cancellation remains possible after refund');
+ check(sql("select status from mr_coaching.activation_outbox where order_id='fixture-order-five'")==='review','unsent activation outbox quarantined after refund without deleting evidence');
+ // Canonical Woo may persist a real refund before native payment activation
+ // succeeds. Its genuine refund observation is evidence, not a fabricated paid
+ // event or bank fingerprint, and must not strand a promo reservation forever.
+ const pendingRefundOrder=order('refund-before-native-paid',{wp:9010});rpc('mm_coaching_admit_order',pendingRefundOrder);
+ const pendingRefund={...pendingRefundOrder,source:'canonical_woo_verified',event_type:'refund_observed',event_id:'refund-event-before-native-paid',refund_id:'woo-refund-before-native-paid',refund_record_verified:true,cumulative_refund_cents:100};
+ reject('mm_coaching_observe_refund',{...pendingRefund,order_id:'never-admitted'},/admitted_order_required/);
+ reject('mm_coaching_observe_refund',{...pendingRefund,snapshot_digest:digest('forged')},/canonical_refund_snapshot_required/);
+ const beforeActivationRefund=rpc('mm_coaching_observe_refund',pendingRefund);
+ check(beforeActivationRefund.state==='review'&&beforeActivationRefund.refund_review_required&&!beforeActivationRefund.activation_allowed,'refund before native payment quarantines reserved admission without marking paid or unpaid-released');
+ check(rpc('mm_coaching_observe_refund',pendingRefund).idempotency_replay,'pre-activation refund retry is idempotent');
+ check(sql("select count(*) from mr_coaching.orders where promotional and state='reserved'")==='0','pre-activation refund no longer consumes an active promotional reservation');
+ check(sql("select count(*) from mr_coaching.services where order_id='fixture-order-refund-before-native-paid'")==='0'
+   &&sql("select count(*) from mr_coaching.financial_evidence where order_id='fixture-order-refund-before-native-paid'")==='0'
+   &&sql("select count(*) from mr_coaching.activation_outbox where order_id='fixture-order-refund-before-native-paid'")==='0'
+   &&sql("select (paid_at is null)::text from mr_coaching.orders where order_id='fixture-order-refund-before-native-paid'")==='true','pre-activation refund invents no credits, activation, paid timestamp or settlement fingerprint');
+ check(!rpc('mm_coaching_admit_order',pendingRefundOrder).activation_allowed,'quarantined admission replay cannot restore reservation or activate');
+ const releasedRefundOrder=order('refund-after-release',{wp:9011});rpc('mm_coaching_admit_order',releasedRefundOrder);
+ rpc('mm_coaching_release_unpaid_order',{...terminal,...releasedRefundOrder,release_event_id:'terminal-before-refund-observation'});
+ const releasedRefund={...releasedRefundOrder,source:'canonical_woo_verified',event_type:'refund_observed',event_id:'refund-event-after-release',refund_id:'woo-refund-after-release',refund_record_verified:true,cumulative_refund_cents:200};
+ const afterReleaseRefund=rpc('mm_coaching_observe_refund',releasedRefund);
+ check(afterReleaseRefund.state==='released'&&afterReleaseRefund.refund_review_required&&!afterReleaseRefund.activation_allowed,'post-release refund observation retains released history with explicit quarantine');
+ check(rpc('mm_coaching_observe_refund',releasedRefund).idempotency_replay&&sql("select count(*) from mr_coaching.refund_evidence where order_id='fixture-order-refund-after-release'")==='1','post-release observation remains append-only and retry-safe');
+ check(sql("select count(*) from mr_coaching.orders where promotional and state='reserved'")==='0'
+   &&sql("select count(*) from mr_coaching.services where order_id='fixture-order-refund-after-release'")==='0','post-release refund creates neither reservation nor access');
  check(sql('select count(*) from mr_coaching.mutation_context')==='0','transaction-bound credit context leaves no reusable authority');
  console.log(`PASS ${assertions} real local PostgreSQL assertions against exact foundation+current3nativeRPC source; live data/runtime integration UNVERIFIED.`);
 } finally {

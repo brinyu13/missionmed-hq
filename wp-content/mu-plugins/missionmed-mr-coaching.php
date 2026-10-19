@@ -177,6 +177,21 @@ function mmed_mr_coaching_order_snapshot($order, $require_release = true) {
     return $snapshot;
 }
 
+/** Accepted Zelle verifier asks only for otherwise unknown product identities.
+ * Admission binds the new product/order; no surrogate course ID or direct grant. */
+function mmed_mr_coaching_zelle_identity($prior, $order) {
+    if ($prior !== false) { return $prior; }
+    try {
+        $snapshot = mmed_mr_coaching_order_snapshot($order, false);
+        if (!$snapshot || $snapshot['gateway'] !== 'bacs'
+            || $order->get_meta('_mmed_mr_coaching_admitted', true) !== 'yes'
+            || !hash_equals($snapshot['snapshot_digest'], (string) $order->get_meta('_mmed_mr_coaching_snapshot', true))) { return false; }
+        return array('kind' => 'private_coaching', 'product_id' => $snapshot['product_id'],
+            'variation_id' => 0, 'snapshot_digest' => $snapshot['snapshot_digest']);
+    } catch (Throwable $e) { return false; }
+}
+add_filter('mmed_mr_coaching_zelle_identity', 'mmed_mr_coaching_zelle_identity', 10, 2);
+
 /** Scoped service capability only. No database, Stripe or Gmail credential enters WordPress. */
 function mmed_mr_coaching_bridge($action, array $payload) {
     $config = mmed_mr_coaching_config();
@@ -247,8 +262,15 @@ function mmed_mr_coaching_payment_complete($order_id) {
     if (!$order) { return; }
     mmed_mr_coaching_clear_projection_cache($order->get_customer_id());
     try {
-        $snapshot = mmed_mr_coaching_order_snapshot($order);
+        $snapshot = mmed_mr_coaching_order_snapshot($order, false);
         if (!$snapshot) { return; }
+        if (mmed_mr_coaching_cents($order->get_total_refunded()) > 0) {
+            // Never turn a payment replay into renewed access after any refund.
+            $order->update_meta_data('_mmed_mr_coaching_state', 'refund_review_required');
+            $order->save();
+            mmed_mr_coaching_reconcile_refunds($order_id);
+            return;
+        }
         if (!$order->is_paid() || !in_array($order->get_status(), array('processing', 'completed'), true)
             || $order->get_meta('_mmed_mr_coaching_admitted', true) !== 'yes'
             || !hash_equals((string) $order->get_meta('_mmed_mr_coaching_snapshot', true), $snapshot['snapshot_digest'])) {
@@ -353,20 +375,127 @@ function mmed_mr_coaching_matrix_modules($value, $user_id, $key, $single) {
 function mmed_mr_coaching_clear_projection_cache($user_id) {
     unset($GLOBALS['mmed_coaching_projection_cache'][(int) $user_id]);
 }
-add_action('woocommerce_order_refunded', function ($order_id) {
+/** Observe actual persisted Woo refund records, never issue a refund or claim
+ * bank settlement. Immutable event bodies survive bridge failure/retries. */
+function mmed_mr_coaching_refund_observed($order_id, $refund_id) {
     $order = wc_get_order($order_id);
-    if ($order) { mmed_mr_coaching_clear_projection_cache($order->get_customer_id()); }
-});
+    $refund = wc_get_order($refund_id);
+    if (!$order || !$refund || !is_a($refund, 'WC_Order_Refund')
+        || (int) $refund->get_parent_id() !== (int) $order_id) { return; }
+    try {
+        $snapshot = mmed_mr_coaching_order_snapshot($order, false);
+        if (!$snapshot || $order->get_meta('_mmed_mr_coaching_admitted', true) !== 'yes'
+            || !hash_equals((string) $order->get_meta('_mmed_mr_coaching_snapshot', true), $snapshot['snapshot_digest'])
+            || mmed_mr_coaching_cents($refund->get_amount()) <= 0) { return; }
+        mmed_mr_coaching_clear_projection_cache($order->get_customer_id());
+        $order->update_meta_data('_mmed_mr_coaching_state', 'refund_review_required');
+        $pending = $order->get_meta('_mmed_mr_coaching_refund_events', true);
+        $pending = is_array($pending) ? $pending : array();
+        $key = 'woo-refund:' . $order_id . ':' . $refund_id . ':v1';
+        if (!isset($pending[$key])) {
+            $cumulative = mmed_mr_coaching_cents($order->get_total_refunded());
+            if ($cumulative <= 0 || $cumulative > $snapshot['total_cents']) { throw new RuntimeException('Refund requires staff review.'); }
+            $pending[$key] = array('state' => 'pending', 'payload' => array_merge($snapshot, array(
+                'source' => 'canonical_woo_verified', 'event_type' => 'refund_observed', 'event_id' => $key,
+                'refund_id' => (string) $refund_id, 'refund_record_verified' => true,
+                'cumulative_refund_cents' => $cumulative,
+            )));
+        }
+        $order->update_meta_data('_mmed_mr_coaching_refund_events', $pending);
+        $order->save();
+        if (!wp_next_scheduled('mmed_mr_coaching_reconcile_refunds', array((int) $order_id))) {
+            wp_schedule_single_event(mmed_mr_coaching_now() + 60, 'mmed_mr_coaching_reconcile_refunds', array((int) $order_id));
+        }
+        mmed_mr_coaching_reconcile_refunds($order_id);
+    } catch (Throwable $e) {
+        // Actual refund/accounting is not rolled back by an integration outage.
+        $order->update_meta_data('_mmed_mr_coaching_state', 'refund_review_required');
+        $order->save();
+    }
+}
+function mmed_mr_coaching_reconcile_refunds($order_id) {
+    $order = wc_get_order($order_id);
+    if (!$order) { return; }
+    $pending = $order->get_meta('_mmed_mr_coaching_refund_events', true);
+    if (!is_array($pending)) { return; }
+    foreach ($pending as $key => $event) {
+        if (($event['state'] ?? '') === 'acknowledged') { continue; }
+        try {
+            $result = mmed_mr_coaching_bridge('observe_refund', $event['payload']);
+            if ((string) ($result['order_id'] ?? '') !== (string) $order_id
+                || ($result['refund_review_required'] ?? false) !== true
+                || ($result['activation_allowed'] ?? true) !== false) { throw new RuntimeException('Refund observation requires review.'); }
+            $pending[$key]['state'] = 'acknowledged';
+            $order->update_meta_data('_mmed_mr_coaching_refund_events', $pending);
+            $order->save();
+        } catch (Throwable $e) { /* Keep durable intent and truthful accounting. */ }
+    }
+}
+add_action('woocommerce_order_refunded', 'mmed_mr_coaching_refund_observed', 10, 2);
+add_action('mmed_mr_coaching_reconcile_refunds', 'mmed_mr_coaching_reconcile_refunds', 10);
 add_action('woocommerce_order_status_changed', function ($order_id) {
     $order = wc_get_order($order_id);
     if ($order) { mmed_mr_coaching_clear_projection_cache($order->get_customer_id()); }
+});
+
+/** Read-only server capability. No customer cookie or payer submission can
+ * authorize it. Only exact owned order/digest bindings are returned; no PII or
+ * financial evidence. Domain separation prevents reusing a Woo mutation HMAC. */
+function mmed_mr_coaching_access_status($request) {
+    $secret = (string) (mmed_mr_coaching_config()['bridge_secret'] ?? '');
+    $raw = (string) $request->get_body();
+    $timestamp = (string) $request->get_header('x-mmed-coaching-timestamp');
+    $nonce = (string) $request->get_header('x-mmed-coaching-nonce');
+    $signature = (string) $request->get_header('x-mmed-coaching-signature');
+    $denied = function () { return new WP_Error('coaching_status_unavailable', 'Coaching access could not be verified.', array('status' => 403)); };
+    if (strlen($secret) < 32 || strlen($raw) > 32768 || !preg_match('/^[0-9]{10}$/D', $timestamp)
+        || abs(mmed_mr_coaching_now() - (int) $timestamp) > 60 || !preg_match('/^[A-Za-z0-9_-]{16,128}$/D', $nonce)
+        || !preg_match('/^[a-f0-9]{64}$/D', $signature)
+        || !hash_equals(hash_hmac('sha256', "mmed-coaching-access-request-v1\n" . $timestamp . "\n" . $nonce . "\n" . $raw, $secret), $signature)) { return $denied(); }
+    $data = json_decode($raw, true);
+    if (!is_array($data) || !is_int($data['actor_wp_user_id'] ?? null) || $data['actor_wp_user_id'] <= 0
+        || !is_string($data['actor_user_id'] ?? null)
+        || !preg_match('/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iD', $data['actor_user_id'])
+        || !is_array($data['bindings'] ?? null) || count($data['bindings']) > 100) { return $denied(); }
+    $bindings = array(); $seen = array();
+    foreach ($data['bindings'] as $binding) {
+        if (!is_array($binding) || !is_string($binding['order_id'] ?? null)
+            || !preg_match('/^[1-9][0-9]{0,17}$/D', $binding['order_id'])
+            || !is_string($binding['snapshot_digest'] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $binding['snapshot_digest'])
+            || isset($seen[$binding['order_id']])) { return $denied(); }
+        $seen[$binding['order_id']] = true;
+        $active = false;
+        try {
+            $order = wc_get_order($binding['order_id']);
+            if ($order && (int) $order->get_customer_id() === $data['actor_wp_user_id']
+                && $order->is_paid() && in_array($order->get_status(), array('processing', 'completed'), true)
+                && mmed_mr_coaching_cents($order->get_total_refunded()) === 0
+                && $order->get_meta('_mmed_mr_coaching_state', true) === 'active') {
+                $snapshot = mmed_mr_coaching_order_snapshot($order, false);
+                $active = $snapshot && hash_equals($binding['snapshot_digest'], $snapshot['snapshot_digest'])
+                    && hash_equals($binding['snapshot_digest'], (string) $order->get_meta('_mmed_mr_coaching_snapshot', true))
+                    && hash_equals($binding['snapshot_digest'], (string) $order->get_meta('_mmed_mr_coaching_fulfillment_ack', true));
+            }
+        } catch (Throwable $e) { $active = false; }
+        $bindings[] = array('order_id' => $binding['order_id'], 'snapshot_digest' => $binding['snapshot_digest'], 'active' => (bool) $active);
+    }
+    $reply = wp_json_encode(array('nonce' => $nonce, 'request_digest' => hash('sha256', $raw),
+        'actor_user_id' => $data['actor_user_id'], 'actor_wp_user_id' => $data['actor_wp_user_id'],
+        'checked_at' => mmed_mr_coaching_now(), 'bindings' => $bindings));
+    return new WP_REST_Response(array('payload' => base64_encode($reply),
+        'signature' => hash_hmac('sha256', "mmed-coaching-access-response-v1\n" . $reply, $secret)), 200,
+        array('Cache-Control' => 'no-store, private'));
+}
+add_action('rest_api_init', function () {
+    register_rest_route('mmed-coaching/v1', '/access-status', array('methods' => 'POST',
+        'permission_callback' => '__return_true', 'callback' => 'mmed_mr_coaching_access_status'));
 });
 
 function mmed_mr_coaching_acknowledge_matrix($prior, $order, $key, $result) {
     if (!class_exists('MMED_Access_Gate') || !method_exists('MMED_Access_Gate', 'get_user_allowed_modules')
         || !$order->is_paid() || ($result['state'] ?? '') !== 'paid'
         || ($result['activation_allowed'] ?? false) !== true || mmed_mr_coaching_cents($order->get_total_refunded()) !== 0) { return false; }
-    $snapshot = mmed_mr_coaching_order_snapshot($order);
+    $snapshot = mmed_mr_coaching_order_snapshot($order, false);
     return $snapshot && hash_equals('coaching-fulfillment:' . $order->get_id() . ':' . $snapshot['snapshot_digest'], $key)
         && hash_equals((string) $order->get_meta('_mmed_mr_coaching_snapshot', true), $snapshot['snapshot_digest']);
 }
@@ -377,26 +506,32 @@ add_filter('mmed_mr_coaching_fulfill_verified_order', 'mmed_mr_coaching_acknowle
  * money, change Woo paid status or touch an unrelated product/order. Cron's
  * liveness is a production acceptance gate, not assumed from this source. */
 function mmed_mr_coaching_reconcile_pending() {
-    if ((mmed_mr_coaching_config()['enabled'] ?? false) !== true) { return; }
     $page = max(1, min(1000000, (int) get_option('mmed_mr_coaching_sweep_page', 1)));
     $pending = wc_get_orders(array('limit' => 20, 'paginate' => true, 'page' => $page,
-        'status' => array('processing', 'completed'),
+        'status' => array('processing', 'completed', 'refunded'),
         'orderby' => 'date', 'order' => 'ASC', 'meta_query' => array('relation' => 'AND',
             array('key' => '_mmed_mr_coaching_admitted', 'value' => 'yes'),
             array('relation' => 'OR', array('key' => '_mmed_mr_coaching_state', 'compare' => 'NOT EXISTS'),
-                array('key' => '_mmed_mr_coaching_state', 'value' => array('fulfillment_pending', 'needs_review'), 'compare' => 'IN')))));
+                // Include acknowledged active packages: a refund may commit
+                // before its hook can persist the local review/event marker.
+                array('key' => '_mmed_mr_coaching_state', 'value' => array('active', 'fulfillment_pending', 'needs_review', 'refund_review_required'), 'compare' => 'IN')))));
     if (!is_object($pending) || !isset($pending->orders, $pending->max_num_pages) || !is_array($pending->orders)) { return; }
     // Advance before processing: one permanently unresolved page cannot starve
     // later paid orders. A subsequent cycle still revisits an interrupted page.
     update_option('mmed_mr_coaching_sweep_page', $page < (int) $pending->max_num_pages ? $page + 1 : 1, false);
-    foreach ($pending->orders as $order) { mmed_mr_coaching_payment_complete($order->get_id()); }
+    foreach ($pending->orders as $order) {
+        if (mmed_mr_coaching_cents($order->get_total_refunded()) > 0) {
+            // Recover a crash before the refund hook persisted its event body.
+            foreach ($order->get_refunds() as $refund) { mmed_mr_coaching_refund_observed($order->get_id(), $refund->get_id()); }
+        } else { mmed_mr_coaching_payment_complete($order->get_id()); }
+    }
 }
 add_filter('cron_schedules', function ($schedules) {
     $schedules['mmed_coaching_five_minutes'] = array('interval' => 300, 'display' => 'Coaching reconciliation');
     return $schedules;
 });
 add_action('init', function () {
-    if ((mmed_mr_coaching_config()['enabled'] ?? false) === true && !wp_next_scheduled('mmed_mr_coaching_reconcile_pending')) {
+    if (!empty(mmed_mr_coaching_config()['product_ids']) && !wp_next_scheduled('mmed_mr_coaching_reconcile_pending')) {
         wp_schedule_event(mmed_mr_coaching_now() + 60, 'mmed_coaching_five_minutes', 'mmed_mr_coaching_reconcile_pending');
     }
 });

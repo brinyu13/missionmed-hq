@@ -1,4 +1,5 @@
-import { createCoachingService } from './coaching.mjs';
+import { createHash } from 'node:crypto';
+import { checkCoachingAccess, createCoachingService } from './coaching.mjs';
 import { getSchedulerActor } from './auth.mjs';
 import { generateAvailabilitySlots } from './engine.mjs';
 
@@ -11,15 +12,20 @@ const meta = row => { try { return typeof row?.metadata === 'string' ? JSON.pars
 const coaching = row => String(row?.slug || '').startsWith('mr-coaching-') || Boolean(meta(row).mr_coaching_service);
 const kind = row => meta(row).mr_coaching_service || String(row?.slug || '').match(/^mr-coaching-(strategy|mock|debrief|intensive)-/)?.[1];
 const date = raw => { const d = new Date(raw); return Number.isFinite(d.getTime()) ? d : null; };
+const canonical = item => Array.isArray(item) ? item.map(canonical) : item && typeof item === 'object'
+  ? Object.fromEntries(Object.keys(item).sort().map(key => [key, canonical(item[key])])) : item;
+const NY = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+const localSerial = raw => { const p = Object.fromEntries(NY.formatToParts(new Date(raw)).map(x => [x.type, x.value]));
+  return Date.UTC(Number(p.year), Number(p.month)-1, Number(p.day), Number(p.hour), Number(p.minute), Number(p.second)); };
 function deny(code, message = 'Your coaching booking could not be confirmed.', status = 403) {
   const error = new Error(message); error.code = code; error.status = status; throw error;
 }
 
 // Request-scoped adapter over the existing repository, native engine and paid
 // RPCs. No routes, external providers, identity synchronization or alternate store.
-export function createCoachingIntegration({ repository, session, actor, env = process.env } = {}) {
+export function createCoachingIntegration({ repository, session, actor, env = process.env, fetchImpl = globalThis.fetch } = {}) {
   const enabled = env.MMED_COACHING_ENABLED === '1';
-  let modelPromise; let busyPromise; let blackoutsPromise;
+  let modelPromise; let busyPromise; let blackoutsPromise; let accessPromise;
   const appointments = new Map();
   const types = new Map();
   const rules = new Map();
@@ -45,6 +51,17 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
       return result;
     });
     return modelPromise;
+  }
+  async function access(data, fresh = false) {
+    if (fresh) accessPromise = undefined;
+    accessPromise ||= checkCoachingAccess({ actor: trustedActor(), secret: env.MMED_COACHING_WOO_SECRET, fetchImpl,
+      bindings: data.packages.map(pack => ({ order_id: pack.order_id, snapshot_digest: pack.snapshot_digest })) });
+    return accessPromise;
+  }
+  async function accessibleModel(data, fresh = false) {
+    const truth = await access(data, fresh);
+    return { ...data, packages: data.packages.map(pack => ({ ...pack,
+      booking_allowed: pack.booking_allowed !== false && pack.refund_review_required !== true && truth.get(pack.order_id) === true })) };
   }
   async function type(id) {
     if (!id) return null;
@@ -86,7 +103,7 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
   }
   async function availableCredits(data, serviceKind, start = Infinity) {
     const result = [];
-    for (const credit of credits(data).filter(item => item.service === serviceKind && item.state === 'available')) {
+    for (const credit of credits(data).filter(item => item.service === serviceKind && item.state === 'available' && item.package.booking_allowed !== false)) {
       const threshold = await strategyEnd(credit);
       if (threshold !== Infinity && threshold <= start) result.push(credit);
     }
@@ -104,13 +121,27 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
         && same(r.appointment_type_id, approval.donor_appointment_type_id) && r.active !== false && r.status === 'active' && !r.deleted_at && !r.rrule) || null));
     return rules.get(key);
   }
+  async function scan(table, params, code) {
+    if (typeof repository.restSelect !== 'function') deny(code, 'Availability needs staff review.', 503);
+    const rows = []; const ids = new Set(); let offset = 0;
+    for (let page = 0; page < 101; page++) {
+      const batch = await repository.restSelect(table, { ...params, order: 'id.asc', limit: 200, offset });
+      if (!Array.isArray(batch) || batch.length > 200) deny(code, 'Availability needs staff review.', 503);
+      if (!batch.length) return rows;
+      if (page === 100) deny(code, 'Availability needs staff review.', 503);
+      for (const row of batch) {
+        if (!row.id || ids.has(String(row.id))) deny(code, 'Availability needs staff review.', 503);
+        ids.add(String(row.id)); rows.push(row);
+      }
+      offset += batch.length; // Server-side caps may return a short non-final page.
+    }
+    deny(code, 'Availability needs staff review.', 503);
+  }
   async function busy() {
-    busyPromise ||= Promise.all([...ACTIVE].map(status => repository.adminListAppointments({ status }))).then(groups => {
-      // Existing repository discards pagination/count headers. At the known API
-      // cap, stop rather than present an incomplete scan as available capacity.
-      if (groups.some(rows => !Array.isArray(rows) || rows.length >= 1000)) deny('coaching_busy_scan_incomplete', 'Availability needs staff review.', 503);
+    busyPromise ||= scan('mm_appointments', { select: 'id,status,start_at,end_at,provider_id,resource_id,buffer_before_minutes,buffer_after_minutes',
+      deleted_at: 'is.null', status: 'in.(held,booked,confirmed)' }, 'coaching_busy_scan_incomplete').then(batch => {
       const rows = new Map();
-      for (const ap of groups.flat()) if (ACTIVE.has(ap.status) && !ap.deleted_at) rows.set(String(ap.id), {
+      for (const ap of batch) if (ACTIVE.has(ap.status) && !ap.deleted_at) rows.set(String(ap.id), {
         id: ap.id, status: ap.status, start_at: ap.start_at, end_at: ap.end_at, provider_id: ap.provider_id, resource_id: ap.resource_id,
         buffer_before_minutes: ap.buffer_before_minutes || 0, buffer_after_minutes: ap.buffer_after_minutes || 0,
       });
@@ -119,8 +150,8 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
     return busyPromise;
   }
   async function blackouts() {
-    blackoutsPromise ||= repository.listBlackoutWindows({}).then(rows => {
-      if (!Array.isArray(rows) || rows.length >= 1000) deny('coaching_blackout_scan_incomplete', 'Availability needs staff review.', 503);
+    blackoutsPromise ||= scan('mm_blackout_windows', { select: 'id,provider_id,resource_id,appointment_type_id,start_at,end_at,status',
+      deleted_at: 'is.null', status: 'eq.active' }, 'coaching_blackout_scan_incomplete').then(rows => {
       return rows.map(b => ({ provider_id: b.provider_id, resource_id: b.resource_id, appointment_type_id: b.appointment_type_id,
         start_at: b.start_at, end_at: b.end_at, active: b.active, status: b.status }));
     });
@@ -137,8 +168,10 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
     const start = date(value(filters, 'start_date', 'startDate', 'start'));
     const end = date(value(filters, 'end_date', 'endDate', 'end'));
     if (!start || !end || end <= start || end - start > 93 * 86400000) deny('coaching_date_range_required', 'Choose a valid date range.', 400);
-    const pool = target ? [target] : await availableCredits(data, kind(rawType));
+    const pool = target ? (target.package.booking_allowed === false ? [] : [target]) : await availableCredits(data, kind(rawType));
     if (!pool.length) return [];
+    if (!Array.isArray(data.weekly_usage)) deny('coaching_weekly_usage_unavailable', 'Availability needs staff review.', 503);
+    const prior = target?.appointment_id ? await appointment(target.appointment_id) : null;
     const existing = (await busy()).filter(ap => !target || !same(ap.id, target.appointment_id)).map(({ id, ...safe }) => safe);
     const allBlackouts = await blackouts();
     const result = new Map();
@@ -158,6 +191,16 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
         providerId: approval.provider_id, resourceId: r.resource_id || '', startDate: from, endDate: until,
         blackouts: scopedBlackouts, existingAppointments: existing });
       for (const slot of generated) {
+        const week = data.weekly_usage.find(w => Date.parse(w.week_start_utc) <= Date.parse(slot.startAt) && Date.parse(w.week_end_utc) > Date.parse(slot.startAt));
+        const usage = week ? Number(week.used_minutes) : 0;
+        if (!Number.isFinite(usage) || usage < 0) deny('coaching_weekly_usage_unavailable', 'Availability needs staff review.', 503);
+        const reclaimed = week && prior && ACTIVE.has(prior.status) && Date.parse(prior.start_at) >= Date.parse(week.week_start_utc)
+          && Date.parse(prior.start_at) < Date.parse(week.week_end_utc) ? (Date.parse(prior.end_at) - Date.parse(prior.start_at)) / 60000 : 0;
+        if (usage - reclaimed + Number(rawType.duration_minutes) > 1200) continue;
+        // Same NY-week boundary rule as the atomic SQL cap, including DST.
+        const localStart = new Date(localSerial(slot.startAt));
+        const nextMonday = Date.UTC(localStart.getUTCFullYear(), localStart.getUTCMonth(), localStart.getUTCDate() + (7 - ((localStart.getUTCDay() + 6) % 7)));
+        if (localSerial(slot.endAt) > nextMonday) continue;
         let allowed = false;
         for (const credit of pool) if (await strategyEnd(credit) <= Date.parse(slot.startAt)
           && await dependentMockStart(credit) >= Date.parse(slot.endAt)) { allowed = true; break; }
@@ -171,12 +214,12 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
       const raw = new Map(rawTypes.map(row => [String(row.id), row]));
       if (!enabled) return sanitizedTypes.filter(row => !coaching(raw.get(String(row.id)) || row));
       let data;
-      try { data = await model(); } catch { return sanitizedTypes.filter(row => !coaching(raw.get(String(row.id)) || row)); }
+      try { data = await accessibleModel(await model()); } catch { return sanitizedTypes.filter(row => !coaching(raw.get(String(row.id)) || row)); }
       const result = [];
       for (const row of sanitizedTypes) {
         const source = raw.get(String(row.id)) || row;
         if (!coaching(source)) { result.push(row); continue; }
-        const remaining = credits(data).filter(c => c.service === kind(source) && c.state === 'available').length;
+        const remaining = credits(data).filter(c => c.service === kind(source) && c.state === 'available' && c.package.booking_allowed !== false).length;
         const eligible = approvals(data, source).length > 0 && (await availableCredits(data, kind(source))).length > 0;
         result.push({ ...row, division: 'mission-residency', coaching_service: kind(source) || 'unavailable', coaching_remaining: remaining,
           entitlement: { status: eligible ? 'eligible' : 'locked', locked: !eligible,
@@ -188,7 +231,7 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
     async availability(filters = {}, rawAppointmentType) {
       if (!coaching(rawAppointmentType)) return null;
       if (!enabled) return [];
-      const data = await model();
+      const data = await accessibleModel(await model());
       const apId = value(filters, 'appointment_id', 'appointmentId', 'exclude_appointment_id');
       const existing = apId ? await appointment(apId) : null;
       const target = existing ? await reservedCredit(data, existing) : apId ? await reservedCredit(data, null) : null;
@@ -208,10 +251,15 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
         if (!coaching(rawType) && requestedType && coaching(await type(requestedType))) deny('coaching_type_change_forbidden');
       }
       if (!coaching(rawType)) return null;
-      const trusted = trustedActor(); const data = await model();
+      const trusted = trustedActor();
       if (requestedType && !same(requestedType, rawType.id)) deny('coaching_type_change_forbidden');
       const key = String(value(payload, 'idempotency_key', 'idempotencyKey') || '').trim();
       if (!key) deny('coaching_idempotency_required', 'Please retry the booking with its original request identifier.', 400);
+      const digest = createHash('sha256').update(JSON.stringify(canonical({ action, payload }))).digest('hex');
+      const replayed = await service.lookupOperation(session, { action, idempotency_key: key, client_request_digest: digest });
+      if (replayed) return { result: replayed.result, appointmentType: replayed.appointment_type, payload: replayed.payload };
+      let data = await model();
+      if (action !== 'cancel') data = await accessibleModel(data);
       const start = action === 'cancel' ? date(actual.start_at) : date(value(payload, 'start_at', 'startAt'));
       const end = action === 'cancel' ? date(actual.end_at) : date(value(payload, 'end_at', 'endAt'));
       if (!start || !end || end <= start) deny('coaching_time_range_required', 'Choose a valid appointment time.', 400);
@@ -228,6 +276,7 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
       }
       if (!credit) credit = (await availableCredits(data, kind(rawType), start.getTime()))[0];
       if (!credit) deny('coaching_paid_credit_required', 'No eligible paid coaching credit is available.');
+      if (action !== 'cancel' && credit.package.booking_allowed === false) deny('coaching_package_review_required');
       if (action === 'cancel' && await dependentMockStart(credit) !== Infinity) deny('coaching_strategy_has_dependent_mocks', 'Update your later mocks before canceling strategy.');
       const approval = action === 'cancel' ? null : approvals(data, rawType, provider).find(a => date(a.approved_from) <= start && date(a.approved_until) >= end);
       if (action !== 'cancel' && !approval) deny('coaching_service_approval_required');
@@ -240,7 +289,7 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
         const offered = await slots({ start_date: start.toISOString(), end_date: end.toISOString(), provider_id: approval.provider_id }, rawType, data, action === 'reschedule' ? credit : null);
         if (!offered.some(slot => Date.parse(slot.startAt) === start.getTime() && Date.parse(slot.endAt) === end.getTime())) deny('coaching_native_slot_unavailable', 'That time is no longer available. Please choose another.');
       }
-      const resolved = { action, idempotency_key: key, service_credit_id: credit.id, approval_id: approval?.approval_id || null,
+      const resolved = { action, idempotency_key: key, client_request_digest: digest, service_credit_id: credit.id, approval_id: approval?.approval_id || null,
         appointment_type_id: rawType.id, provider_id: approval?.provider_id || actual.provider_id, resource_id: resource, schedule_event_id: actual?.schedule_event_id || null,
         start_at: start.toISOString(), end_at: end.toISOString(), timezone: r.timezone || 'America/New_York',
         actor_type: 'student', actor_user_id: trusted.userId, actor_wp_user_id: trusted.wpUserId,
@@ -248,6 +297,7 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
       if (actual) resolved.appointment_id = actual.id;
       if (value(payload, 'intake_answers', 'intakeAnswers')) resolved.intake_answers = value(payload, 'intake_answers', 'intakeAnswers');
       if (payload.reason !== undefined) resolved.reason = payload.reason;
+      if (action !== 'cancel' && (await access(data, true)).get(credit.package.order_id) !== true) deny('coaching_package_review_required');
       const result = await service.mutateAppointment(session, resolved);
       return { result, appointmentType: rawType, payload: resolved };
     },

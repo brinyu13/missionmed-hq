@@ -3,7 +3,9 @@ import { getSchedulerActor, assertSchedulerMutationIdentity } from './auth.mjs';
 import { createSchedulerRepository } from './persistence.mjs';
 
 const PREFIX = '/api/scheduler/coaching/';
-const PATHS = new Set(['service', 'packages', 'appointments', 'availability-approval']);
+// Student mutations use only the existing native book/reschedule/cancel routes,
+// which retain meeting and notification post-mutation integrations.
+const PATHS = new Set(['service', 'availability-approval']);
 const deny = (code, status = 403) => { const e = new Error(code); e.code = code; e.status = status; throw e; };
 
 /** Dedicated bounded reader preserves exact HMAC bytes. Never logs payloads. */
@@ -57,17 +59,14 @@ export async function handleCoachingHttp(request, response, url, context = {}) {
     }
     // Session comes only from the existing server-owned authenticated exchange.
     await actorResolver(context.session);
-    if (action === 'packages') {
-      if (request.method !== 'GET') deny('coaching_method_not_allowed', 405);
-      send(200, { ok: true, data: await service.readModel(context.session) }); return true;
-    }
+    // No standalone package projection: native types/availability use the
+    // request-fresh Woo access guard in coaching-integration.mjs.
     if (request.method !== 'POST') deny('coaching_method_not_allowed', 405);
     if (typeof context.validateCsrf !== 'function' || !context.validateCsrf(request, context.session)) deny('coaching_csrf_required');
     let payload;
     try { payload = JSON.parse(await readBody(request)); } catch (e) { if (e.status) throw e; deny('coaching_invalid_json', 400); }
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) deny('coaching_invalid_payload', 400);
-    const result = action === 'appointments' ? await service.mutateAppointment(context.session, payload)
-      : await service.approveAvailability(context.session, payload);
+    const result = await service.approveAvailability(context.session, payload);
     send(200, { ok: true, data: result });
   } catch (error) {
     // Never serialize SQL details, financial evidence or customer payloads.

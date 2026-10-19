@@ -46,6 +46,19 @@ class Product {
     function get_regular_price($context = null) { return $this->price; }
 }
 class Coupon { function __construct(public $code) {} function get_code() { return $this->code; } }
+class WP_Error { function __construct(public $code, public $message, public $data) {} }
+class WP_REST_Response { function __construct(public $data, public $status, public $headers) {} }
+class StatusRequest {
+    function __construct(public $raw, public $headers) {}
+    function get_body() { return $this->raw; }
+    function get_header($key) { return $this->headers[$key] ?? ''; }
+}
+class WC_Order_Refund {
+    function __construct(public $id = 12002, public $parent = 12001, public $amount = '1.00') {}
+    function get_id() { return $this->id; }
+    function get_parent_id() { return $this->parent; }
+    function get_amount() { return $this->amount; }
+}
 class Item {
     public $variation = 0; public $qty = 1;
     function __construct(public $product = 10001, public $total = '249.00') {}
@@ -69,6 +82,7 @@ class Order {
     function get_coupon_codes() { return $this->coupons; }
     function get_total_fees() { return $this->fees; }
     function get_total_refunded() { return $this->refunded; }
+    function get_refunds() { return array_filter($GLOBALS['orders'], fn($o) => $o instanceof WC_Order_Refund && $o->get_parent_id() === $this->get_id()); }
     function get_total_tax() { return $this->tax; }
     function get_total($context = null) { return $this->total; }
     function get_date_created() { return new DateTimeImmutable('2026-10-30T12:00:00Z'); }
@@ -164,6 +178,12 @@ $sink_ack = true; mmed_mr_coaching_payment_complete(12001);
 check($order->meta['_mmed_mr_coaching_state'] === 'active' && count($actions) === $before + 2, 'missing fulfillment recovered on retry');
 mmed_mr_coaching_payment_complete(12001); check(count($actions) === $before + 2, 'acknowledged fulfillment not repeated');
 $order = $orders[12001] = new Order(); $order->gateway = 'bacs'; $reply = array('state' => 'reserved', 'order_id' => '12001'); mmed_mr_coaching_admit_order(12001);
+$zelle_identity = mmed_mr_coaching_zelle_identity(false, $order);
+check($zelle_identity['kind'] === 'private_coaching' && $zelle_identity['product_id'] === 10001 && !isset($zelle_identity['course_id']), 'new Zelle identity has no fake course mapping');
+check(mmed_mr_coaching_zelle_identity(array('existing' => true), $order) === array('existing' => true), 'existing verifier identity never replaced');
+$saved_digest = $order->meta['_mmed_mr_coaching_snapshot']; $order->meta['_mmed_mr_coaching_snapshot'] = str_repeat('0', 64);
+check(mmed_mr_coaching_zelle_identity(false, $order) === false, 'new Zelle identity requires exact admitted snapshot');
+$order->meta['_mmed_mr_coaching_snapshot'] = $saved_digest;
 $order->paid = true; $order->status = 'completed'; $before = count($actions);
 mmed_mr_coaching_payment_complete(12001); check(count($actions) === $before, 'unverified bacs cannot activate');
 $fp = str_repeat('a', 64); $order->meta['_mm_zelle_fingerprint'] = $fp; $order->meta['_mm_zelle_state'] = 'completing';
@@ -175,14 +195,15 @@ check(isset($hooks['woocommerce_rest_checkout_process_payment_with_context']) &&
 check(!isset($hooks['woocommerce_pre_payment_complete']) && isset($hooks['woocommerce_before_pay_action']), 'post capture accounting never blocked by remote admission');
 check(isset($hooks['mmed_mr_coaching_reconcile_pending']), 'durable recovery sweep installed');
 mmed_mr_coaching_reconcile_pending();
-check($last_order_query['limit'] === 20 && $last_order_query['status'] === array('processing', 'completed'), 'bounded genuinely paid sweep');
+check($last_order_query['limit'] === 20 && $last_order_query['status'] === array('processing', 'completed', 'refunded'), 'bounded paid/refund recovery sweep');
+check(in_array('active', $last_order_query['meta_query'][1][1]['value'], true), 'sweep sees refunds committed before active marker changes');
 $sweep_page_count = 2; $options['mmed_mr_coaching_sweep_page'] = 1;
 $unresolved = new Order(); $unresolved->paid = false;
 $sweep_pages = array(1 => array_fill(0, 20, $unresolved), 2 => array($order));
 mmed_mr_coaching_reconcile_pending(); check($options['mmed_mr_coaching_sweep_page'] === 2, 'twenty unresolved records advance fair cursor');
 mmed_mr_coaching_reconcile_pending(); check($last_order_query['page'] === 2 && $options['mmed_mr_coaching_sweep_page'] === 1, 'later recoverable page reached and cursor cycles');
 $options[MMED_MR_COACHING_OPTION]['enabled'] = false; $last_order_query = null;
-mmed_mr_coaching_reconcile_pending(); check($last_order_query === null, 'disabled release does not sweep orders');
+mmed_mr_coaching_reconcile_pending(); check($last_order_query !== null, 'admission rollback preserves paid/refund recovery');
 ready();
 $matrix_orders = array($order);
 check(mmed_mr_coaching_matrix_modules(null, 42, 'unrelated_meta', true) === null, 'unrelated metadata unchanged');
@@ -200,4 +221,44 @@ $snapshot = mmed_mr_coaching_order_snapshot($order);
 check(mmed_mr_coaching_acknowledge_matrix(false, $order, 'coaching-fulfillment:12001:' . $snapshot['snapshot_digest'], array('state' => 'paid', 'activation_allowed' => true)), 'canonical Matrix resolver acknowledgment');
 check(!mmed_mr_coaching_acknowledge_matrix(false, $order, 'forged', array('state' => 'paid', 'activation_allowed' => true)), 'fulfillment key cannot be forged');
 $order->paid = false; check(!mmed_mr_coaching_acknowledge_matrix(false, $order, 'forged', array('state' => 'reserved', 'activation_allowed' => false)), 'unpaid sink cannot acknowledge');
+
+// Server-to-server access checks are synthetic only; no HTTP request is sent.
+$order->paid = true; $order->status = 'completed'; $order->meta['_mmed_mr_coaching_state'] = 'active';
+$snapshot = mmed_mr_coaching_order_snapshot($order, false);
+function status_request($bindings, $extra = array(), $domain = "mmed-coaching-access-request-v1\n") {
+    $payload = array_merge(array('actor_user_id' => '1f3d1d0d-1339-40c7-b54a-72013cc19da2', 'actor_wp_user_id' => 42, 'bindings' => $bindings), $extra);
+    $raw = wp_json_encode($payload); $ts = (string) $GLOBALS['clock']; $nonce = 'local_status_nonce_001';
+    $signature = hash_hmac('sha256', $domain . $ts . "\n" . $nonce . "\n" . $raw, mmed_mr_coaching_config()['bridge_secret']);
+    return new StatusRequest($raw, array('x-mmed-coaching-timestamp' => $ts, 'x-mmed-coaching-nonce' => $nonce, 'x-mmed-coaching-signature' => $signature));
+}
+$binding = array('order_id' => '12001', 'snapshot_digest' => $snapshot['snapshot_digest']);
+$response = mmed_mr_coaching_access_status(status_request(array($binding)));
+$decoded = json_decode(base64_decode($response->data['payload']), true);
+check($response->status === 200 && $decoded['bindings'][0]['active'] === true, 'fresh exact paid package status');
+check(hash_equals($response->data['signature'], hash_hmac('sha256', "mmed-coaching-access-response-v1\n" . base64_decode($response->data['payload']), mmed_mr_coaching_config()['bridge_secret'])), 'response domain and exact bytes signed');
+check($response->headers['Cache-Control'] === 'no-store, private' && !isset($decoded['email'], $decoded['financial_fingerprint']), 'status response private and no financial/student details');
+check(mmed_mr_coaching_access_status(status_request(array($binding), array(), '')) instanceof WP_Error, 'mutation envelope cannot authorize status read');
+check(mmed_mr_coaching_access_status(status_request(array($binding, $binding))) instanceof WP_Error, 'duplicate binding rejected');
+$response = mmed_mr_coaching_access_status(status_request(array($binding), array('actor_wp_user_id' => 43)));
+check(json_decode(base64_decode($response->data['payload']), true)['bindings'][0]['active'] === false, 'wrong owner gets no access');
+$request = status_request(array($binding)); $clock += 61;
+check(mmed_mr_coaching_access_status($request) instanceof WP_Error, 'stale status signature denied'); $clock -= 61;
+$order->refunded = '1.00';
+$response = mmed_mr_coaching_access_status(status_request(array($binding)));
+check(json_decode(base64_decode($response->data['payload']), true)['bindings'][0]['active'] === false, 'refund denied even before native event arrives');
+$orders[12002] = new WC_Order_Refund();
+$reply = array('state' => 'paid', 'order_id' => '12001', 'refund_review_required' => true, 'activation_allowed' => false);
+mmed_mr_coaching_refund_observed(12001, 12002);
+check($order->meta['_mmed_mr_coaching_state'] === 'refund_review_required' && $order->paid, 'refund locks coaching without falsifying payment');
+$refund_events = $order->meta['_mmed_mr_coaching_refund_events'];
+check($refund_events['woo-refund:12001:12002:v1']['state'] === 'acknowledged', 'real persisted refund event acknowledgment');
+$refund_body = $refund_events['woo-refund:12001:12002:v1']['payload'];
+check($refund_body['cumulative_refund_cents'] === 100 && $refund_body['refund_record_verified'] === true, 'persisted refund amount not invented bank settlement');
+$before = count($requests); mmed_mr_coaching_refund_observed(12001, 12002);
+check(count($requests) === $before && $order->meta['_mmed_mr_coaching_refund_events'] === $refund_events, 'refund acknowledgment replay does not resend or rewrite event');
+$before = count($actions); mmed_mr_coaching_payment_complete(12001);
+check(count($actions) === $before && $order->meta['_mmed_mr_coaching_state'] === 'refund_review_required', 'payment replay never reactivates refunded package');
+$orders[12003] = new WC_Order_Refund(12003, 9999);
+mmed_mr_coaching_refund_observed(12001, 12003);
+check($order->meta['_mmed_mr_coaching_refund_events'] === $refund_events, 'wrong parent refund cannot create evidence');
 echo "PASS {$count} isolated Woo source assertions; no real payment or production activation proved.\n";

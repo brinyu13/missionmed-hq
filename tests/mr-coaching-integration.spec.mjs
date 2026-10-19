@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { createHash, createHmac } from 'node:crypto';
+import { checkCoachingAccess } from '../missionmed-hq/lib/scheduler/coaching.mjs';
 import { createCoachingIntegration } from '../missionmed-hq/lib/scheduler/coaching-integration.mjs';
 import { getSchedulerActor } from '../missionmed-hq/lib/scheduler/auth.mjs';
 
@@ -13,7 +15,8 @@ const STRATEGY='66666666-6666-4666-8666-666666666666';
 const RULE='77777777-7777-4777-8777-777777777777';
 const SESSION={user:{wpUserId:77,supabaseUserId:USER,roles:['student']}};
 const ACTOR=getSchedulerActor(SESSION).actor;
-const ENV={MMED_COACHING_ENABLED:'1'};
+const SECRET='synthetic-coaching-secret-at-least-32-bytes';
+const ENV={MMED_COACHING_ENABLED:'1',MMED_COACHING_WOO_SECRET:SECRET};
 const RANGE={start_date:'2031-07-07T13:00:00Z',end_date:'2031-07-07T21:00:00Z',provider_id:PROVIDER};
 let count=0;
 function check(value,label) { count++;assert.ok(value,label); }
@@ -28,23 +31,39 @@ function fixture({sku='single', paid=true, resource=null}={}) {
  const services=[{id:'mock-credit-2',service:'mock',ordinal:2,minutes:105,state:'available',appointment_id:null},
    {id:'mock-credit-1',service:'mock',ordinal:1,minutes:105,state:'available',appointment_id:null}];
  if(sku!=='single')services.push({id:'strategy-credit-1',service:'strategy',ordinal:1,minutes:120,state:'available',appointment_id:null});
- const data={packages:paid?[{order_id:'paid-order',sku,services}]:[],eligible_services:paid?[
+ const data={weekly_usage:[],packages:paid?[{order_id:'paid-order',sku,services,snapshot_digest:'a'.repeat(64),booking_allowed:true}]:[],eligible_services:paid?[
   {service:'mock',approval_id:'approved-mock',appointment_type_id:MOCK,donor_appointment_type_id:DONOR,availability_rule_id:RULE,provider_id:PROVIDER,approved_from:'2030-01-01T00:00:00Z',approved_until:'2032-01-01T00:00:00Z'},
   {service:'strategy',approval_id:'approved-strategy',appointment_type_id:STRATEGY,donor_appointment_type_id:DONOR,availability_rule_id:RULE,provider_id:PROVIDER,approved_from:'2030-01-01T00:00:00Z',approved_until:'2032-01-01T00:00:00Z'},
  ]:[]};
- const state={data,ordinary,mock,strategy,rule,appointments:[],blackouts:[],calls:[],config:{mode:'supabase_rest',configured:true,service_role_configured:true}};
+ const state={data,ordinary,mock,strategy,rule,appointments:[],blackouts:[],calls:[],operations:new Map(),accessCalls:0,accessActive:true,pageSize:200,config:{mode:'supabase_rest',configured:true,service_role_configured:true}};
+ state.fetch=async(url,options)=>{
+  state.accessCalls++; check(url==='https://missionmedinstitute.com/wp-json/mmed-coaching/v1/access-status'&&options.redirect==='error'&&options.credentials==='omit','fixed no-cookie no-redirect access endpoint');
+  const raw=options.body;const request=JSON.parse(raw);const nonce=options.headers['x-mmed-coaching-nonce'];const timestamp=options.headers['x-mmed-coaching-timestamp'];
+  check(options.headers['x-mmed-coaching-signature']===createHmac('sha256',SECRET).update(`mmed-coaching-access-request-v1\n${timestamp}\n${nonce}\n${raw}`).digest('hex'),'domain-separated signed access request');
+  if(state.accessOutage)throw Error('synthetic outage');
+  const response={nonce,request_digest:createHash('sha256').update(raw).digest('hex'),actor_user_id:request.actor_user_id,actor_wp_user_id:request.actor_wp_user_id,checked_at:Math.floor(Date.now()/1000),
+   bindings:request.bindings.map(b=>({...b,active:typeof state.accessActive==='function'?state.accessActive(state.accessCalls):state.accessActive}))};
+  state.mutateAccess?.(response);
+  const bytes=JSON.stringify(response);return new Response(JSON.stringify({payload:Buffer.from(bytes).toString('base64'),signature:state.badSignature?'0'.repeat(64):createHmac('sha256',SECRET).update(`mmed-coaching-access-response-v1\n${bytes}`).digest('hex')}));
+ };
  const repository={
   status:()=>state.config,
   listAppointmentTypes:async filters=>[ordinary,mock,strategy].filter(t=>!filters.appointment_type_id||t.id===filters.appointment_type_id),
   listAvailabilityRules:async filters=>filters.appointment_type_id===DONOR?[rule]:[],
   listBlackoutWindows:async filters=>{state.calls.push({name:'blackouts',filters});return state.blackouts;},
   adminListAppointments:async filters=>state.appointments.filter(a=>!filters.status||a.status===filters.status),
+  restSelect:async(table,params)=>{state.calls.push({name:table,filters:params});
+    let rows=table==='mm_appointments'?state.appointments.filter(a=>['held','booked','confirmed'].includes(a.status)):state.blackouts;
+    rows=rows.map((r,i)=>({...r,id:r.id||`blackout-${i}`}));
+    const offset=state.repeatPage?0:Number(params.offset);return rows.slice(offset,offset+Math.min(Number(params.limit),state.pageSize));},
   getAppointmentById:async id=>state.appointments.find(a=>a.id===id)||null,
   rpc:async(name,payload)=>{state.calls.push({name,payload});if(name==='mm_coaching_read_model')return data;
+    if(name==='mm_coaching_lookup_operation') {const previous=state.operations.get(payload.p_payload.idempotency_key);if(!previous)return null;
+      if(previous.payload.client_request_digest!==payload.p_payload.client_request_digest)throw Error('booking_replay_mismatch');return previous;}
     if(name==='mm_coaching_mutate_appointment')return {ok:true,appointment_id:'native-result',action:payload.p_payload.action};
     throw Error('Unexpected RPC');},
  };
- state.integration=(options={})=>createCoachingIntegration({repository,session:SESSION,actor:ACTOR,env:ENV,...options});
+ state.integration=(options={})=>createCoachingIntegration({repository,session:SESSION,actor:ACTOR,env:ENV,fetchImpl:state.fetch,...options});
  state.booking=(extra={})=>({appointment_type_id:MOCK,provider_id:PROVIDER,start_at:'2031-07-07T13:00:00Z',end_at:'2031-07-07T14:45:00Z',idempotency_key:'book-request',...extra});
  state.ownAppointment=(extra={})=>({id:'own-appointment',student_user_id:USER,student_wp_user_id:77,appointment_type_id:MOCK,provider_id:PROVIDER,
   resource_id:resource,schedule_event_id:null,start_at:'2031-07-07T16:00:00Z',end_at:'2031-07-07T17:45:00Z',status:'booked',timezone:'America/New_York',...extra});
@@ -129,7 +148,7 @@ check(!JSON.stringify(slots).includes('PRIVATE'),'no other-student fields enter 
 f.blackouts.push({provider_id:null,appointment_type_id:DONOR,start_at:'2031-07-07T15:00:00Z',end_at:'2031-07-07T16:00:00Z',status:'active',reason:'PRIVATE-REASON'});
 slots=await f.integration().availability(RANGE,f.mock);
 check(slots.length>0&&slots[0].startAt==='2031-07-07T16:00:00.000Z','global donor-scoped blackout retained for isolated type');
-check(f.calls.filter(c=>c.name==='blackouts').every(c=>Object.keys(c.filters).length===0),'blackout query does not discard global/donor scopes');
+check(f.calls.filter(c=>c.name==='mm_blackout_windows').every(c=>!c.filters.appointment_type_id&&!c.filters.provider_id),'blackout query does not discard global/donor scopes');
 await rejects(()=>f.integration().availability({...RANGE,exclude_appointment_id:'PRIVATE-OTHER-ID'},f.mock),/coaching_appointment_owner_required/);
 
 f=fixture({resource:'room'});
@@ -143,6 +162,38 @@ check(slots.length>0&&slots.every(s=>Date.parse(s.startAt)>=Date.parse('2031-07-
 f=fixture();slots=await f.integration().availability({start_date:'2031-11-10T00:00:00Z',end_date:'2031-11-11T00:00:00Z'},f.mock);
 check(slots.length>0&&slots[0].startAt==='2031-11-10T14:00:00.000Z'&&slots[0].timezone==='America/New_York','native engine honors winter timezone offset');
 
-f=fixture();f.appointments=Array.from({length:1000},(_,i)=>f.ownAppointment({id:String(i)}));
-await rejects(()=>f.integration().availability(RANGE,f.mock),/coaching_busy_scan_incomplete/);
+f=fixture();f.pageSize=1;f.appointments=[f.ownAppointment({id:'one',start_at:'2031-07-07T13:00:00Z',end_at:'2031-07-07T15:00:00Z'}),f.ownAppointment({id:'two',start_at:'2031-07-07T15:00:00Z',end_at:'2031-07-07T16:00:00Z'})];
+slots=await f.integration().availability(RANGE,f.mock);
+check(slots[0].startAt==='2031-07-07T16:00:00.000Z','short pages continue until empty; later conflict retained');
+check(f.calls.filter(c=>c.name==='mm_appointments').map(c=>c.filters.offset).join(',')==='0,1,2','pagination advances by actual rows');
+f.repeatPage=true;await rejects(()=>f.integration().availability(RANGE,f.mock),/coaching_busy_scan_incomplete/);
+
+f=fixture();f.data.weekly_usage=[{week_start_utc:'2031-07-07T04:00:00Z',week_end_utc:'2031-07-14T04:00:00Z',used_minutes:1100}];
+check((await f.integration().availability(RANGE,f.mock)).length===0,'global authoritative weekly usage filters displayed slots');
+f.appointments.push(f.ownAppointment());f.data.packages[0].services[0].state='reserved';f.data.packages[0].services[0].appointment_id='own-appointment';
+check((await f.integration().availability({...RANGE,appointment_id:'own-appointment'},f.mock)).length>0,'reschedule reclaims only its own week allocation');
+
+f=fixture();integration=f.integration();await integration.decorateTypes([f.mock],[f.mock]);await integration.availability(RANGE,f.mock);
+check(f.accessCalls===1,'display uses request-local signed access cache');
+await integration.mutate('book',f.booking());check(f.accessCalls===2,'booking forces fresh check immediately before native mutation');
+f=fixture();f.accessActive=n=>n===1;
+await rejects(()=>f.integration().mutate('book',f.booking()),/coaching_package_review_required/);
+check(!f.calls.some(c=>c.name==='mm_coaching_mutate_appointment'),'refund between display and final access check blocks mutation');
+for(const mutateAccess of [r=>r.actor_wp_user_id=999,r=>r.nonce='wrong',r=>r.request_digest='wrong',r=>r.checked_at-=61,
+ r=>r.bindings=[],r=>r.bindings[0].snapshot_digest='b'.repeat(64),r=>r.bindings.push(r.bindings[0]),r=>r.bindings[0].active='true']) {
+ f=fixture();f.mutateAccess=mutateAccess;await rejects(()=>f.integration().availability(RANGE,f.mock),/coaching_access_unavailable/);
+}
+f=fixture();f.badSignature=true;await rejects(()=>f.integration().availability(RANGE,f.mock),/coaching_access_unavailable/);
+f=fixture();f.accessOutage=true;await rejects(()=>f.integration().mutate('book',f.booking()),/coaching_access_unavailable/);
+f.appointments.push(f.ownAppointment());f.data.packages[0].services[0].state='reserved';f.data.packages[0].services[0].appointment_id='own-appointment';
+f.data.packages[0].refund_review_required=true;f.data.packages[0].booking_allowed=false;
+updated=await f.integration().mutate('cancel',{appointment_id:'own-appointment',idempotency_key:'safe-cancel'});
+check(updated.result.ok,'owned cancellation remains possible with refund and access outage');
+const stored={result:{...updated.result,idempotency_replay:true},appointment_type:f.mock,payload:updated.payload};f.operations.set('safe-cancel',stored);
+f.data.packages[0].services[0].state='available';f.data.packages[0].services[0].appointment_id=null;f.appointments[0].status='canceled';
+check((await f.integration().mutate('cancel',{appointment_id:'own-appointment',idempotency_key:'safe-cancel'})).result.idempotency_replay,'cancel acknowledgement replay precedes mutable credit checks');
+await rejects(()=>f.integration().mutate('cancel',{appointment_id:'own-appointment',idempotency_key:'safe-cancel',reason:'changed'}),/booking_replay_mismatch/);
+f=fixture();f.data.packages[0].booking_allowed=false;f.data.packages[0].refund_review_required=true;
+check((await f.integration().availability(RANGE,f.mock)).length===0,'native refund quarantine overrides stale active Woo response');
+await rejects(()=>checkCoachingAccess({actor:ACTOR,bindings:Array.from({length:101},(_,i)=>({order_id:String(i),snapshot_digest:'a'.repeat(64)})),secret:SECRET,fetchImpl:f.fetch}),/coaching_access_unavailable/);
 console.log(`PASS ${count} bounded coaching-integration assertions; repository doubles only, no runtime acceptance.`);
