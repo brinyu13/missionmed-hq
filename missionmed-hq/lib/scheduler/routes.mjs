@@ -35,6 +35,7 @@ import {
   schedulerEntitlementBootstrapSummary,
   schedulerEntitlementPolicySummary,
 } from './entitlements.mjs';
+import { createCoachingIntegration } from './coaching-integration.mjs';
 
 export { getSchedulerActor } from './auth.mjs';
 
@@ -145,6 +146,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
   }
 
   const actor = actorResult.actor;
+  const coaching = context.coachingIntegration || createCoachingIntegration({ repository, session, actor });
 
   try {
     if (pathname === '/api/scheduler/bootstrap') {
@@ -179,7 +181,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
       const sanitizedTypes = types.map(sanitizeAppointmentTypeForStudent);
       sendJson(response, 200, schedulerOk({
         status: 'ready',
-        types: decorateAppointmentTypesForEntitlements(sanitizedTypes, actor),
+        types: await coaching.decorateTypes(decorateAppointmentTypesForEntitlements(sanitizedTypes, actor), types),
         eligibility,
         entitlements: schedulerEntitlementBootstrapSummary(actor),
       }), authHeaders);
@@ -217,7 +219,8 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
       };
       const availabilityRules = await repository.listAvailabilityRules(filters);
       const blackouts = await repository.listBlackoutWindows(filters);
-      const slots = typeof repository.generateAvailability === 'function'
+      const coachingSlots = await coaching.availability(filters, appointmentType);
+      const slots = coachingSlots !== null ? coachingSlots : typeof repository.generateAvailability === 'function'
         ? await repository.generateAvailability(filters)
         : generateAvailabilitySlots({
           availabilityRules,
@@ -333,8 +336,9 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
         return true;
       }
       const action = pathname.split('/').pop();
-      let configCheck = { ok: true };
-      if (action === 'book') {
+      const coachingMutation = await coaching.mutate(action, { ...payload, idempotency_key: idempotencyKey });
+      let configCheck = coachingMutation ? { ok: true, appointmentType: coachingMutation.appointmentType } : { ok: true };
+      if (action === 'book' && !coachingMutation) {
         configCheck = await validateStudentBookingConfig({
           repository,
           payload,
@@ -365,7 +369,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
           return true;
         }
       }
-      const mutationPayload = {
+      const mutationPayload = coachingMutation ? coachingMutation.payload : {
         ...payload,
         idempotency_key: idempotencyKey,
         idempotencyKey,
@@ -374,7 +378,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
         student_wp_user_id: actor.wpUserId,
         studentWpUserId: actor.wpUserId,
       };
-      const result = action === 'book'
+      const result = coachingMutation ? coachingMutation.result : action === 'book'
         ? await repository.createAppointment({ actor, payload: mutationPayload })
         : action === 'reschedule'
           ? await repository.rescheduleAppointment({ actor, payload: mutationPayload })

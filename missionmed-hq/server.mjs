@@ -12,6 +12,7 @@ import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
 import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
 import { handleSchedulerApiRoute } from './lib/scheduler/routes.mjs';
+import { handleCoachingHttp } from './lib/scheduler/coaching-http.mjs';
 import { readSessionFromHeaders } from './lib/auth/session-token.mjs';
 import { readCurrentRiseEligibility, riseDelegatedProjection } from './lib/auth/rise-current-eligibility.mjs';
 import {
@@ -3335,11 +3336,21 @@ async function handleApiRoute(request, response, url, context) {
     }
   }
 
+  // Canonical Woo server capability: exact signed bytes + durable nonce claim;
+  // never a browser/session exemption for any other Scheduler route.
+  if (pathname === '/api/scheduler/coaching/service') {
+    await handleCoachingHttp(request, response, url, { sendJson });
+    return;
+  }
+
   if (pathname.startsWith('/api/scheduler/')) {
     const schedulerSession = await hydrateSchedulerEntitlementSession(session, request, 'scheduler');
     const schedulerAuthHeaders = schedulerSession && schedulerSession !== session
       ? { ...authHeaders, 'Set-Cookie': buildSessionCookie(request, schedulerSession) }
       : authHeaders;
+    if (await handleCoachingHttp(request, response, url, {
+      session: schedulerSession, authHeaders: schedulerAuthHeaders, sendJson, validateCsrf,
+    })) return;
     const handled = await handleSchedulerApiRoute(request, response, url, {
       session: schedulerSession,
       authHeaders: schedulerAuthHeaders,
