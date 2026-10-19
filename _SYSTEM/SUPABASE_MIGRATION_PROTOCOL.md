@@ -1,7 +1,7 @@
 # SUPABASE MIGRATION PROTOCOL -- PERMANENT HARDENING
 
 **Authority:** MR-078A
-**Version:** 1.2
+**Version:** 1.3
 **Date:** 2026-10-18
 **Risk Level:** HIGH
 **Status:** LOCKED -- NON-NEGOTIABLE
@@ -476,3 +476,17 @@ MR079's exact companion exception is mandatory. This section supersedes only sec
 ---
 
 END OF SUPABASE MIGRATION PROTOCOL
+
+### 7.2 Exact supervised risk-acceptance forward migration API adapter - MR-IVOC-8200-RISK-ACCEPTED-ONE-TEST-API
+
+This adapter applies only to mission IVOC-CONVERGE-8001, approval IVOC-8200-RISK-ACCEPTED-ONE-TEST-20261018, production project bscnrgqlwsyygyfrbhfn, and the new forward file `supabase/migrations/20261018215958_ivoc_supervised_risk_acceptance.sql`, SHA-256 `c23261e6a7dded5f6922103fe6677e0d0e923dcc4e1c70fd9e7b993d12d0a8db`, in independently published source commit `bc1427315ff576c0d3ae60f29c7915535ccfbf39`. Founder receipt SHA-256 b4ea2e2197cd7838b888ca2675b07fb70f9df36d71032ae0f65bf1e9bcc8b9b0 and operator terms SHA-256 cb863c68de753a629c647a7eeec342918ef3720a72bedc12129d073f967c37d9 bind the one-test purpose. These exact amendments and canonical dependency closure must precede the dedicated production phase. This document grants no execution, arming or paid Start by itself.
+
+Root cause: the prior G2 adapter is restricted to its old SQL972213/source40b1 and cannot authorize this new forward change. The old ledger truthfully requires provider-guaranteed hard-ceiling proof; the Founder now explicitly accepts documented reasonable residual exposure for one supervised native test. The new file adds an explicit risk mode without fabricating hard proof, preserves the old hard mode and consumed accounting, and supplies only approval-specific service-role arm/disarm/status controls plus atomic owned first-Start binding. Applied migration bytes and historical rows must remain unchanged. This is a new migration ticket, not reuse of a consumed G2 application allowance.
+
+Select only the same supported POST /v1/projects/{ref}/database/migrations-backed Supabase MCP apply_migration(name, project_id, query) route documented in section7.1. Use name `ivoc_supervised_risk_acceptance`, the exact project above and the complete unchanged final published file as query. The official source/endpoint evidence and honest transactional limits in section7.1 are retained: documented schema-failure rollback is not proof of history-insert-error atomicity, exactly-once transport, remote termination or post-commit restoration. Do not add an executor SQL wrapper or alternative body. Preserve the candidate's independently reviewed transaction structure; no SQL Editor/execute_sql body, separate history insertion, CLI fallback, repair, broad push, source rename or history rewrite.
+
+Before ONE production application attempt, bind the exact final source commit/file/digest, new ticket/canonical decision, date, purpose, actual predecessor history and `Idempotent: NO` in an immutable execution manifest. Require independently reviewed local SQL/ACL/race evidence, complete authoritative history/catalog preimage, no candidate history/objects, exact expected private RLS/role grants and mandatory immutability trigger, fresh native database custody/competing-writer proof, durable once marker, fixed invocation review and fresh phase GO. Final commit/digest slots may be resolved only from the separately independently accepted candidate under the dedicated decision's exact three source paths and bounded repair counts; no other amendment text or scope may change. HQ publication and OS dependency closure must then bind the resolved bytes; both BOOT checks must PASS before any migration application. Until then this adapter is not production-ready.
+
+Success requires independent readback of every unchanged predecessor row/statement, exactly ONE new provider-version/name/body mapping to this final source, and the exact expected catalog/ACL/RLS with no armed grant/reservation introduced by migration. The provider's actual remote version may differ from source timestamp; use the same deterministic nonlossy body mapping as section7.1 and never reapply the source timestamp. Preserve all existing ledger consumption, attempts, reservations, quarantine, admin QA OFF accounting and historical UNKNOWNs. No accounting reset, broader role grant, public INSERT, secret publication or unrelated data mutation.
+
+A lost/timeout/malformed response, mismatch, partial catalog/history or uncertain body outcome stops downstream mutations. Absence, cancellation and closed local transport do not establish rollback. Preserve UNKNOWN; use only the dedicated decision's finite exact read-only reconciliation, without replay, compensating SQL, automatic retry or deployment. A confirmed rollback does not restore the single production attempt. MR079's exact companion and MR078B/privacy/identity invariants remain mandatory. All other safeguards remain unchanged; expiry/revocation of the fixed approval closes unused execution.

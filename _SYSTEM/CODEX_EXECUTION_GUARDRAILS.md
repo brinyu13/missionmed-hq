@@ -1,7 +1,7 @@
 # CODEX EXECUTION GUARDRAILS -- HARD SAFETY SYSTEM
 
 **Authority:** MR-079
-**Version:** 1.1
+**Version:** 1.2
 **Date:** 2026-10-18
 **Risk Level:** HIGH
 **Status:** LOCKED -- NON-NEGOTIABLE
@@ -670,3 +670,13 @@ For only source40b1c62dc2951cc19380baa874ced58d994aa049 file supabase/migrations
 Justification/root cause: the newly identified official Supabase for Platforms contract documents automatic migration recording/execution and schema-failure rollback. It supports a least-disruptive route without database-wide SSL/JIT/restart or password reset, while requiring honest limits rather than claiming tested CLI-equivalent history-error atomicity. Actual server-generated history version is mapped to unchanged source provenance; source rename and fabricated version equality remain forbidden.
 
 Impact analysis: MR078A section7.1 supplies exact body, request, history/catalog, once-only, native custody and read-only UNKNOWN recovery requirements. MR078B identity, data-flow, RLS, entitlement and student-data invariants are unchanged. All other commands, systems, projects and execution controls remain governed by this document; MR-G8 workspace hygiene and independent publication custody are unchanged. No production SQL, deployment, setting, login-role, mapping, credential reset, provider use or retry is granted by this document alone. Eligibility requires both exact amendments, canonical dependency closure, the dedicated production decision, independent invocation review and fresh GO.
+
+## Exact supervised risk-acceptance supported migration API exception - MR-IVOC-8200-RISK-ACCEPTED-ONE-TEST-API
+
+This adapter applies only to mission IVOC-CONVERGE-8001, approval IVOC-8200-RISK-ACCEPTED-ONE-TEST-20261018, production project bscnrgqlwsyygyfrbhfn, and the new forward file `supabase/migrations/20261018215958_ivoc_supervised_risk_acceptance.sql`, SHA-256 `c23261e6a7dded5f6922103fe6677e0d0e923dcc4e1c70fd9e7b993d12d0a8db`, in independently published source commit `bc1427315ff576c0d3ae60f29c7915535ccfbf39`. Founder receipt SHA-256 b4ea2e2197cd7838b888ca2675b07fb70f9df36d71032ae0f65bf1e9bcc8b9b0 and operator terms SHA-256 cb863c68de753a629c647a7eeec342918ef3720a72bedc12129d073f967c37d9 bind the one-test purpose. These exact amendments and canonical dependency closure must precede the dedicated production phase. This document grants no execution, arming or paid Start by itself.
+
+This exact exception permits only automatic provider-managed schema_migrations recording by the single new migration operation selected under MR078A section7.2. It supersedes section8.2's CLI-managed-only wording solely for that operation; no agent-authored history DML, repair, reset, squash, deletion, rewriting or separate registration is allowed. The old G2 exception and allowance are unchanged and remain consumed.
+
+Justification and impact: a new truthful risk mode and approval-specific service-only controls require a forward SQL change; the old exact-file adapter does not cover it. MR078A section7.2 supplies final immutable source/request provenance, tested local SQL/ACL/race safeguards, authoritative history/catalog checks, once-only execution, current native fencing and finite read-only UNKNOWN reconciliation through the unchanged supported API. MR078B identity/ownership, data-flow, RLS and student privacy remain unchanged. Risk acceptance does not assert a provider-guaranteed monetary ceiling or permit unlimited spend; hard_ceiling_verified remains false and maximum exposure/hard-proof fields remain NULL in this mode. Native first-use session binding, immutable consumption and exact one-test limits require the dedicated canonical decision and independent artifact/phase review.
+
+The exact same final source-commit/digest substitutions must appear in both amendments and the immutable execution manifest. Independent resolved two-document review, supported fenced publication, exact two dependency-hash closure and both BOOT PASS are required before application. MR-G8 preservation/custody rules remain in force. This amendment alone grants no production SQL, arm/disarm RPC, settings, credentials, provider call, paid Start, retry or release; each such admitted phase requires its separately exact reviewed artifact/invocation, fresh custody and root GO, with human Start retained for the one paid CREATE.
