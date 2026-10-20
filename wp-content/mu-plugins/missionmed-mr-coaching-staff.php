@@ -199,7 +199,11 @@ add_filter('woocommerce_add_to_cart_validation',function($ok,$id,$qty,$variation
     }return $ok;
 },200,4);
 add_filter('woocommerce_coupon_is_valid','mmed_staff_coaching_coupon',200,2);
-add_action('woocommerce_cart_calculate_fees','mmed_staff_coaching_fees',PHP_INT_MAX);
+// The installed gateway-fee plugin also uses PHP_INT_MAX. Register after init,
+// before Woo loads the cart (wp_loaded:10), so our same-priority callback is last.
+add_action('wp_loaded',function(){
+    add_action('woocommerce_cart_calculate_fees','mmed_staff_coaching_fees',PHP_INT_MAX);
+},1);
 add_filter('woocommerce_coupon_get_discount_amount','mmed_staff_coaching_discount',200,5);
 add_action('woocommerce_add_to_cart',function($key,$id){
     if (mmed_staff_coaching_sku($id) && time()<1793505600 && WC()->cart
