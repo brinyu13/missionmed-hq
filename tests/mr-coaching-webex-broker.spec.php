@@ -4,7 +4,7 @@ $options = []; $calls = []; $gone = []; $sentInvites = 0; $mode = ''; $registere
 final class WP_Error { public function __construct(public string $code, public string $message, public array $data = []) {} }
 final class FixtureResponse { public function __construct(private array $data) {} public function get_data(): array { return $this->data; } }
 final class FixtureRequest { public function __construct(private array $data) {} public function get_json_params(): array { return $this->data; } }
-function register_rest_route($ns,$route,$args): void { global $registered; $registered = $args; }
+function register_rest_route($ns,$route,$args,$override=false): void { global $registered,$routes; $registered = $args; $routes[]=[$ns,$route,$args,$override]; }
 function add_option($key,$value,$unused='',$autoload=false): bool { global $options; if (array_key_exists($key,$options)) return false; $options[$key]=$value; return true; }
 function get_option($key,$fallback=null) { global $options; return $options[$key] ?? $fallback; }
 function update_option($key,$value,$autoload=false): bool { global $options; $options[$key]=$value; return true; }
@@ -45,6 +45,19 @@ $options['mmed_webex_host_email']='host@example.test';
 $malformed = mmed_coaching_webex_request(new FixtureRequest(array_replace($input,['appointment_id'=>[]])));
 check(is_wp_error($malformed),'malformed appointment identity rejected without a PHP error');
 mmed_coaching_webex_register(); check($registered['permission_callback']==='mm_scheduler_webex_broker_can_access','existing HMAC authentication mandatory');
+$routes=[]; $before=count($calls); mmed_coaching_webex_register_oauth();
+check(count($routes)===2,'override registers only the existing OAuth pair');
+foreach (['/admin/webex/auth-url'=>'mm_scheduler_webex_admin_auth_url','/admin/webex/callback'=>'mm_scheduler_webex_admin_oauth_callback'] as $route=>$callback) {
+    $entry=array_shift($routes);
+    check($entry[0]==='mmed/v1' && $entry[1]===$route,'same existing integration route only');
+    check($entry[2]['methods']==='GET','OAuth remains read-method only');
+    check($entry[2]['callback']===$callback,'reviewed same-host broker handler');
+    check($entry[2]['permission_callback']==='mm_scheduler_webex_admin_can_manage','actual manage-options permission retained');
+    check($entry[3]===true,'override displaces shadowed handler instead of appending');
+}
+check(count($calls)===$before,'registration makes no provider calls');
+$mu=file_get_contents(__DIR__.'/../wp-content/mu-plugins/missionmed-mr-coaching.php');
+check(substr_count($mu,"add_action('rest_api_init','mmed_coaching_webex_register_oauth',PHP_INT_MAX);")===1,'OAuth pair registered last at PHP_INT_MAX');
 $scopes=mmed_coaching_webex_scope('meeting:recordings_read');
 check($scopes==='meeting:recordings_read meeting:recordings_write','adds only required scope');
 check(mmed_coaching_webex_scope($scopes)===$scopes,'scope update idempotent');

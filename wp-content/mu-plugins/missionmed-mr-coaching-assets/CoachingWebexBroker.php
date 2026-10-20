@@ -16,6 +16,18 @@ function mmed_coaching_webex_register(): void {
     ]);
 }
 
+/** Keep only this integration's reviewed OAuth pair authoritative after snippets. */
+function mmed_coaching_webex_register_oauth(): void {
+    register_rest_route('mmed/v1', '/admin/webex/auth-url', [
+        'methods' => 'GET', 'permission_callback' => 'mm_scheduler_webex_admin_can_manage',
+        'callback' => 'mm_scheduler_webex_admin_auth_url',
+    ], true);
+    register_rest_route('mmed/v1', '/admin/webex/callback', [
+        'methods' => 'GET', 'permission_callback' => 'mm_scheduler_webex_admin_can_manage',
+        'callback' => 'mm_scheduler_webex_admin_oauth_callback',
+    ], true);
+}
+
 /** HMAC is checked by REST before this callback. Persisted binding, not the
  * incoming meeting id, determines EVERY destructive target. Client IDs/URLs
  * are never accepted. A crashed operation lock requires staff investigation.

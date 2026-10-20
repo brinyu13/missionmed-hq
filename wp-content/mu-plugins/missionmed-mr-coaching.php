@@ -17,6 +17,7 @@ require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingProviderContainme
 require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingWebexBroker.php';
 
 add_action('rest_api_init','mmed_coaching_webex_register');
+add_action('rest_api_init','mmed_coaching_webex_register_oauth',PHP_INT_MAX);
 add_filter('mmed_scheduler_webex_oauth_scopes','mmed_coaching_webex_scope');
 
 const MMED_MR_COACHING_OPTION = 'mmed_mr_coaching_v1';
