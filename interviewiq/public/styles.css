@@ -1266,3 +1266,7 @@ body:has(.calendar-first) .route-hint{display:none}
 .studioSavedCard h3{font-size:16px;font-weight:900;font-style:italic;margin-bottom:4px;color:var(--tx)}
 .studioSavedCard .row{margin-top:8px}
 @media(max-width:600px){.studioStatusActions{margin-left:0;width:100%}.studioStatusActions .btn{flex:1;justify-content:center}.studioSavedGrid{grid-template-columns:1fr}}
+.studioNote a{color:var(--cy)}
+.studioGuidanceFold summary{cursor:pointer;font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.studioGuidanceFold[open] summary{margin-bottom:8px;color:var(--em)}
+.studioGuidanceBody p{margin-bottom:6px}
