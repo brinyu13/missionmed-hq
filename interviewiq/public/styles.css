@@ -1187,7 +1187,7 @@ body:has(.calendar-first) .route-hint{display:none}
 @media(prefers-reduced-motion:reduce){.calendar-loading-emblem,.is-current .calendar-loading-dot,.calendar-loading-cheers span{animation:none}.calendar-loading-cheers span:first-child{opacity:1}.calendar-loading-cheers span:not(:first-child){display:none}.is-calendar-loading>.calendar-stage-content{filter:none}}
 
 /* ---------------- LETTERS OF INTEREST STUDIO (IIQ-LOI-RAPID-20261019) ---------------- */
-.studio{margin-bottom:26px}
+.studio{margin-bottom:26px;scroll-margin-top:14px}
 .studioHead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:16px}
 .studioHead .h2{margin:4px 0 6px}
 .studioGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
@@ -1214,7 +1214,7 @@ body:has(.calendar-first) .route-hint{display:none}
 .studioReadMain,.studioEditMain{min-width:0}
 .studioWhenLead{font-size:15.5px;color:var(--mid);margin:8px 0 10px;line-height:1.5}
 .studioFictional{margin-bottom:10px;color:var(--em)}
-.studioLetter{white-space:pre-wrap;font-family:var(--voice);font-size:16px;line-height:1.62;padding:22px 24px;border:1px solid var(--edge);border-radius:14px;background:#fbf8f1;color:#1b2130;overflow-wrap:anywhere}
+.studioLetter{white-space:pre-wrap;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.62;padding:22px 24px;border:1px solid var(--edge);border-radius:14px;background:#fbf8f1;color:#1b2130;overflow-wrap:anywhere}
 .studioPh{background:rgba(255,179,64,.4);color:#5a3a00;border-radius:4px;padding:0 3px;font-style:italic}
 .studioNote{padding:14px 16px;border:1px solid var(--edge);border-radius:12px;background:rgba(18,25,39,.9);margin-bottom:12px}
 .studioNote h3{font-size:12px;font-family:var(--num);font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
@@ -1233,8 +1233,10 @@ body:has(.calendar-first) .route-hint{display:none}
 .studioWarn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,84,112,.45);background:rgba(44,18,26,.6);color:var(--tx);font-size:14px;margin-bottom:10px}
 .studioSubject{margin-top:12px;padding:12px 14px;border:1px solid var(--edge);border-radius:12px;background:rgba(18,25,39,.9)}
 .studioSubject div{font-size:15px;color:var(--tx);margin-top:4px;overflow-wrap:anywhere}
-#studio-text{min-height:420px;font-family:var(--voice);font-size:16px;line-height:1.62}
+#studio-text{min-height:420px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.62}
 .studioSavedHead{margin:8px 0 10px}
+@media(min-width:981px){.studioEditSide{position:sticky;top:0;max-height:calc(100vh - var(--hdr) - 20px);overflow:auto}}
 @media(max-width:980px){.studioRead,.studioEdit{grid-template-columns:1fr}}
+@media(max-width:600px){section[data-view="letters"] .pageIntro .how{display:none}section[data-view="letters"] .pageIntro{margin-bottom:12px}}
 @media(max-width:600px){.studioGrid{grid-template-columns:1fr}.studioLetter{padding:16px;font-size:15px}.studioActions .btn{flex:1 1 45%;justify-content:center}.studioBar .row{width:100%}.studioBar .row .btn{flex:1 1 auto;justify-content:center}}
 @media(prefers-reduced-motion:reduce){.studioCard,.studioCard:hover{transition:none;transform:none}}
