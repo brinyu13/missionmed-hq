@@ -1185,3 +1185,56 @@ body:has(.calendar-first) .route-hint{display:none}
 @keyframes calendar-loading-pulse{50%{box-shadow:0 0 0 6px #dfbd7517}}@keyframes calendar-cheer{0%,22%{opacity:1}25%,100%{opacity:0}}
 @media(max-width:600px){.calendar-loading-overlay{padding:10px;min-height:470px;align-items:start}.calendar-loading{padding:23px 18px;margin-top:10px;border-radius:18px}.calendar-loading-title{font-size:25px;margin-bottom:16px}.calendar-loading-steps li{font-size:15px;min-height:48px}.calendar-loading-cheers{font-size:16px;min-height:66px}.calendar-loading-emblem{width:40px;height:40px;font-size:25px}.calendar-ready{white-space:normal}}
 @media(prefers-reduced-motion:reduce){.calendar-loading-emblem,.is-current .calendar-loading-dot,.calendar-loading-cheers span{animation:none}.calendar-loading-cheers span:first-child{opacity:1}.calendar-loading-cheers span:not(:first-child){display:none}.is-calendar-loading>.calendar-stage-content{filter:none}}
+
+/* ---------------- LETTERS OF INTEREST STUDIO (IIQ-LOI-RAPID-20261019) ---------------- */
+.studio{margin-bottom:26px}
+.studioHead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:16px}
+.studioHead .h2{margin:4px 0 6px}
+.studioGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.studioCard{display:flex;flex-direction:column;gap:10px;padding:18px;border:1px solid var(--edge2);border-radius:16px;background:linear-gradient(160deg,rgba(22,31,49,.95),rgba(15,21,34,.92));transition:border-color .15s,transform .15s,box-shadow .15s;min-height:230px}
+.studioCard:hover,.studioCard:focus-within{border-color:rgba(255,179,64,.55);transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.3)}
+.studioCardTop{display:flex;justify-content:space-between;align-items:center}
+.studioIcon{font-size:26px;line-height:1;color:var(--em)}
+.studioNum{font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.22em;color:var(--dim)}
+.studioCard h3{font-size:19px;font-weight:900;font-style:italic;letter-spacing:-.01em;line-height:1.15;color:var(--tx)}
+.studioWhen{color:var(--mid);font-size:14px;flex:1;line-height:1.45}
+.studioChips{display:flex;flex-wrap:wrap;gap:6px}
+.studioCardActions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.studioCardActions .btn{flex:1 1 auto;justify-content:center;min-height:44px}
+.studioBar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.studioStep{font-family:var(--num);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.studioStep b{color:var(--tx)}
+.studioStatus{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border:1px solid rgba(255,179,64,.35);border-radius:12px;background:rgba(255,179,64,.06);font-size:14px;color:var(--mid);margin-bottom:12px}
+.studioActions{position:sticky;top:0;z-index:3;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;margin-bottom:12px;background:var(--bg)}
+.studioActions .btn{min-height:44px}
+.studioMissing{font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:6px 10px;border-radius:999px;border:1px solid var(--edge2)}
+.studioMissing.warn{color:var(--em);border-color:rgba(255,179,64,.5)}
+.studioMissing.ok{color:var(--gn);border-color:rgba(74,222,157,.5)}
+.studioRead,.studioEdit{display:grid;grid-template-columns:minmax(0,3fr) minmax(280px,2fr);gap:18px;align-items:start}
+.studioReadMain,.studioEditMain{min-width:0}
+.studioWhenLead{font-size:15.5px;color:var(--mid);margin:8px 0 10px;line-height:1.5}
+.studioFictional{margin-bottom:10px;color:var(--em)}
+.studioLetter{white-space:pre-wrap;font-family:var(--voice);font-size:16px;line-height:1.62;padding:22px 24px;border:1px solid var(--edge);border-radius:14px;background:#fbf8f1;color:#1b2130;overflow-wrap:anywhere}
+.studioPh{background:rgba(255,179,64,.4);color:#5a3a00;border-radius:4px;padding:0 3px;font-style:italic}
+.studioNote{padding:14px 16px;border:1px solid var(--edge);border-radius:12px;background:rgba(18,25,39,.9);margin-bottom:12px}
+.studioNote h3{font-size:12px;font-family:var(--num);font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.studioNote.gold{border-color:rgba(255,179,64,.4)}.studioNote.gold h3{color:var(--em)}
+.studioNote.rust{border-color:rgba(255,84,112,.4)}.studioNote.rust h3{color:var(--rd)}
+.studioNote ul{padding-left:18px;color:var(--mid);font-size:14px;display:grid;gap:6px;line-height:1.45}
+.studioForm{display:grid;gap:12px}
+.studioField{display:grid;gap:5px}
+.studioLabel{font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid)}
+.studioField textarea{width:100%;min-height:76px;background:rgba(10,13,20,.7);color:var(--tx);border:1px solid var(--edge2);border-radius:9px;padding:10px 12px;font-family:var(--disp);font-size:15px;line-height:1.5}
+.studioField input:focus-visible,.studioField textarea:focus-visible,.studioField select:focus-visible{border-color:var(--em);box-shadow:0 0 0 3px rgba(255,179,64,.2);outline:none}
+.studioCheck{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid rgba(255,179,64,.4);border-radius:12px;background:rgba(255,179,64,.05);cursor:pointer;color:var(--tx)}
+.studioCheck input{width:20px;height:20px;margin-top:2px;accent-color:var(--em);flex:none}
+.studioCheck small{display:block;color:var(--dim);font-size:12.5px;margin-top:2px}
+.studioPreview .eyebrow{margin-bottom:8px}
+.studioWarn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,84,112,.45);background:rgba(44,18,26,.6);color:var(--tx);font-size:14px;margin-bottom:10px}
+.studioSubject{margin-top:12px;padding:12px 14px;border:1px solid var(--edge);border-radius:12px;background:rgba(18,25,39,.9)}
+.studioSubject div{font-size:15px;color:var(--tx);margin-top:4px;overflow-wrap:anywhere}
+#studio-text{min-height:420px;font-family:var(--voice);font-size:16px;line-height:1.62}
+.studioSavedHead{margin:8px 0 10px}
+@media(max-width:980px){.studioRead,.studioEdit{grid-template-columns:1fr}}
+@media(max-width:600px){.studioGrid{grid-template-columns:1fr}.studioLetter{padding:16px;font-size:15px}.studioActions .btn{flex:1 1 45%;justify-content:center}.studioBar .row{width:100%}.studioBar .row .btn{flex:1 1 auto;justify-content:center}}
+@media(prefers-reduced-motion:reduce){.studioCard,.studioCard:hover{transition:none;transform:none}}

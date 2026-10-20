@@ -43,7 +43,7 @@ const LOI_TARGET_COMMANDS=new Set(['loitarget.create','loitarget.update','loitar
 let loiSavedPage=null,loiTargetSearch=[];
 const LOI_COMMANDS=new Set(['loi.save','loi.approve','loi.evidence','loi.export','loi.handoff','loi.mark_sent']);
 const coreCommand=name=>mrxUI()&&MRX_COMMANDS.has(name)||threeboxEnabled()&&THREEBOX_COMMANDS.has(name)||intakeEnabled()&&INTAKE_COMMANDS.has(name)||myerasEnabled()&&MYERAS_COMMANDS.has(name)||loiCompositionEnabled()&&LOI_COMPOSITION_COMMANDS.has(name)||loiTargetsEnabled()&&LOI_TARGET_COMMANDS.has(name)||loiEnabled()&&LOI_COMMANDS.has(name)||CORE_COMMANDS.has(name)||deepResearch()&&name==='research.check';
-const coreAction=name=>mrxUI()&&name.startsWith('mrx-')||threeboxEnabled()&&name.startsWith('threebox-')||calendarV2()&&(name.startsWith('calendar-')||name.startsWith('itinerary-')||name.startsWith('admin-calendar-'))||intakeVisible()&&name.startsWith('intake-')||myerasEnabled()&&name.startsWith('myeras-')||loiTargetsEnabled()&&name.startsWith('loitarget-')||loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||loiCanonicalLookup()&&name==='resolve'||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
+const coreAction=name=>typeof lettersStudioEnabled==='function'&&lettersStudioEnabled()&&name.startsWith('studio-')||mrxUI()&&name.startsWith('mrx-')||threeboxEnabled()&&name.startsWith('threebox-')||calendarV2()&&(name.startsWith('calendar-')||name.startsWith('itinerary-')||name.startsWith('admin-calendar-'))||intakeVisible()&&name.startsWith('intake-')||myerasEnabled()&&name.startsWith('myeras-')||loiTargetsEnabled()&&name.startsWith('loitarget-')||loiEnabled()&&name.startsWith('loi-')||CORE_ACTIONS.has(name)||loiCanonicalLookup()&&name==='resolve'||deepResearch()&&['resolve','research-refresh','research-advance'].includes(name);
 const coreSection=section=>threeboxEnabled()&&section==='why'||loiEnabled()&&section==='loi'||deepResearch()&&section==='brief'||['identify','schedule'].includes(section);
 function comingSoonBadge(){return '<span class="chip warn" style="font-size:9px;white-space:normal">COMING SOON</span>';}
 function comingSoonPanel(label){return `<div class="panel amber pad" role="status" style="margin-bottom:1rem">${comingSoonBadge()}<h3>${esc(label||'This capability')}</h3><p>This capability is a preview. Its live integration is not active in this release. No recording, research, sharing or remote action will run, and text entered here is not saved.</p><p class="tiny">Your saved interviews and Calendar remain available.</p><button class="btn ghost sm" data-act="nav" data-to="calendar">Open Calendar</button></div>`;}
@@ -224,7 +224,7 @@ function savedDraftIds(name,id,data){
   return [];
 }
 function clearPrivateMemory(){clearProgramMediaMemory();clearMRXMemory();clearCalendarMemory();clearThreeboxMemory();
-  clearIntakeMemory();researchBriefs.clear();clearLoiMemory();draftValues.clear();pendingCommands.clear();void stopSpeech();
+  clearIntakeMemory();researchBriefs.clear();clearLoiMemory();if(typeof clearLettersStudioMemory==='function')clearLettersStudioMemory();draftValues.clear();pendingCommands.clear();void stopSpeech();
   if(typeof pendingAudio!=='undefined')pendingAudio.clear();
   if(typeof speechSessions!=='undefined')speechSessions.clear();
   if(typeof autosaveTimers!=='undefined'){for(const timer of autosaveTimers.values())clearTimeout(timer);autosaveTimers.clear();}

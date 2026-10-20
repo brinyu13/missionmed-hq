@@ -22,7 +22,7 @@ const NAV={
 };
 function navItems(){
   const r=roleName(); let items=NAV[r].slice();
-  if(r==='student'&&(loiEnabled()||studentPreview()))items.splice(3,0,['letters','Letters of Interest','My Letters']);
+  if(r==='student'&&(typeof lettersStudioEnabled==='function'&&lettersStudioEnabled()||loiEnabled()||studentPreview()))items.splice(3,0,['letters','Letters of Interest','Letters']);
   if(r==='admin'&&calendarV2()&&capabilities.adminLogistics===true)items.splice(1,0,['calendar','Student Calendar','Calendar']);
   if(r==='student' && (capabilities.contributions===true||capabilities.researchMissions===true||coreOnly())) items.splice(5,0,['contribute','Research access','Access']);
   return items;
@@ -138,7 +138,7 @@ function renderHome(){
       <form class="heroCapture" id="cmdform" role="search"><span class="pfx">Take me to</span><label class="sr" for="cmd">Take me to</label><input id="cmd" placeholder="…an interview, a day sheet, the calendar" autocomplete="off"><button class="heroGo" type="submit">Go</button></form>
       <div class="tryRow" aria-label="Suggested next actions"><span class="tryLbl">Suggested</span>${suggestions(list).map(sg=>`<button type="button" class="cChip" data-act="${sg.act}" ${sg.id?`data-id="${sg.id}" data-section="${sg.section}"`:''} ${sg.to?`data-to="${sg.to}"`:''}>${sg.label}</button>`).join('')}</div>
     </div>
-    ${(loiEnabled()||studentPreview())?`<div class="panel panel-gap"><div class="pHead"><div class="h2">Letter of <em>Interest</em></div></div><div class="pBody"><p>Turn verified program intelligence into a letter that sounds like you.</p>${btn('nav','BUILD MY LETTERS →','data-to="letters"')}</div></div>`:''}
+    ${(typeof lettersStudioEnabled==='function'&&lettersStudioEnabled()||loiEnabled()||studentPreview())?`<div class="panel panel-gap"><div class="pHead"><div class="h2">Letters of <em>Interest</em></div></div><div class="pBody"><p>Seven professional letter templates with full fictional examples. Pick one, add your facts, then copy or download your letter.</p>${btn('nav','OPEN LETTERS →','data-to="letters"','btn solid')}</div></div>`:''}
     <div class="homeGrid">
       <div class="panel">
         <div class="pHead"><div class="h2">Next <em>moves</em></div><button class="pMore" type="button" data-act="nav" data-to="interviews">All interviews ▸</button></div>
@@ -163,10 +163,12 @@ function renderHome(){
 
 /* ---------------- LETTERS OF INTEREST ---------------- */
 function renderMyLetters(){
-  const preview=studentPreview();
+  const preview=studentPreview(),studio=typeof lettersStudioEnabled==='function'&&lettersStudioEnabled()?renderLettersStudio():'';
+  const intro=pageIntro({eyebrow:'LETTERS OF INTEREST',title:'Write the letter a program <em>will actually read</em>',value:'Seven letter types, each with a full fictional example you can read, then personalize with your own facts. Copy or download your letter when you are done.',how:'Pick a template, add true details about you and the program, then edit the draft in your own words. Nothing is sent from here and nothing is invented for you.'});
   const list=preview?[]:myInterviews();
-  if(loiTargetsEnabled())return `<section data-view="letters" class="live">${pageIntro({eyebrow:'LETTER OF INTEREST',title:'My <em>Letters</em>',value:'Choose a program, build a private letter and manage your outreach.',how:'Use supported RISE evidence and your genuine reasons. Review and approve your words before opening your own email account.'})}${loiStyleEntry()}${S.ui.loiTargetOpen?renderLoiTargetEditor():renderProgramMyLetters()}</section>`;
-  return `<section data-view="letters" class="live">${pageIntro({eyebrow:'LETTER OF INTEREST',title:'My <em>Letters</em>',value:'Choose a program, build a private letter and manage your outreach.',how:'Use supported RISE evidence and your genuine reasons. Review and approve your words before opening your own email account.'})}
+  if(loiTargetsEnabled())return `<section data-view="letters" class="live">${intro}${studio}<div class="studioSavedHead"><div class="eyebrow">SAVED LETTERS · YOUR PROGRAMS</div></div>${loiStyleEntry()}${S.ui.loiTargetOpen?renderLoiTargetEditor():renderProgramMyLetters()}</section>`;
+  if(!loiEnabled()&&!preview)return `<section data-view="letters" class="live">${intro}${studio}</section>`;
+  return `<section data-view="letters" class="live">${intro}${studio}<div class="studioSavedHead"><div class="eyebrow">SAVED LETTERS · YOUR INTERVIEWS</div></div>
     ${loiStyleEntry()}${preview?'<div class="panel pad" role="status"><h2>Student View · Preview</h2><p>No private student letters or programs are loaded. Changes are not saved.</p></div>':`<div class="panel pad"><h2>Your programs and letters</h2>${myerasEnabled()?btn('myeras-open','IMPORT MY PROGRAMS','','btn ghost'):''}<p class="tiny">Letters for your saved interviews are available now. RISE Saved Programs, MyERAS import and program-first letters are being connected here. ${loiCompositionEnabled()?'Writing approaches are available in each letter; the standard letter builder remains available.':'AI personalization and writing approaches are not active yet; the standard letter builder is available.'}</p>${list.length?list.map(i=>{const h=loiState(i),head=h.current,sent=head&&h.outreach?.some(x=>x.revisionId===head.revisionId&&x.state==='self_reported_sent'),state=sent?'Sent (self-reported)':head?.state==='approved'?'Approved':head?'Draft':'Not started',action=sent?'VIEW STATUS':head?'CONTINUE':'CREATE LETTER';return `<div class="panel pad" style="margin-top:12px"><h3>${esc(i.programName||title(i))}</h3><p>${esc(i.track||'Track not specified')} · ${esc(state)}</p><p class="tiny">${i.program?'Canonical program attached; read current evidence before approval.':'Program confirmation needed before verified evidence can be used.'} Interview: ${esc(i.state)}.</p>${btn('open-section',action,`data-id="${esc(i.id)}" data-section="loi"`)}</div>`;}).join(''):'<div class="storyEmpty">No interviews or letters yet. Add an interview to use the live letter builder; program imports will appear here when connected.</div>'}${btn('add-interview','Add interview','', 'btn ghost')}</div>`}
   </section>`;
 }

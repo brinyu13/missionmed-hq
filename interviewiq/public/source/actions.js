@@ -142,7 +142,7 @@ const A={
 };
 Object.assign(A,{'workspace-retry'(){return completeWorkspace();}});
 async function dispatchAction(button){
-  if(studentPreview()&&!INTAKE_PREVIEW_ACTIONS.has(button.dataset.act)&&!new Set(['switch-view','nav','matrix','cal-nav','cal-today','cal-view','cal-day','drawer-close','add-interview','new-offer','close-interview','close-card']).has(button.dataset.act)){notice(previewError().message);return;}
+  if(studentPreview()&&!INTAKE_PREVIEW_ACTIONS.has(button.dataset.act)&&!button.dataset.act.startsWith('studio-')&&!new Set(['switch-view','nav','matrix','cal-nav','cal-today','cal-view','cal-day','drawer-close','add-interview','new-offer','close-interview','close-card']).has(button.dataset.act)){notice(previewError().message);return;}
   if(!S)return;if(coreOnly()&&!coreAction(button.dataset.act)){openComingSoon(labelForAction(button));return;}if(button.disabled)return;const name=button.dataset.act,handler=A[name];if(!handler){notice('This action is not available.');return;}
   const key=[name,button.dataset.id,button.dataset.sub,button.dataset.student].join(':');if(activeActions.has(key))return;
   activeActions.add(key);button.setAttribute('aria-busy','true');

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const names=['runtime','model','views','shell','roles','actions','opening'];
+const names=['runtime','model','views','shell','roles','actions','letters-studio','opening'];
 const chunks=await Promise.all(names.map(n=>fs.readFile(path.join(root,'public/source',n+'.js'),'utf8')));
 const proseContract=(await fs.readFile(path.join(root,'server/loi-prose-contract.mjs'),'utf8')).replace(/^export /gm,'');
 await fs.writeFile(path.join(root,'public/app.js'),proseContract+'\n'+chunks.join('\n\n')+'\nvoid boot();\n');
