@@ -51,6 +51,8 @@ class MMED_Access_Gate {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
 		add_filter( 'login_redirect', array( __CLASS__, 'login_redirect' ), 999, 3 );
+		add_filter( 'missionmed_drj_drills_full_access', array( __CLASS__, 'preserve_full_program_access' ), 10, 2 );
+		add_filter( 'missionmed_storyforge_entitlement', array( __CLASS__, 'storyforge_program_entitlement' ), 10, 3 );
 
 		// Clear tier cache when LearnDash enrollment changes.
 		add_action( 'learndash_update_course_access', array( __CLASS__, 'clear_user_cache' ), 10, 2 );
@@ -127,7 +129,7 @@ class MMED_Access_Gate {
 		}
 
 		// Admins always get full access.
-		if ( self::is_admin_full_access( $user_id ) ) {
+		if ( self::user_has_full_access( $user_id ) ) {
 			return 'enrolled';
 		}
 
@@ -279,7 +281,51 @@ class MMED_Access_Gate {
 			return true;
 		}
 
-		return ! empty( array_intersect( self::get_user_course_ids( $user_id ), self::get_full_access_course_ids() ) );
+		return ! empty( self::get_current_full_access_course_ids( $user_id ) );
+	}
+
+	/** Current LearnDash access, never a cached Matrix tier or legacy role grant. */
+	public static function get_current_full_access_course_ids( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id || ! function_exists( 'sfwd_lms_has_access' ) ) {
+			return array();
+		}
+		$courses = array();
+		foreach ( self::get_full_access_course_ids() as $course_id ) {
+			// LearnDash evaluates direct/group enrollment, start dates and expiry.
+			if ( sfwd_lms_has_access( $course_id, $user_id ) ) {
+				$courses[] = $course_id;
+			}
+		}
+		return $courses;
+	}
+
+	/** Let the existing Dr J gate recognize the same current program grant. */
+	public static function preserve_full_program_access( $allowed, $user_id ) {
+		return (bool) $allowed || self::user_has_full_access( $user_id );
+	}
+
+	/** Native StoryForge adapter; its authentication and role gates still run. */
+	public static function storyforge_program_entitlement( $entitlement, $user, $role ) {
+		if ( 'student' !== $role || ! ( $user instanceof WP_User ) || ! $user->exists() ) {
+			return $entitlement;
+		}
+		// Explicit security restrictions are distinct from the legacy Dr J role.
+		if ( is_array( $entitlement ) && ! empty( $entitlement['restricted'] ) ) {
+			return $entitlement;
+		}
+		$courses = self::get_current_full_access_course_ids( $user->ID );
+		if ( empty( $courses ) ) {
+			return $entitlement;
+		}
+		return array(
+			'trusted' => true,
+			'verified' => true,
+			'active' => true,
+			'status' => 'active',
+			'source' => 'matrix_current_learndash',
+			'course_ids' => array_map( 'strval', $courses ),
+		);
 	}
 
 	/**
