@@ -186,3 +186,37 @@ test('two program-specific drafts stay separate; switching interviews flushes un
     await click(x,'[data-act="studio-gallery"]');assert.match(x.doc.querySelector('.studioSaved').textContent,/YOUR SAVED LETTERS · 2/);
   }finally{x.close();}
 });
+
+test('NRMP correction survives save and reopen: four confirmations persist, revocation after reopen removes only the composer sentence, a legacy firstChoice fact never re-authorizes it',async()=>{
+  const RANK='After completing my interviews, I am writing to let you know that I intend to rank your program first on my rank order list.';
+  const x=setup();try{
+    await click(x,'[data-act="studio-use"][data-template="intent"]');type(x,'studio-program-pick',id);await settle();
+    type(x,'studio-f-yourName','Priya');type(x,'studio-f-interviewDate','January 8');type(x,'studio-f-moment','Morning report was resident-led.');
+    for(const k of ['firstChoice','rankVoluntary','rankUnpressured'])type(x,'studio-f-'+k,true);
+    assert.doesNotMatch(x.doc.getElementById('studio-preview').textContent,/intend to rank/,'three of four confirmations are not enough');
+    type(x,'studio-f-rankNoReciprocity',true);assert.match(x.doc.getElementById('studio-preview').textContent,/intend to rank your program first/);
+    await click(x,'[data-act="studio-continue"]');type(x,'studio-text',x.doc.getElementById('studio-text').value.replace('Thank you for your consideration.','Thank you for your consideration and for the tour.'));
+    await click(x,'[data-act="studio-save"]');assert.match(status(x),/SAVED TO YOUR ACCOUNT/);
+    const d=saves(x)[0].body.data;for(const label of ['Truthful: this program is my first choice and I intend to rank it first.: yes','I choose to disclose this voluntarily.: yes','No program requested or pressured me to disclose my ranking intentions.: yes','I understand that no reciprocal ranking commitment is implied.: yes'])assert.ok(d.facts.some(f=>f.text===label),label);
+    assert.match(d.text,/intend to rank your program first/);
+  }finally{x.close();}
+  const y=setup(JSON.parse(JSON.stringify(x.srv.ws)));try{
+    await click(y,'[data-act="studio-reopen"]');
+    const st=y.h.loiStudioState();assert.equal(st.templateId,'intent');assert.equal(st.rankGenerated,true,'composer-sentence provenance restored only with all four confirmations');
+    assert.match(y.doc.getElementById('studio-text').value,/intend to rank your program first/);assert.match(y.doc.getElementById('studio-text').value,/and for the tour/);
+    await click(y,'[data-act="studio-personalize"]');type(y,'studio-f-rankUnpressured',false);
+    assert.doesNotMatch(st.text,/intend to rank/,'exact composer sentence removed');assert.match(st.text,/and for the tour/,'student edit preserved');assert.match(st.text,/I remain strongly interested in your program and would value the opportunity to train with your team\.\n/);
+    assert.match(y.doc.getElementById('toast').textContent,/Optional first-choice sentence removed/);
+    assert.match(status(y),/UNSAVED CHANGES/,'revocation is a change to save');
+    await click(y,'#studio-save-status [data-act="studio-save"]');assert.match(status(y),/SAVED TO YOUR ACCOUNT/);assert.doesNotMatch(y.srv.ws.state.loi[id].current.text,/intend to rank/);await settle();
+  }finally{y.close();}
+  // legacy draft: old single firstChoice fact plus the sentence in text
+  const legacy=workspace();const rev={type:'iiq.loi.revision',schemaVersion:1,revisionId:randomUUID(),letterId:randomUUID(),parentRevisionId:null,letterVersion:1,createdAt:new Date().toISOString(),interviewId:id,state:'draft',text:'Dear Program Director,\n\nThank you again for the opportunity to interview with the Example Program on January 8. '+RANK+'\n\nSincerely,\nPriya\n',context:{whyNow:'',applicationState:'',interviewState:''},motivations:[],facts:[{id:randomUUID(),text:'Letter type: Letter of Intent',confirmed:true},{id:randomUUID(),text:'This program is genuinely my first choice and I intend to rank it first.: yes',confirmed:true}],selectedEvidence:[],program:{id:'program-one',name:'Example Program',track:'Categorical'},contentHash:randomUUID()};legacy.state.loi[id]={current:rev,history:[rev],outreach:[],currentBindingValid:true};
+  const z=setup(legacy);try{
+    await click(z,'[data-act="studio-reopen"]');await settle();const st=z.h.loiStudioState();
+    assert.equal(st.rankGenerated,false,'legacy boolean alone grants no provenance');assert.notEqual(st.fields.firstChoice,true);
+    assert.match(z.doc.getElementById('studio-text').value,/intend to rank/,'student text is never silently rewritten');
+    assert.match(z.doc.querySelector('.studioPreview').textContent,/ranking language without all four first-choice confirmations/,'explicit review notice');
+    await click(z,'[data-act="studio-personalize"]');assert.doesNotMatch(z.doc.getElementById('studio-preview').textContent,/intend to rank/,'rebuild would not regenerate the sentence');await settle();
+  }finally{z.close();}
+});
