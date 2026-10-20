@@ -23,7 +23,7 @@ if (is_file(__DIR__ . '/CoachingLandingIntegration.php')) {
 <link rel="stylesheet" href="<?php echo $asset('usce-donor.css'); ?>">
 <link rel="stylesheet" href="<?php echo $asset('usce-shell.css'); ?>">
 <link rel="stylesheet" href="<?php echo $asset('alternate.css'); ?>">
-<?php if ($coachingMarkup !== ''): ?><link rel="stylesheet" href="<?php echo $asset('CoachingLandingSection.css'); ?>"><?php endif; ?>
+<?php if ($coachingMarkup !== ''): ?><link rel="stylesheet" href="<?php echo $asset(function_exists('mmed_staff_coaching_config') && (mmed_staff_coaching_config()['enabled'] ?? false) ? 'StaffCoachingLanding.css' : 'CoachingLandingSection.css'); ?>"><?php endif; ?>
 <?php if (function_exists('mm_mr_0912_google_tag_markup')) echo mm_mr_0912_google_tag_markup(); ?>
 <script defer src="<?php echo $asset('alternate.js'); ?>"></script>
 </head><body class="mm-l5-on">
@@ -34,6 +34,7 @@ if (is_file(__DIR__ . '/CoachingLandingIntegration.php')) {
 <div class="mm-l5__right"><a href="/member-dashboard/" class="mm-l5__members">My Matrix →</a><a href="/my-account/" class="mm-l5__account">My Account</a><details class="mm-alt-menu mm-alt-mobile-nav"><summary>Menu</summary><nav aria-label="Mobile navigation"><a href="/">MissionMed home</a><a href="/testimonials/">Testimonials</a><a href="#bootcamp">Bootcamp schedule</a><a href="#complete">IV Prep Complete</a><a href="#alumni">Alumni stories</a><a href="#faq">Clear answers</a><a href="#enroll">Choose your program</a><a href="/member-dashboard/">My Matrix</a><a href="/cart/">Cart</a></nav></details></div>
 </div></header></div>
 <main id="main">
+<?php if ($coachingMarkup !== '' && function_exists('mmed_staff_coaching_announcement')) echo mmed_staff_coaching_announcement(); ?>
 <section class="cl1403c-a-hero" aria-labelledby="hero-title">
 <img class="mm-alt-hero-img" src="<?php echo $asset('media/montage-1702.webp'); ?>" srcset="<?php echo $asset('media/montage-640.webp'); ?> 640w, <?php echo $asset('media/montage-960.webp'); ?> 960w, <?php echo $asset('media/montage-1702.webp'); ?> 1702w" sizes="100vw" alt="Authentic MissionMed students and alumni celebrating Match Day together across video-call tiles" width="1702" height="630" fetchpriority="high" decoding="async">
 <div class="cl1403c-a-hero-overlay"><p class="cl1403c-a-hero-label">Mission Residency · Live Online · Fall 2026</p><h1 id="hero-title">YOU EARNED THE INTERVIEW.<br>NOW LET'S TURN IT INTO A MATCH.</h1><p class="cl1403c-a-hero-sub">Build the communication, story and connection skills that programs experience when they meet you.</p><div class="mm-alt-actions"><a class="cl1403c-a-btn" href="/testimonials/">Start with Student Stories →</a><a class="cl1403c-a-btn mm-alt-secondary" href="#bootcamp">Explore Interview Bootcamp Week</a><a class="cl1403c-a-btn mm-alt-secondary" href="#complete">Explore IV Prep Complete</a></div></div>

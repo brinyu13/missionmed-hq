@@ -4,6 +4,10 @@ defined('ABSPATH') || exit;
 
 /** Read-only presentation: existing Woo release checks own admission. */
 function mmed_mr_coaching_landing_markup(): string {
+    if (function_exists('mmed_staff_coaching_config') && (mmed_staff_coaching_config()['enabled'] ?? false)===true) {
+        require_once __DIR__.'/StaffCoachingLanding.php';
+        return mmed_staff_coaching_landing();
+    }
     if (!function_exists('mmed_mr_coaching_config') || !function_exists('mmed_mr_coaching_release_ready')
         || !function_exists('wc_get_product') || !function_exists('home_url')) { return ''; }
     try {

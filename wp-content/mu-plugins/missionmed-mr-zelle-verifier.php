@@ -700,6 +700,10 @@ function mm_mr_zelle_render_verified_badge( $order_id ) {
 	}
 	$rendered = true;
 	$identity = mm_mr_zelle_order_identity( $order );
+	if ( function_exists( 'mmed_staff_coaching_order' ) && mmed_staff_coaching_order( $order ) ) {
+		echo mmed_staff_coaching_confirmation( $order );
+		return;
+	}
 	if ( 'private_coaching' === ( $identity['kind'] ?? '' ) && ! mm_mr_zelle_coaching_active( $order, $identity ) ) {
 		echo '<style>.woocommerce-order-received .mmps-shell,.woocommerce-order-received .woocommerce-thankyou-order-received,.woocommerce-order-received a[href*="/member-dashboard/"]{display:none!important}</style><section class="mmz-coaching-pending" role="status"><h2>PAYMENT VERIFIED</h2><p>Your private coaching payment is confirmed. Coaching activation is pending; booking and service access are not yet confirmed. Do not send another payment.</p><p><a href="' . esc_url( home_url( '/contact/' ) ) . '">Contact MissionMed about activation</a>.</p></section>';
 		return;
@@ -774,6 +778,10 @@ function mm_mr_zelle_email_next_steps( $order, $sent_to_admin, $plain_text, $ema
 	}
 	$identity = mm_mr_zelle_order_identity( $order );
 	if ( 'private_coaching' === ( $identity['kind'] ?? '' ) ) {
+		if ( function_exists( 'mmed_staff_coaching_order' ) && mmed_staff_coaching_order( $order ) ) {
+			echo mmed_staff_coaching_confirmation( $order, $plain_text );
+			return;
+		}
 		$active = mm_mr_zelle_coaching_active( $order, $identity );
 		$title = 'Private interview coaching - Payment received';
 		$message = $active ? 'Your private coaching access is active. Sign in with the MissionMed account used for enrollment to review your Scheduler options.' : 'Your payment is confirmed. Coaching activation is pending; booking and service access are not yet confirmed. Do not send another payment.';

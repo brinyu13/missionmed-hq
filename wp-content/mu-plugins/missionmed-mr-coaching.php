@@ -118,6 +118,7 @@ function mmed_mr_coaching_add_to_cart($allowed, $product_id, $quantity, $variati
 }
 
 function mmed_mr_coaching_coupon_valid($valid, $coupon) {
+    if (function_exists('mmed_staff_coaching_cart') && mmed_staff_coaching_cart()) { return $valid; }
     $is_match = strtolower($coupon->get_code()) === 'matchready2026';
     $has_coaching = mmed_mr_coaching_cart_contains();
     if (!$is_match && !$has_coaching) { return $valid; }
@@ -287,6 +288,9 @@ function mmed_mr_coaching_before_canonical_payment($order_id, $transaction_id = 
  */
 function mmed_mr_coaching_zelle_complete_allowed($prior,$order,$reference) {
     if ($prior !== true) { return false; }
+    if (function_exists('mmed_staff_coaching_order') && mmed_staff_coaching_order($order)) {
+        return mmed_staff_coaching_zelle_allowed($order,$reference);
+    }
     try {
         $proof=mmed_mr_coaching_financial_proof($order);
         if ($proof['snapshot']['gateway']!=='bacs' || !hash_equals($proof['fingerprint'],(string)$reference)) { return false; }
@@ -505,6 +509,7 @@ add_filter('woocommerce_coupon_is_valid', 'mmed_mr_coaching_coupon_valid', 100, 
 add_filter('woocommerce_coupon_get_discount_amount', 'mmed_mr_coaching_coupon_discount', 100, 5);
 add_filter('woocommerce_coupon_is_valid_for_product', function ($valid, $product, $coupon) {
     if (strtolower($coupon->get_code()) !== 'matchready2026') { return $valid; }
+    if (function_exists('mmed_staff_coaching_sku') && ($staff_sku=mmed_staff_coaching_sku($product->get_id()))) { return $valid && mmed_staff_coaching_ready($staff_sku); }
     $sku = mmed_mr_coaching_sku($product->get_id());
     return $valid && $sku && mmed_mr_coaching_release_ready($sku);
 }, 100, 3);
