@@ -200,6 +200,8 @@ async function command(name,interviewId=null,data={},options={}){
       if(S)S.storageOk=false;throw error;
     }
   };
+  // Evidence is read-only; retain the same authority checks without blocking draft writes.
+  if(name==='loi.evidence')return work();
   const promise=commandQueue.then(work,work);commandQueue=promise.catch(()=>{});return promise;
 }
 function savedDraftIds(name,id,data){

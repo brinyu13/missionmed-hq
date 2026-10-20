@@ -25,8 +25,8 @@ function server(ws){
     if(path.endsWith('/token'))return ok({token:'memory-only',ttl_seconds:600});
     if(path.includes('/bootstrap'))return ok({bootstrap:snapshot()});
     if(path.includes('/commands')){
-      if(body.command==='loi.evidence'){if(s.evidenceMode==='503')return err(503,'rise_unavailable','RISE is unavailable right now.');if(s.evidenceMode==='none'){const e=evidenceBody();e.research.facts=[];e.research.coverage.fields[0].state='UNKNOWN';return ok(e);}return ok(evidenceBody());}
-      if(body.command==='loi.save'){if(s.delaySave)await s.delaySave;if(s.failNext){s.failNext=false;return err(503,'storage','Database unavailable.');}
+      if(body.command==='loi.evidence'){if(s.delayEvidence)await s.delayEvidence;if(s.evidenceMode==='503')return err(503,'rise_unavailable','RISE is unavailable right now.');if(s.evidenceMode==='none'){const e=evidenceBody();e.research.facts=[];e.research.coverage.fields[0].state='UNKNOWN';return ok(e);}return ok(evidenceBody());}
+      if(body.command==='loi.save'){if(s.evidenceMode==='503'&&body.data.selectedEvidence.length)return err(503,'rise_unavailable','RISE is unavailable right now.');if(s.delaySave)await s.delaySave;if(s.failNext){s.failNext=false;return err(503,'storage','Database unavailable.');}
         const d=body.data,cur=s.ws.state.loi[body.interviewId]?.current||null;if((d.expectedHead||null)!==(cur?.revisionId||null)||d.expectedLetterVersion!==(cur?.letterVersion||0))return err(409,'loi_head_conflict','Review the latest saved letter.');
         for(const x of [...d.motivations,...d.facts])assert.match(x.id,/^[0-9a-f-]{36}$/);assert.ok(d.text.trim().length>0);
         const rev={type:'iiq.loi.revision',schemaVersion:1,revisionId:randomUUID(),letterId:d.letterId||randomUUID(),parentRevisionId:cur?.revisionId||null,letterVersion:(cur?.letterVersion||0)+1,createdAt:new Date().toISOString(),interviewId:body.interviewId,state:'draft',text:d.text,context:d.context,motivations:d.motivations,facts:d.facts,selectedEvidence:d.selectedEvidence,program:{id:'program-one',name:'Example Program',track:'Categorical'},contentHash:randomUUID()};
@@ -219,4 +219,40 @@ test('NRMP correction survives save and reopen: four confirmations persist, revo
     assert.match(z.doc.querySelector('.studioPreview').textContent,/ranking language without all four first-choice confirmations/,'explicit review notice');
     await click(z,'[data-act="studio-personalize"]');assert.doesNotMatch(z.doc.getElementById('studio-preview').textContent,/intend to rank/,'rebuild would not regenerate the sentence');await settle();
   }finally{z.close();}
+});
+
+
+test('reopened citations survive edits while RISE is unavailable, and remain server-validated',async()=>{
+ const x=setup();try{
+  await click(x,'[data-act="studio-use"][data-template="initial"]');type(x,'studio-program-pick',id);await settle();type(x,'studio-ev-0',true);type(x,'studio-ev-0-c','My clinic connection.');await click(x,'[data-act="studio-continue"]');await click(x,'[data-act="studio-save"]');
+  const y=setup(JSON.parse(JSON.stringify(x.srv.ws)));try{
+   y.srv.evidenceMode='503';await click(y,'[data-act="studio-reopen"]');await settle();type(y,'studio-text',y.doc.getElementById('studio-text').value+'\nMy additional sentence.');await assert.rejects(click(y,'[data-act="studio-save"]'),/RISE is unavailable/);
+   assert.match(status(y),/SAVE FAILED/);
+   assert.deepEqual(JSON.parse(JSON.stringify(saves(y).at(-1).body.data.selectedEvidence)),[{field:'research.curriculum',claimRef:claim}]);
+   assert.match(y.doc.getElementById('studio-text').value,/My additional sentence/);assert.match(y.doc.getElementById('studio-text').value,/My clinic connection/);
+   y.srv.evidenceMode='facts';await click(y,'#studio-save-status [data-act="studio-save"]');assert.match(status(y),/SAVED TO YOUR ACCOUNT/);
+  }finally{y.close();}
+ }finally{x.close();}
+});
+
+test('program switching saves edited original, clears rank consent, and restores an existing destination without overwrite',async()=>{
+ const x=setup();try{
+  await click(x,'[data-act="studio-use"][data-template="intent"]');type(x,'studio-program-pick',id);await settle();for(const key of ['firstChoice','rankVoluntary','rankUnpressured','rankNoReciprocity'])type(x,'studio-f-'+key,true);
+  await click(x,'[data-act="studio-continue"]');type(x,'studio-text',x.doc.getElementById('studio-text').value+'\nOnly for program one.');await click(x,'[data-act="studio-personalize"]');type(x,'studio-program-pick',id2);await settle();
+  assert.match(x.srv.ws.state.loi[id].current.text,/Only for program one/);assert.equal(x.h.loiStudioBound().id,id2);assert.equal(x.h.loiStudioState().rankGenerated,false);
+  for(const key of ['firstChoice','rankVoluntary','rankUnpressured','rankNoReciprocity'])assert.notEqual(x.h.loiStudioState().fields[key],true);
+  assert.doesNotMatch(x.doc.getElementById('studio-preview').textContent,/Only for program one|intend to rank|Example Program/);
+  await click(x,'[data-act="studio-continue"]');type(x,'studio-text','My already saved second-program letter.');await click(x,'[data-act="studio-save"]');const secondVersion=x.srv.ws.state.loi[id2].current.letterVersion;
+  await click(x,'[data-act="studio-personalize"]');type(x,'studio-program-pick',id);await settle();assert.match(x.h.loiStudioState().text,/Only for program one/);
+  type(x,'studio-program-pick',id2);await settle();assert.equal(x.h.loiStudioState().text,'My already saved second-program letter.');assert.equal(x.srv.ws.state.loi[id2].current.letterVersion,secondVersion);assert.equal(x.h.loiStudioDirty(),false);
+ }finally{x.close();}
+});
+
+
+test('a pending RISE read does not queue an uncited draft save',async()=>{
+ const x=setup();let release;try{
+  x.srv.delayEvidence=new Promise(r=>release=r);
+  await click(x,'[data-act="studio-use"][data-template="initial"]');type(x,'studio-program-pick',id);await settle();type(x,'studio-f-yourName','Amara');await click(x,'[data-act="studio-continue"]');
+  const saving=click(x,'[data-act="studio-save"]');await settle();assert.equal(saves(x).length,1);await saving;assert.match(status(x),/SAVED TO YOUR ACCOUNT/);
+ }finally{release?.();await settle();x.close();}
 });
