@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const donor = fileURLToPath(new URL('../LIVE/scheduler/scheduler_v1.html', import.meta.url));
 const adopted = fs.readFileSync(donor, 'utf8');
-const patchFile = fileURLToPath(new URL('fixtures/mr-coaching-scheduler-ui.patch', import.meta.url));
-const fixture = fs.readFileSync(patchFile, 'utf8');
+const patchFile = fileURLToPath(new URL('fixtures/mr-coaching-scheduler-ui.patch.json', import.meta.url));
+const fixture = JSON.parse(fs.readFileSync(patchFile, 'utf8'));
 
 // Reverse only the reviewed fixture in memory: no Git, network, or file writes.
 function originalFromAdopted(current, diff) {
@@ -199,7 +199,7 @@ function buildPatch() {
   return out.join('\n') + '\n';
 }
 if (process.argv.includes('--emit-patch')) { process.stdout.write(buildPatch()); process.exit(0); }
-const patch = fs.readFileSync(patchFile, 'utf8');
+const patch = JSON.parse(fs.readFileSync(patchFile, 'utf8'));
 assert.equal(patch, buildPatch(), 'patch is narrow exact-donor unified diff');
 const originalLines = source.split('\n'); const modified = []; let cursor = 0;
 for (const hunk of patch.split(/(?=^@@ )/m).slice(1)) {
