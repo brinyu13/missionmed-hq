@@ -146,7 +146,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
   }
 
   const actor = actorResult.actor;
-  const coaching = context.coachingIntegration || createCoachingIntegration({ repository, session, actor });
+  const coaching = context.coachingIntegration || createCoachingIntegration({ repository, session, actor, readWooAllowances: context.readWooAllowances });
 
   try {
     if (pathname === '/api/scheduler/bootstrap') {

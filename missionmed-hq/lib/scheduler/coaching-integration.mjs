@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { checkCoachingAccess, createCoachingService } from './coaching.mjs';
+import { createCoachingHybridService } from './coaching-hybrid.mjs';
 import { getSchedulerActor } from './auth.mjs';
 import { generateAvailabilitySlots } from './engine.mjs';
 
@@ -23,9 +23,9 @@ function deny(code, message = 'Your coaching booking could not be confirmed.', s
 
 // Request-scoped adapter over the existing repository, native engine and paid
 // RPCs. No routes, external providers, identity synchronization or alternate store.
-export function createCoachingIntegration({ repository, session, actor, env = process.env, fetchImpl = globalThis.fetch } = {}) {
-  const enabled = env.MMED_COACHING_ENABLED === '1';
-  let modelPromise; let busyPromise; let blackoutsPromise; let accessPromise;
+export function createCoachingIntegration({ repository, session, actor, readWooAllowances, enabled: requestedEnabled = true } = {}) {
+  const enabled = requestedEnabled === true && typeof readWooAllowances === 'function';
+  let modelPromise; let busyPromise; let blackoutsPromise;
   const appointments = new Map();
   const types = new Map();
   const rules = new Map();
@@ -43,7 +43,7 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
     if (!enabled) deny('coaching_disabled', 'Coaching scheduling is not available yet.', 503);
     return actual;
   }
-  const service = createCoachingService({ enabled, rpcClient: (...args) => repository.rpc(...args), resolveNativeActor: async () => trustedActor() });
+  const service = createCoachingHybridService({ enabled, repository, actor, readWooAllowances, resolveNativeActor: async () => trustedActor() });
   async function model() {
     trustedActor();
     modelPromise ||= service.readModel(session).then(result => {
@@ -52,16 +52,10 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
     });
     return modelPromise;
   }
-  async function access(data, fresh = false) {
-    if (fresh) accessPromise = undefined;
-    accessPromise ||= checkCoachingAccess({ actor: trustedActor(), secret: env.MMED_COACHING_WOO_SECRET, fetchImpl,
-      bindings: data.packages.map(pack => ({ order_id: pack.order_id, snapshot_digest: pack.snapshot_digest })) });
-    return accessPromise;
-  }
-  async function accessibleModel(data, fresh = false) {
-    const truth = await access(data, fresh);
-    return { ...data, packages: data.packages.map(pack => ({ ...pack,
-      booking_allowed: pack.booking_allowed !== false && pack.refund_review_required !== true && truth.get(pack.order_id) === true })) };
+  async function accessibleModel(data) {
+    // This model already came from a request-fresh complete Woo read. Native
+    // mutation obtains its own fresh receipt immediately before the atomic RPC.
+    return data;
   }
   async function type(id) {
     if (!id) return null;
@@ -289,7 +283,7 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
         const offered = await slots({ start_date: start.toISOString(), end_date: end.toISOString(), provider_id: approval.provider_id }, rawType, data, action === 'reschedule' ? credit : null);
         if (!offered.some(slot => Date.parse(slot.startAt) === start.getTime() && Date.parse(slot.endAt) === end.getTime())) deny('coaching_native_slot_unavailable', 'That time is no longer available. Please choose another.');
       }
-      const resolved = { action, idempotency_key: key, client_request_digest: digest, service_credit_id: credit.id, approval_id: approval?.approval_id || null,
+      const resolved = { action, idempotency_key: key, client_request_digest: digest, service_credit_id: credit.id, unit_id: credit.unit_id, approval_id: approval?.approval_id || null,
         appointment_type_id: rawType.id, provider_id: approval?.provider_id || actual.provider_id, resource_id: resource, schedule_event_id: actual?.schedule_event_id || null,
         start_at: start.toISOString(), end_at: end.toISOString(), timezone: r.timezone || 'America/New_York',
         actor_type: 'student', actor_user_id: trusted.userId, actor_wp_user_id: trusted.wpUserId,
@@ -297,7 +291,6 @@ export function createCoachingIntegration({ repository, session, actor, env = pr
       if (actual) resolved.appointment_id = actual.id;
       if (value(payload, 'intake_answers', 'intakeAnswers')) resolved.intake_answers = value(payload, 'intake_answers', 'intakeAnswers');
       if (payload.reason !== undefined) resolved.reason = payload.reason;
-      if (action !== 'cancel' && (await access(data, true)).get(credit.package.order_id) !== true) deny('coaching_package_review_required');
       const result = await service.mutateAppointment(session, resolved);
       return { result, appointmentType: rawType, payload: resolved };
     },

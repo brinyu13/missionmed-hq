@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Mission Residency Zelle Payment Verifier
  * Description: Fail-closed Mission Residency Zelle verification with administrator and automated-email providers.
- * Version: 2026.10.04.1
+ * Version: 2026.10.04.8
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -46,10 +46,41 @@ function mm_mr_zelle_order_identity( $order ) {
 	$item = reset( $items );
 	$pairs = array( 5504 => array( 5867, 3646 ), 3576 => array( 5865, 5227 ) );
 	$parent = absint( $item->get_product_id() );
-	if ( ! isset( $pairs[ $parent ] ) || $pairs[ $parent ][0] !== absint( $item->get_variation_id() ) || 1.0 !== (float) $item->get_quantity() ) {
+	if ( 1.0 !== (float) $item->get_quantity() ) {
 		return false;
 	}
-	return array( 'product_id' => $parent, 'variation_id' => $pairs[ $parent ][0], 'course_id' => $pairs[ $parent ][1] );
+	if ( isset( $pairs[ $parent ] ) ) {
+		if ( $pairs[ $parent ][0] !== absint( $item->get_variation_id() ) ) {
+			return false;
+		}
+		return array( 'product_id' => $parent, 'variation_id' => $pairs[ $parent ][0], 'course_id' => $pairs[ $parent ][1] );
+	}
+	// Woo owns new-product admission and canonical snapshot verification. Never
+	// fabricate a LearnDash course or infer coaching from an unknown product.
+	try {
+		$coaching = apply_filters( 'mmed_mr_coaching_zelle_identity', false, $order );
+	} catch ( Throwable $error ) {
+		return false;
+	}
+	if ( ! is_array( $coaching ) || 'private_coaching' !== ( $coaching['kind'] ?? '' )
+		|| ( $coaching['product_id'] ?? null ) !== $parent || 0 !== ( $coaching['variation_id'] ?? null )
+		|| 0 !== absint( $item->get_variation_id() ) || array_key_exists( 'course_id', $coaching )
+		|| ! is_string( $coaching['snapshot_digest'] ?? null )
+		|| ! preg_match( '/^[a-f0-9]{64}$/D', $coaching['snapshot_digest'] )
+		|| 'yes' !== $order->get_meta( '_mmed_mr_coaching_admitted', true )
+		|| ! hash_equals( (string) $order->get_meta( '_mmed_mr_coaching_snapshot', true ), $coaching['snapshot_digest'] ) ) {
+		return false;
+	}
+	return array( 'kind' => 'private_coaching', 'product_id' => $parent, 'variation_id' => 0, 'snapshot_digest' => $coaching['snapshot_digest'] );
+}
+
+function mm_mr_zelle_coaching_active( $order, $identity ) {
+	return is_array( $identity ) && 'private_coaching' === ( $identity['kind'] ?? '' )
+		&& $order->is_paid() && $order->has_status( array( 'processing', 'completed' ) )
+		&& '0.00' === mm_mr_zelle_amount( $order->get_total_refunded() )
+		&& 'active' === $order->get_meta( '_mmed_mr_coaching_state', true )
+		&& hash_equals( $identity['snapshot_digest'], (string) $order->get_meta( '_mmed_mr_coaching_snapshot', true ) )
+		&& hash_equals( $identity['snapshot_digest'], (string) $order->get_meta( '_mmed_mr_coaching_fulfillment_ack', true ) );
 }
 
 function mm_mr_zelle_amount( $value ) {
@@ -265,6 +296,18 @@ function mm_mr_zelle_complete_payment( $order, $reference, $source, $mode = '' )
 		$order->save();
 		$order_id = $order->get_id();
 		try {
+			$coaching_identity = mm_mr_zelle_order_identity( $order );
+			if ( 'private_coaching' === ( $coaching_identity['kind'] ?? '' ) ) {
+				$coaching_allowed = function_exists( 'mmed_mr_coaching_zelle_complete_allowed' )
+					&& true === apply_filters( 'mmed_mr_coaching_zelle_complete_allowed', true, $order, $reference );
+				if ( ! $coaching_allowed ) {
+					$order->update_meta_data( '_mm_zelle_state', 'needs_review' );
+					$order->update_meta_data( '_mm_zelle_review_hold', 'coaching_allocation_review' );
+					mm_mr_zelle_audit( $order, 'coaching_completion_review', $source );
+					$order->save();
+					return false;
+				}
+			}
 			// Canonical hooks own entitlement and email; no synthetic transaction ID.
 			$order->payment_complete();
 			$order = wc_get_order( $order->get_id() );
@@ -280,8 +323,12 @@ function mm_mr_zelle_complete_payment( $order, $reference, $source, $mode = '' )
 			$order->update_meta_data( '_mm_zelle_verified_at', time() );
 			mm_mr_zelle_audit( $order, 'woo_payment_completed', $source );
 			$identity = mm_mr_zelle_order_identity( $order );
-			$course_access = $identity && function_exists( 'sfwd_lms_has_access' ) ? sfwd_lms_has_access( $identity['course_id'], $order->get_user_id() ) : null;
-			mm_mr_zelle_audit( $order, 'entitlement_observed', true === $course_access ? 'target_course_present' : ( false === $course_access ? 'target_course_missing' : 'course_check_unavailable' ) );
+			if ( $identity && 'private_coaching' === ( $identity['kind'] ?? '' ) ) {
+				mm_mr_zelle_audit( $order, 'entitlement_observed', mm_mr_zelle_coaching_active( $order, $identity ) ? 'coaching_active' : 'coaching_fulfillment_pending' );
+			} else {
+				$course_access = $identity && function_exists( 'sfwd_lms_has_access' ) ? sfwd_lms_has_access( $identity['course_id'], $order->get_user_id() ) : null;
+				mm_mr_zelle_audit( $order, 'entitlement_observed', true === $course_access ? 'target_course_present' : ( false === $course_access ? 'target_course_missing' : 'course_check_unavailable' ) );
+			}
 			$order->save();
 			$order->add_order_note( 'Mission Residency Zelle receipt verified via ' . $mode . '. Canonical Woo payment completion invoked. Transaction fingerprint retained for replay protection; no bank transaction ID fabricated.' );
 			wp_clear_scheduled_hook( MM_MR_ZELLE_CRON_HOOK, array( $order->get_id() ) );
@@ -315,6 +362,8 @@ function mm_mr_zelle_run_verification( $order, $payer_name, $source = 'request' 
 		$retries = absint( $order->get_meta( '_mm_zelle_retry_count', true ) );
 		if ( $retries >= MM_MR_ZELLE_MAX_RETRIES ) {
 			$order->update_meta_data( '_mm_zelle_state', 'needs_review' );
+			$order->update_meta_data( '_mm_zelle_review_hold', 'retry_limit' );
+			wp_clear_scheduled_hook( MM_MR_ZELLE_CRON_HOOK, array( $order->get_id() ) );
 			mm_mr_zelle_audit( $order, 'needs_review', 'retry_limit' );
 			$order->save();
 			return 'needs_review';
@@ -350,14 +399,20 @@ function mm_mr_zelle_run_verification( $order, $payer_name, $source = 'request' 
 		if ( ! in_array( $state, array( 'not_found', 'provider_unavailable', 'needs_review', 'already_consumed' ), true ) ) {
 			$state = 'needs_review';
 		}
+		// The final unsuccessful attempt must enter review now, not depend on
+		// a thirteenth request after the scheduler has already stopped.
+		$retry_exhausted = in_array( $state, array( 'not_found', 'provider_unavailable' ), true ) && $retries + 1 >= MM_MR_ZELLE_MAX_RETRIES;
+		if ( $retry_exhausted ) {
+			$state = 'needs_review';
+		}
 		$order = wc_get_order( $order->get_id() );
 		if ( $order && ! $order->is_paid() ) {
 			$order->update_meta_data( '_mm_zelle_state', $state );
 			if ( in_array( $state, array( 'needs_review', 'already_consumed' ), true ) ) {
-				$order->update_meta_data( '_mm_zelle_review_hold', $state );
+				$order->update_meta_data( '_mm_zelle_review_hold', $retry_exhausted ? 'retry_limit' : $state );
 				wp_clear_scheduled_hook( MM_MR_ZELLE_CRON_HOOK, array( $order->get_id() ) );
 			}
-			mm_mr_zelle_audit( $order, $state, $result['error'] ?? $source );
+			mm_mr_zelle_audit( $order, $state, $retry_exhausted ? 'retry_limit' : ( $result['error'] ?? $source ) );
 			$order->save();
 			if ( in_array( $state, array( 'not_found', 'provider_unavailable' ), true ) ) {
 				mm_mr_zelle_schedule_retry( $order );
@@ -398,7 +453,8 @@ function mm_mr_zelle_notify_admin( $order ) {
 			'This link requires an authenticated administrator with WooCommerce management permission.',
 		)
 	);
-	$sent = wp_mail( get_option( 'admin_email' ), 'ZELLE PAYMENT VERIFICATION REQUEST — ORDER #' . $order->get_order_number(), $body );
+	$recipient = get_option( 'mmed_mr_zelle_admin_notification_email', get_option( 'admin_email' ) );
+	$sent = mm_mr_zelle_protected_mail( 'wp_mail', $recipient, 'ZELLE PAYMENT VERIFICATION REQUEST — ORDER #' . $order->get_order_number(), $body );
 	$order->update_meta_data( '_mm_zelle_admin_notification', $sent ? 'sent' : 'failed' );
 	$order->update_meta_data( '_mm_zelle_admin_notified_at', time() );
 	mm_mr_zelle_audit( $order, $sent ? 'admin_notified' : 'admin_notification_failed', 'admin_confirmation' );
@@ -618,6 +674,21 @@ function mm_mr_zelle_render_queue() {
 	echo '</tbody></table></div>';
 }
 
+function mm_mr_zelle_is_inactive_order( $order ) {
+	return (bool) mm_mr_zelle_order_identity( $order ) && ! $order->is_paid() && $order->has_status( array( 'cancelled', 'failed', 'refunded' ) );
+}
+
+function mm_mr_zelle_render_inactive( $order_id ) {
+	static $rendered = false;
+	$order = wc_get_order( absint( $order_id ) );
+	$authorized = mm_mr_zelle_authorized_order();
+	if ( $rendered || ! mm_mr_zelle_is_inactive_order( $order ) || ! $authorized || $authorized->get_id() !== $order->get_id() ) {
+		return;
+	}
+	$rendered = true;
+	echo '<style>.woocommerce-order-received .mmps-shell,.woocommerce-order-received .woocommerce-thankyou-order-received,.woocommerce-order-received a[href*="/member-dashboard/"]{display:none!important}.woocommerce .mmz-inactive{max-width:880px;margin:24px auto;padding:28px;border:2px solid #65737c;border-radius:12px;background:#0d1d24;color:#fff}.woocommerce .mmz-inactive h2,.woocommerce .mmz-inactive p{color:#fff!important}.woocommerce .mmz-inactive a{color:#f6d79a!important;text-decoration:underline}.mmz-inactive a:focus-visible{outline:3px solid #fff;outline-offset:3px}</style><section class="mmz-inactive" role="status"><h2>THIS ORDER IS NOT ACTIVE</h2><p>This order is closed or could not be completed. It does not confirm enrollment or activate program access. Do not send a payment for this order.</p><p>For help with your enrollment, <a href="' . esc_url( home_url( '/contact/' ) ) . '">contact MissionMed</a>.</p></section>';
+}
+
 function mm_mr_zelle_render_verified_badge( $order_id ) {
 	static $rendered = false;
 	if ( $rendered || ! function_exists( 'wc_get_order' ) ) {
@@ -628,7 +699,12 @@ function mm_mr_zelle_render_verified_badge( $order_id ) {
 		return;
 	}
 	$rendered = true;
-	echo '<style>.woocommerce-order-received .woocommerce-thankyou-order-received{display:none!important}</style><section class="mmz-verified" role="status" style="max-width:880px;margin:24px auto 0;padding:24px;border:2px solid #1f7955;border-radius:12px;background:#eaf8f1;color:#123c2c;text-align:center"><strong style="display:block;font-size:22px;letter-spacing:.08em">PAYMENT VERIFIED</strong><h2 style="color:#123c2c;margin:10px 0">YOU\'RE IN.</h2><p>Your Mission Residency enrollment is now active.</p><a style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:8px;background:#123c2c;color:#fff" href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">ENTER MATRIX DASHBOARD →</a></section>';
+	$identity = mm_mr_zelle_order_identity( $order );
+	if ( 'private_coaching' === ( $identity['kind'] ?? '' ) && ! mm_mr_zelle_coaching_active( $order, $identity ) ) {
+		echo '<style>.woocommerce-order-received .mmps-shell,.woocommerce-order-received .woocommerce-thankyou-order-received,.woocommerce-order-received a[href*="/member-dashboard/"]{display:none!important}</style><section class="mmz-coaching-pending" role="status"><h2>PAYMENT VERIFIED</h2><p>Your private coaching payment is confirmed. Coaching activation is pending; booking and service access are not yet confirmed. Do not send another payment.</p><p><a href="' . esc_url( home_url( '/contact/' ) ) . '">Contact MissionMed about activation</a>.</p></section>';
+		return;
+	}
+	echo '<style>.woocommerce-order-received .woocommerce-thankyou-order-received{display:none!important}.woocommerce .mmz-verified{box-sizing:border-box;overflow-wrap:anywhere}.woocommerce .mmz-verified strong,.woocommerce .mmz-verified h2,.woocommerce .mmz-verified p{color:#123c2c!important}.woocommerce .mmz-verified a{color:#fff!important;box-sizing:border-box;max-width:100%}.mmz-verified a:focus-visible{outline:3px solid #123c2c;outline-offset:3px}</style><section class="mmz-verified" role="status" style="max-width:880px;margin:24px auto 0;padding:24px;border:2px solid #1f7955;border-radius:12px;background:#eaf8f1;color:#123c2c;text-align:center"><strong style="display:block;font-size:22px;letter-spacing:.08em">PAYMENT VERIFIED</strong><h2 style="color:#123c2c;margin:10px 0">YOU\'RE IN.</h2><p>Your Mission Residency enrollment is now active.</p><a style="display:inline-block;margin-top:8px;padding:12px 18px;border-radius:8px;background:#123c2c;color:#fff" href="' . esc_url( home_url( '/member-dashboard/' ) ) . '">ENTER MATRIX DASHBOARD →</a></section>';
 }
 
 function mm_mr_zelle_render_pending( $order_id ) {
@@ -645,6 +721,16 @@ function mm_mr_zelle_render_pending( $order_id ) {
 	$state     = sanitize_key( (string) $order->get_meta( '_mm_zelle_state', true ) ) ?: 'pending';
 	$submitted = in_array( $state, array( 'awaiting_admin', 'checking', 'not_found', 'provider_unavailable', 'needs_review', 'already_consumed', 'completing' ), true );
 	$title     = $submitted ? 'PAYMENT SUBMITTED FOR VERIFICATION' : 'ONE LAST STEP: COMPLETE YOUR ZELLE PAYMENT';
+	$labels    = array(
+		'awaiting_admin' => 'Awaiting confirmation',
+		'checking' => 'Checking your payment',
+		'not_found' => 'No match yet - we will check again',
+		'provider_unavailable' => 'Verification delayed - we will check again',
+		'needs_review' => 'Awaiting administrator review',
+		'already_consumed' => 'Awaiting administrator review',
+		'completing' => 'Confirming your enrollment',
+	);
+	$status_label = $labels[ $state ] ?? 'Awaiting verification';
 	?>
 	<style>
 	.woocommerce-order-received a[href*="/member-dashboard/"],.woocommerce-order-received .woocommerce-thankyou-order-received{display:none!important}.mmz-shell{max-width:880px;margin:28px auto;padding:clamp(24px,5vw,52px);background:#0d1d24;color:#f8f4ea;border-radius:20px;font-family:Arial,sans-serif;box-sizing:border-box}.woocommerce .mmz-shell,.woocommerce .mmz-shell p,.woocommerce .mmz-shell .mmz-alert,.woocommerce .mmz-shell .mmz-note,.woocommerce .mmz-shell .mmz-card,.woocommerce .mmz-shell .mmz-form label{color:#f8f4ea!important}.mmz-kicker{color:#dcbf86!important;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.mmz-shell h2{color:#fff!important;font-size:clamp(30px,5vw,52px);line-height:1.03;margin:12px 0}.mmz-shell p{font-size:17px;line-height:1.6}.mmz-shell .mmz-alert strong{color:#fff!important}.mmz-shell a{color:#f6d79a!important;text-decoration:underline;text-underline-offset:3px}.mmz-shell a:focus-visible{outline:3px solid #fff;outline-offset:3px}.mmz-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}.mmz-card{border:1px solid rgba(255,255,255,.35);padding:16px;border-radius:12px}.mmz-card strong{display:block;color:#dcbf86!important;margin-bottom:5px}.mmz-payment{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,300px);gap:24px;align-items:center;margin:24px 0}.mmz-id{font-size:clamp(18px,2.5vw,26px);font-weight:800;color:#fff;overflow-wrap:anywhere}.mmz-copy{display:inline-flex;align-items:center;justify-content:center;min-height:48px;margin-top:12px;padding:10px 18px;border:2px solid #dcbf86;border-radius:8px;background:transparent;color:#fff;font-weight:800;cursor:pointer}.mmz-copy:focus-visible{outline:3px solid #fff;outline-offset:3px}.mmz-qr-wrap{padding:16px;background:#fff;border-radius:16px;text-align:center}.mmz-qr{display:block;width:100%;height:auto;max-width:444px;margin:auto}.mmz-form{margin-top:24px;padding-top:24px;border-top:1px solid rgba(255,255,255,.35)}.mmz-form label{display:block;font-weight:700;margin-bottom:8px}.woocommerce .mmz-shell .mmz-form input{width:100%;min-height:50px;padding:12px;border:2px solid #c8d2d7!important;border-radius:8px;box-sizing:border-box;background:#fff!important;color:#0d1d24!important;caret-color:#0d1d24}.woocommerce .mmz-shell .mmz-form input:focus{border-color:#dcbf86!important;outline:3px solid #f6d79a!important;outline-offset:3px;box-shadow:0 0 0 4px #f6d79a!important}.woocommerce .mmz-shell .mmz-form input::placeholder{color:#46565e!important;opacity:1}.woocommerce .mmz-shell .mmz-form button{margin-top:12px;min-height:50px;padding:12px 20px;border:0;border-radius:8px;background:#dcbf86!important;color:#0d1d24!important;font-weight:800;cursor:pointer}.woocommerce .mmz-shell .mmz-form button:focus-visible{outline:3px solid #fff!important;outline-offset:3px}.mmz-note{color:#f8f4ea!important}.mmz-alert{padding:12px;border-left:4px solid #dcbf86;background:rgba(255,255,255,.10)}@media(max-width:600px){.mmz-shell{margin:16px 0;border-radius:14px}.mmz-grid,.mmz-payment{grid-template-columns:1fr}.mmz-payment-info{order:-1}.mmz-id{font-size:20px}.mmz-copy,.mmz-form button{width:100%}.mmz-qr-wrap{max-width:260px;margin:auto}}
@@ -658,7 +744,7 @@ function mm_mr_zelle_render_pending( $order_id ) {
 				<div class="mmz-card"><strong>Order</strong>#<?php echo esc_html( $order->get_order_number() ); ?></div>
 				<div class="mmz-card"><strong>Amount</strong><?php echo wp_kses_post( $order->get_formatted_order_total() ); ?></div>
 				<div class="mmz-card"><strong>Zelle sender</strong><?php echo esc_html( (string) $order->get_meta( '_mm_zelle_payer', true ) ?: 'Submitted' ); ?></div>
-				<div class="mmz-card"><strong>Status</strong>Awaiting verification</div>
+				<div class="mmz-card"><strong>Status</strong><?php echo esc_html( $status_label ); ?></div>
 			</div>
 			<p class="mmz-note">Your program access will remain locked until payment is confirmed. You may close this page. Do not send a second payment.</p>
 		<?php else : ?>
@@ -680,14 +766,108 @@ function mm_mr_zelle_render_pending( $order_id ) {
 	<?php
 }
 
+// Use the existing Woo customer email. Only paid, exact Mission Residency Zelle
+// orders receive program next steps; pending emails and other commerce do not.
+function mm_mr_zelle_email_next_steps( $order, $sent_to_admin, $plain_text, $email ) {
+	if ( $sent_to_admin || ! $order || ! $order->is_paid() || ! mm_mr_zelle_order_identity( $order ) || ! $email || ! in_array( $email->id, array( 'customer_processing_order', 'customer_completed_order' ), true ) ) {
+		return;
+	}
+	$identity = mm_mr_zelle_order_identity( $order );
+	if ( 'private_coaching' === ( $identity['kind'] ?? '' ) ) {
+		$active = mm_mr_zelle_coaching_active( $order, $identity );
+		$title = 'Private interview coaching - Payment received';
+		$message = $active ? 'Your private coaching access is active. Sign in with the MissionMed account used for enrollment to review your Scheduler options.' : 'Your payment is confirmed. Coaching activation is pending; booking and service access are not yet confirmed. Do not send another payment.';
+		$next = $active ? home_url( '/member-dashboard/#dashboard' ) : home_url( '/contact/' );
+		$label = $active ? 'Open your Matrix' : 'Contact MissionMed about activation';
+		if ( $plain_text ) {
+			echo "\n" . $title . "\n" . $message . "\n" . $label . ': ' . esc_url( $next ) . "\n";
+		} else {
+			echo '<h2>' . esc_html( $title ) . '</h2><p>' . esc_html( $message ) . '</p><p><a href="' . esc_url( $next ) . '">' . esc_html( $label ) . '</a></p>';
+		}
+		return;
+	}
+	$complete = 5227 === $identity['course_id'];
+	$title = $complete ? 'IV Prep Complete' : 'Interview Bootcamp Week';
+	$description = $complete
+		? 'Interview Bootcamp Week is included as your opening phase, October 8-18, 2026. Your full-season training then continues through your final interviews in February.'
+		: 'Your live online Interview Bootcamp Week runs October 8-18, 2026.';
+	$matrix = home_url( '/member-dashboard/#dashboard' );
+	$course = get_permalink( $identity['course_id'] );
+	if ( $plain_text ) {
+		echo "\n" . $title . " - Your next steps\n" . $description . "\nSign in with the MissionMed account used for enrollment.\nOpen your Matrix: " . esc_url( $matrix ) . "\nOpen your program: " . esc_url( $course ) . "\nFor joining details or access questions: " . esc_url( home_url( '/contact/' ) ) . "\n";
+	} else {
+		echo '<h2>' . esc_html( $title ) . ' - Your next steps</h2><p>' . esc_html( $description ) . '</p><p>Sign in with the MissionMed account used for enrollment.</p><p><a href="' . esc_url( $matrix ) . '">Open your Matrix</a> &middot; <a href="' . esc_url( $course ) . '">Open your program</a></p><p>For joining details or access questions, <a href="' . esc_url( home_url( '/contact/' ) ) . '">contact MissionMed</a>.</p>';
+	}
+}
+add_action( 'woocommerce_email_after_order_table', 'mm_mr_zelle_email_next_steps', 20, 4 );
+
+function mm_mr_zelle_protected_mail( $callback, ...$args ) {
+	// Reuse DR-342/343's authenticated, fail-closed Workspace route. Do not
+	// silently fall back to unsigned default mail if that guard is unavailable.
+	if ( ! function_exists( 'missionmed_protected_mail_restore_transport' ) ) {
+		return false;
+	}
+	$prior = $GLOBALS['missionmed_system_smtp_active'] ?? false;
+	$GLOBALS['missionmed_system_smtp_active'] = true;
+	try {
+		return $callback( ...$args );
+	} finally {
+		$GLOBALS['missionmed_system_smtp_active'] = $prior;
+	}
+}
+
+function mm_mr_zelle_customer_mail_callback( $callback, $email ) {
+	$order = $email->object ?? null;
+	if ( ! $order instanceof WC_Order || ! $order->is_paid() || ! mm_mr_zelle_order_identity( $order ) || ! in_array( $email->id, array( 'customer_processing_order', 'customer_completed_order' ), true ) ) {
+		return $callback;
+	}
+	return function ( ...$args ) use ( $callback ) { return mm_mr_zelle_protected_mail( $callback, ...$args ); };
+}
+add_filter( 'woocommerce_mail_callback', 'mm_mr_zelle_customer_mail_callback', 20, 2 );
+
+function mm_mr_zelle_order_detail_styles() {
+	// The inherited Woo table skin uses light headings on a light surface.
+	// Restrict this correction to authorized MR Zelle order-received views.
+	if ( ! function_exists( 'is_order_received_page' ) || ! is_order_received_page() || ! mm_mr_zelle_authorized_order() ) {
+		return;
+	}
+	echo '<style id="mm-zelle-order-details">.woocommerce-order-received .woocommerce-order-details,.woocommerce-order-received .woocommerce-customer-details{background:#fff!important;color:#142b35!important}.woocommerce-order-received .woocommerce-order-details :is(h2,table,th,td,a,span,strong),.woocommerce-order-received .woocommerce-customer-details :is(h2,address,p,span){color:#142b35!important}body.woocommerce-order-received .woocommerce-order-details .woocommerce-table :is(th,td){color:#142b35!important;background:#fff!important}.woocommerce-order-received .woocommerce-order-overview,.woocommerce-order-received .woocommerce-order-overview li,.woocommerce-order-received .woocommerce-order-overview strong{color:#142b35!important}.woocommerce-order-received .woocommerce-order-details a{text-decoration:underline}.woocommerce-order-received .woocommerce-order-details a:focus-visible{outline:3px solid #142b35;outline-offset:3px}</style>';
+}
+add_action( 'wp_head', 'mm_mr_zelle_order_detail_styles', 100 );
+
 add_action(
 	'wp',
 	function () {
 		$order = mm_mr_zelle_authorized_order();
 		if ( ! $order ) {
+			// Do not let the older generic confirmation disclose a protected order
+			// or claim enrollment when its customer authorization is invalid.
+			$received_id = absint( get_query_var( 'order-received' ) );
+			if ( $received_id && mm_mr_zelle_order_identity( wc_get_order( $received_id ) ) ) {
+				remove_action( 'woocommerce_before_thankyou', 'mmps_render_order', 1 );
+				remove_action( 'woocommerce_thankyou', 'mmps_render_order', 1 );
+				remove_action( 'wp_footer', 'mmps_footer_fallback', 5 );
+			}
+			return;
+		}
+		if ( mm_mr_zelle_is_inactive_order( $order ) ) {
+			remove_action( 'woocommerce_before_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'woocommerce_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'wp_footer', 'mmps_footer_fallback', 5 );
+			if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
+				$gateways = WC()->payment_gateways()->payment_gateways();
+				if ( isset( $gateways['bacs'] ) ) {
+					remove_action( 'woocommerce_thankyou_bacs', array( $gateways['bacs'], 'thankyou_page' ) );
+				}
+			}
+			add_action( 'woocommerce_before_thankyou', 'mm_mr_zelle_render_inactive', 1, 1 );
+			add_action( 'woocommerce_thankyou', 'mm_mr_zelle_render_inactive', 1, 1 );
 			return;
 		}
 		if ( $order->is_paid() && 'verified' === (string) $order->get_meta( '_mm_zelle_state', true ) ) {
+			remove_action( 'woocommerce_before_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'woocommerce_thankyou', 'mmps_render_order', 1 );
+			remove_action( 'wp_footer', 'mmps_footer_fallback', 5 );
 			if ( function_exists( 'WC' ) && WC()->payment_gateways() ) {
 				$gateways = WC()->payment_gateways()->payment_gateways();
 				if ( isset( $gateways['bacs'] ) ) {
