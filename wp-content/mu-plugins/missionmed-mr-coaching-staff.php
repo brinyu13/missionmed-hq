@@ -26,6 +26,11 @@ function mmed_staff_coaching_sku($id) {
     }
     return '';
 }
+/** Deny-only recognition survives missing/corrupt configuration. Never grants rights. */
+function mmed_staff_coaching_tagged($id) {
+    return !in_array((int)$id,MMED_MR_COACHING_PROTECTED_IDS,true)
+        && isset(mmed_staff_coaching_catalog()[(string)get_post_meta((int)$id,'_mmed_staff_coaching_sku',true)]);
+}
 function mmed_staff_coaching_ready($sku) {
     $c=mmed_staff_coaching_config(); $id=$c['product_ids'][$sku] ?? 0;
     if (($c['enabled'] ?? false)!==true || ($c['release_reviewed'] ?? false)!==true
@@ -168,9 +173,13 @@ function mmed_staff_coaching_fulfill($id) {
     $order->save();
 }
 
-add_filter('woocommerce_is_purchasable',function($ok,$p){$s=mmed_staff_coaching_sku($p->get_id());return $s ? $ok && mmed_staff_coaching_ready($s) : $ok;},200,2);
+add_filter('woocommerce_is_purchasable',function($ok,$p){
+    $s=mmed_staff_coaching_sku($p->get_id());
+    if (!$s && mmed_staff_coaching_tagged($p->get_id())) { return false; }
+    return $s ? $ok && mmed_staff_coaching_ready($s) : $ok;
+},200,2);
 add_filter('woocommerce_add_to_cart_validation',function($ok,$id,$qty,$variation=0){
-    if (!mmed_staff_coaching_sku($id) && !mmed_staff_coaching_cart()) { return $ok; }
+    if (!mmed_staff_coaching_sku($id) && !mmed_staff_coaching_tagged($id) && !mmed_staff_coaching_cart()) { return $ok; }
     $s=mmed_staff_coaching_sku($id);
     if (!$s || !mmed_staff_coaching_ready($s) || (float)$qty!==1.0 || $variation || mmed_staff_coaching_lines()) {
         wc_add_notice('Please select one private-coaching package per order. Emergency dates must be requested first.','error');return false;

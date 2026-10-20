@@ -65,6 +65,15 @@ foreach(MMED_MR_COACHING_PROTECTED_IDS as $id){$options['mmed_staff_coaching_v1'
 $options['mmed_staff_coaching_v1']['product_ids']=$ids;
 $postmeta[91001]['_mmed_staff_coaching_sku']='five';check(!mmed_staff_coaching_ready('single'),'mismatched SKU metadata denied');$postmeta[91001]['_mmed_staff_coaching_sku']='single';
 $cartGuard=hook('woocommerce_add_to_cart_validation',200);
+$purchasable=hook('woocommerce_is_purchasable',200);$savedStaffConfig=$options['mmed_staff_coaching_v1'];$woo->cart->lines=[];
+unset($options['mmed_staff_coaching_v1']);
+check(mmed_staff_coaching_tagged(91001)&&$purchasable(true,$products[91001])===false&&$cartGuard(true,91001,1,0)===false,'missing configuration denies tagged product purchase and cart');
+$options['mmed_staff_coaching_v1']='malformed-config';
+check(mmed_staff_coaching_tagged(91001)&&$purchasable(true,$products[91001])===false&&$cartGuard(true,91001,1,0)===false,'string configuration denies tagged product purchase and cart');
+check(!mmed_staff_coaching_tagged(5504)&&$purchasable(true,new StaffProduct(5504,'549.00'))===true&&$cartGuard(true,5504,1,0)===true,'protected unrelated product retains prior permission');
+check($purchasable(true,new StaffProduct(92000,'10.00'))===true&&$cartGuard(true,92000,1,0)===true,'unknown untagged product retains prior permission');
+check($purchasable(false,$products[91001])===false&&$purchasable(false,new StaffProduct(5504,'549.00'))===false&&$purchasable(false,new StaffProduct(92000,'10.00'))===false&&$cartGuard(false,92000,1,0)===false,'prior denial remains false for tagged and unrelated products');
+$options['mmed_staff_coaching_v1']=$savedStaffConfig;
 $woo->cart->lines=[];check($cartGuard(true,91001,1,0),'one standard cart admitted');check(!$cartGuard(true,91004,1,0),'emergency cart denied');check(!$cartGuard(true,91001,2,0),'quantity two cart denied');check(!$cartGuard(true,91001,1,4),'variation cart denied');
 $woo->cart->lines=[['product_id'=>91001,'quantity'=>1]];check(!$cartGuard(true,91002,1,0),'second package cart denied');check(!$cartGuard(true,5504,1,0),'mixed protected product denied');
 $coupon=new StaffCoupon('MATCHREADY2026');check(mmed_staff_coaching_coupon(true,$coupon),'correct coupon on one mapped cart');check(mmed_staff_coaching_coupon(false,$coupon)===false,'prior coupon denial preserved');
