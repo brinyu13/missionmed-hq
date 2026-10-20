@@ -47,6 +47,19 @@ function mmed_staff_coaching_cart() {
     foreach (mmed_staff_coaching_lines() as $line) { if (mmed_staff_coaching_sku($line['product_id'] ?? 0)) { return true; } }
     return false;
 }
+/** Approved coaching tuition has no card surcharge. Leave global fee settings intact. */
+function mmed_staff_coaching_fees($cart) {
+    if (!WC()->session || WC()->session->get('chosen_payment_method')!=='stripe') { return; }
+    $lines=$cart->get_cart(); if (count($lines)!==1) { return; }
+    $line=reset($lines); $sku=mmed_staff_coaching_sku($line['product_id'] ?? 0);
+    if (!$sku || !mmed_staff_coaching_ready($sku) || (float)($line['quantity'] ?? 0)!==1.0) { return; }
+    $keep=[]; $changed=false;
+    foreach ($cart->fees_api()->get_fees() as $fee) {
+        if ($fee->name==='Card processing fee (2.9%)') { $changed=true; continue; }
+        $keep[]=(array)$fee;
+    }
+    if ($changed) { $cart->fees_api()->set_fees($keep); }
+}
 function mmed_staff_coaching_order($order) {
     if (!$order) { return false; }
     foreach ($order->get_items('line_item') as $item) { if (mmed_staff_coaching_sku($item->get_product_id())) { return true; } }
@@ -186,6 +199,7 @@ add_filter('woocommerce_add_to_cart_validation',function($ok,$id,$qty,$variation
     }return $ok;
 },200,4);
 add_filter('woocommerce_coupon_is_valid','mmed_staff_coaching_coupon',200,2);
+add_action('woocommerce_cart_calculate_fees','mmed_staff_coaching_fees',PHP_INT_MAX);
 add_filter('woocommerce_coupon_get_discount_amount','mmed_staff_coaching_discount',200,5);
 add_action('woocommerce_add_to_cart',function($key,$id){
     if (mmed_staff_coaching_sku($id) && time()<1793505600 && WC()->cart

@@ -17,8 +17,14 @@ function admin_url($value){return 'https://fixture.invalid/wp-admin/'.$value;}
 function wp_mail($to,$subject,$body){$GLOBALS['sent'][]=[$to,$subject,$body];return true;}
 function wc_add_notice($text,$type='error'){}
 function WC(){return $GLOBALS['woo'];}
-class StaffCart {public array $lines=[],$codes=[];function get_cart(){return $this->lines;}function get_applied_coupons(){return $this->codes;}}
-$woo=(object)['cart'=>new StaffCart];
+class StaffFeesApi {
+    public array $fees=[];public int $writes=0;
+    function get_fees(){return $this->fees;}
+    function set_fees($fees){$this->writes++;$this->fees=[];foreach($fees as $fee){$fee=(object)$fee;$this->fees[$fee->id]=$fee;}}
+}
+class StaffSession {public string $chosen='stripe';function get($key){return $key==='chosen_payment_method'?$this->chosen:null;}}
+class StaffCart {public array $lines=[],$codes=[];public StaffFeesApi $feeApi;function __construct(){$this->feeApi=new StaffFeesApi;}function get_cart(){return $this->lines;}function get_applied_coupons(){return $this->codes;}function fees_api(){return $this->feeApi;}}
+$woo=(object)['cart'=>new StaffCart,'session'=>new StaffSession];
 class StaffProduct {function __construct(public int $id,public string $price,public bool $virtual=true,public string $status='publish'){}function get_id(){return $this->id;}function is_virtual(){return $this->virtual;}function get_status(){return $this->status;}function get_price($context=''){return $this->price;}function get_regular_price($context=''){return $this->price;}}
 class StaffCoupon {function __construct(public string $code){}function get_code(){return $this->code;}}
 class StaffItem {public int $id=71,$product=91001,$variation=0;public float $qty=1;public string $total='249.00';function get_id(){return $this->id;}function get_product_id(){return $this->product;}function get_variation_id(){return $this->variation;}function get_quantity(){return $this->qty;}function get_total($context=''){return $this->total;}}
@@ -74,6 +80,22 @@ check(!mmed_staff_coaching_tagged(5504)&&$purchasable(true,new StaffProduct(5504
 check($purchasable(true,new StaffProduct(92000,'10.00'))===true&&$cartGuard(true,92000,1,0)===true,'unknown untagged product retains prior permission');
 check($purchasable(false,$products[91001])===false&&$purchasable(false,new StaffProduct(5504,'549.00'))===false&&$purchasable(false,new StaffProduct(92000,'10.00'))===false&&$cartGuard(false,92000,1,0)===false,'prior denial remains false for tagged and unrelated products');
 $options['mmed_staff_coaching_v1']=$savedStaffConfig;
+$feeFixture=[
+    'card-processing'=>(object)['id'=>'card-processing','name'=>'Card processing fee (2.9%)','amount'=>7.22,'taxable'=>false,'tax_class'=>'','total'=>7.22,'tax'=>0],
+    'unrelated-taxable'=>(object)['id'=>'unrelated-taxable','name'=>'Other fee','amount'=>3.5,'taxable'=>true,'tax_class'=>'reduced-rate','total'=>3.5,'tax'=>0.35],
+    'similarly-named'=>(object)['id'=>'similarly-named','name'=>'Card processing fee (3%)','amount'=>2,'taxable'=>false,'tax_class'=>'','total'=>2,'tax'=>0],
+];
+$woo->cart->lines=[['product_id'=>91001,'quantity'=>1]];$woo->cart->feeApi->fees=$feeFixture;
+mmed_staff_coaching_fees($woo->cart);$expectedFees=$feeFixture;unset($expectedFees['card-processing']);
+check($woo->cart->feeApi->fees==$expectedFees&&array_keys($woo->cart->feeApi->fees)===array_keys($expectedFees),'owned Stripe cart removes only exact surcharge preserving other fee IDs and tax');
+$afterFirst=$woo->cart->feeApi->fees;$feeWrites=$woo->cart->feeApi->writes;mmed_staff_coaching_fees($woo->cart);
+check($woo->cart->feeApi->fees===$afterFirst&&$woo->cart->feeApi->writes===$feeWrites,'fee recalculation idempotent');
+$woo->cart->feeApi->fees=$feeFixture;$woo->cart->lines[]=['product_id'=>5504,'quantity'=>1];mmed_staff_coaching_fees($woo->cart);
+check($woo->cart->feeApi->fees===$feeFixture,'mixed cart fee state unchanged');
+$woo->cart->lines=[['product_id'=>5504,'quantity'=>1]];mmed_staff_coaching_fees($woo->cart);
+check($woo->cart->feeApi->fees===$feeFixture,'unrelated cart fee state unchanged');
+$woo->cart->lines=[['product_id'=>91001,'quantity'=>1]];$woo->session->chosen='bacs';mmed_staff_coaching_fees($woo->cart);
+check($woo->cart->feeApi->fees===$feeFixture,'Zelle cart fee state unchanged');$woo->session->chosen='stripe';
 $woo->cart->lines=[];check($cartGuard(true,91001,1,0),'one standard cart admitted');check(!$cartGuard(true,91004,1,0),'emergency cart denied');check(!$cartGuard(true,91001,2,0),'quantity two cart denied');check(!$cartGuard(true,91001,1,4),'variation cart denied');
 $woo->cart->lines=[['product_id'=>91001,'quantity'=>1]];check(!$cartGuard(true,91002,1,0),'second package cart denied');check(!$cartGuard(true,5504,1,0),'mixed protected product denied');
 $coupon=new StaffCoupon('MATCHREADY2026');check(mmed_staff_coaching_coupon(true,$coupon),'correct coupon on one mapped cart');check(mmed_staff_coaching_coupon(false,$coupon)===false,'prior coupon denial preserved');
