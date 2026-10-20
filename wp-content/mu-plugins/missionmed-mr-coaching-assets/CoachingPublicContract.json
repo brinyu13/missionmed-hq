@@ -1,0 +1,83 @@
+{
+  "currency": "USD",
+  "activation_enabled": false,
+  "coupon": {
+    "code": "MATCHREADY2026",
+    "expires_at": "2026-11-01T00:00:00-04:00",
+    "maximum_verified_paid_enrollments": 20
+  },
+  "offers": {
+    "single": {
+      "name": "Single Signature Mock",
+      "regular_cents": 39900,
+      "promotional_cents": 24900,
+      "discount_cents": 15000,
+      "mock_count": 1,
+      "strategy_minutes": 0,
+      "post_interview_debrief_count": 0,
+      "total_live_minutes": 105
+    },
+    "three": {
+      "name": "Three Signature Mocks",
+      "regular_cents": 109900,
+      "promotional_cents": 74900,
+      "discount_cents": 35000,
+      "mock_count": 3,
+      "strategy_minutes": 120,
+      "post_interview_debrief_count": 2,
+      "total_live_minutes": 525
+    },
+    "five": {
+      "name": "Five Signature Mocks",
+      "regular_cents": 179900,
+      "promotional_cents": 119900,
+      "discount_cents": 60000,
+      "mock_count": 5,
+      "strategy_minutes": 120,
+      "post_interview_debrief_count": 3,
+      "total_live_minutes": 780
+    },
+    "emergency": {
+      "name": "Emergency Interview Intensive",
+      "regular_cents": 399900,
+      "promotional_cents": 249900,
+      "discount_cents": 150000,
+      "post_interview_debrief_count": 1,
+      "total_live_minutes": 735,
+      "training_day_breakdown": [
+        {
+          "service": "Application and personal narrative review",
+          "minutes": 60
+        },
+        {
+          "service": "Communication and storytelling training",
+          "minutes": 90
+        },
+        {
+          "service": "Mock interview and detailed evaluation",
+          "minutes": 105
+        },
+        {
+          "service": "Difficult questions and behavioral scenarios",
+          "minutes": 90
+        },
+        {
+          "service": "Program-specific interview preparation",
+          "minutes": 75
+        },
+        {
+          "service": "Final rehearsal and individualized action plan",
+          "minutes": 60
+        }
+      ]
+    }
+  },
+  "refund": {
+    "standalone_rates_cents": {
+      "signature_mock": 39900,
+      "private_strategy": 29900,
+      "post_interview_debrief": 14900,
+      "intensive_training_day": 179900
+    }
+  }
+}
