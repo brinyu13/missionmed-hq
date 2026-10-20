@@ -30,7 +30,7 @@ function fixture({sku='single', paid=true, resource=null}={}) {
  for(const [service,n] of Object.entries(counts))for(let ordinal=1;ordinal<=n;ordinal++)units.push({
   unit_id:`coaching-unit:v1:101:1101:${service}:${ordinal}`,order_id:101,order_item_id:1101,product_id:8001,owner_wp_user_id:77,sku,service,ordinal,
   duration_minutes:{mock:105,strategy:120,debrief:45}[service],snapshot_digest:'a'.repeat(64)});
- const immutable={order_id:101,order_item_id:1101,product_id:8001,sku,snapshot_digest:'a'.repeat(64),eligibility_revision:1,units};
+ const immutable={order_id:101,order_item_id:1101,product_id:8001,sku,snapshot_digest:'a'.repeat(64),eligibility_revision:1,units,eligible_unit_ids:units.map(u=>u.unit_id)};
  const services=units.map(u=>({id:`${u.service}-credit-${u.ordinal}`,unit_id:u.unit_id,service:u.service,ordinal:u.ordinal,minutes:u.duration_minutes,state:'available',appointment_id:null}));
  const data={weekly_usage:[],packages:paid?[{order_id:101,order_item_id:1101,sku,services,snapshot_digest:'a'.repeat(64),booking_allowed:true}]:[],eligible_services:paid?[
   {service:'mock',approval_id:'approved-mock',appointment_type_id:MOCK,donor_appointment_type_id:DONOR,availability_rule_id:RULE,provider_id:PROVIDER,approved_from:'2030-01-01T00:00:00Z',approved_until:'2032-01-01T00:00:00Z'},
@@ -59,13 +59,13 @@ function fixture({sku='single', paid=true, resource=null}={}) {
   getAppointmentById:async id=>state.appointments.find(a=>a.id===id)||null,
   rpc:async(name,payload)=>{state.calls.push({name,payload});if(name==='mm_coaching_hybrid_read_model'){
       const receipt=payload.p_payload.allowance_receipt;const eligible=receipt.packages.some(p=>p.order_id===101);
-      return {...data,packages:data.packages.map(p=>({...p,booking_allowed:p.booking_allowed!==false&&eligible})),eligible_services:eligible?data.eligible_services:[]};
+      return {...data,packages:data.packages.map(p=>({...p,booking_allowed:p.booking_allowed!==false&&eligible,services:p.services.map(s=>({...s,booking_allowed:eligible&&receipt.packages.some(p=>p.eligible_unit_ids.includes(s.unit_id))}))})),eligible_services:eligible?data.eligible_services:[]};
     }
     if(name==='mm_coaching_hybrid_lookup_operation') {const previous=state.operations.get(payload.p_payload.idempotency_key);if(!previous)return null;
       if(previous.payload.client_request_digest!==payload.p_payload.client_request_digest)throw Error('booking_replay_mismatch');return previous;}
     if(name==='mm_coaching_hybrid_mutate_appointment'){
       const p=payload.p_payload;
-      if(p.action!=='cancel'&&!p.allowance_receipt.packages.some(pack=>pack.units.some(u=>u.unit_id===p.unit_id)))throw Error('current_transaction_woo_eligibility_required');
+      if(p.action!=='cancel'&&!p.allowance_receipt.packages.some(pack=>pack.eligible_unit_ids.includes(p.unit_id)))throw Error('current_transaction_woo_eligibility_required');
       return {ok:true,appointment_id:'native-result',action:p.action};
     }
     throw Error('Unexpected RPC');},
@@ -218,5 +218,17 @@ await rejects(()=>f.integration().mutate('cancel',{appointment_id:'own-appointme
 f=fixture();f.appointments.push(f.ownAppointment());f.data.packages[0].services[0].state='reserved';f.data.packages[0].services[0].appointment_id='own-appointment';f.accessOutage=true;
 await rejects(()=>f.integration().mutate('cancel',{appointment_id:'own-appointment',idempotency_key:'new-cancel'}),/coaching_woo_allowances_unavailable/);
 check(!f.calls.some(c=>c.name==='mm_coaching_hybrid_mutate_appointment'),'known integration gap: initial cancellation discovery still needs fresh Woo model');
+
+
+f=fixture({sku:'three'});
+const partialStrategy=f.data.packages[0].services.find(s=>s.service==='strategy');partialStrategy.state='delivered';partialStrategy.appointment_id='delivered-strategy';
+f.appointments.push(f.ownAppointment({id:'delivered-strategy',appointment_type_id:STRATEGY,start_at:'2031-07-07T13:00:00Z',end_at:'2031-07-07T15:00:00Z',status:'completed'}));
+f.mutateReceipt=r=>{r.packages[0].eligible_unit_ids=['coaching-unit:v1:101:1101:mock:2'];};
+const partiallyDecorated=await f.integration().decorateTypes([f.mock],[f.mock]);
+check(partiallyDecorated[0].coaching_remaining===1,'only currently eligible per-unit credit contributes to displayed availability');
+const partialBooked=await f.integration().mutate('book',f.booking({start_at:'2031-07-07T16:00:00Z',end_at:'2031-07-07T17:45:00Z'}));
+check(partialBooked.payload.unit_id==='coaching-unit:v1:101:1101:mock:2','server chooses eligible second unit instead of revoked first unit');
+const revokedCredit=f.data.packages[0].services.find(s=>s.id==='mock-credit-1');revokedCredit.state='reserved';revokedCredit.appointment_id='own-appointment';f.appointments.push(f.ownAppointment());
+await rejects(()=>f.integration().mutate('reschedule',f.booking({appointment_id:'own-appointment',start_at:'2031-07-07T18:00:00Z',end_at:'2031-07-07T19:45:00Z'})),/coaching_package_review_required/);
 
 console.log(`PASS ${count} private hybrid integration assertions; repository and Woo reader doubles only; real end-to-end acceptance UNVERIFIED.`);

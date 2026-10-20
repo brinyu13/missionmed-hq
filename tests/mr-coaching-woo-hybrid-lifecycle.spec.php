@@ -112,12 +112,16 @@ final class WC_Stripe_Order_Helper {
 // Load the exact composed module body; only its six deployment-relative
 // requires are removed, after their exact identities are independently checked.
 require_once $canonicalAssets . '/CoachingStripeLifecycle.php';
+require_once $canonicalAssets . '/CoachingRefundDisposition.php';
+$providerAssets=getenv('MM_TEST_PROVIDER_ASSETS') ?: $canonicalAssets;
+require_once $providerAssets . '/CoachingProviderContainment.php';
+require_once $providerAssets . '/CoachingWebexBroker.php';
 $stripeLifecycleSha = hash_file('sha256', $canonicalAssets . '/CoachingStripeLifecycle.php');
 $hybridModule = file_get_contents(dirname(__DIR__) . '/wp-content/mu-plugins/missionmed-mr-coaching.php');
 $hybridModuleSha = hash('sha256', $hybridModule);
-$expectedRequires = array_map(static fn($name) => "require_once __DIR__ . '/missionmed-mr-coaching-assets/{$name}.php';", ['CoachingOfferPolicy', 'CoachingServicePolicy', 'CoachingWooAllocator', 'CoachingAllowanceProjection', 'CoachingEntitlementEndpoint', 'CoachingStripeLifecycle']);
+$expectedRequires = array_map(static fn($name) => "require_once __DIR__ . '/missionmed-mr-coaching-assets/{$name}.php';", ['CoachingOfferPolicy', 'CoachingServicePolicy', 'CoachingWooAllocator', 'CoachingAllowanceProjection', 'CoachingEntitlementEndpoint', 'CoachingStripeLifecycle', 'CoachingRefundDisposition', 'CoachingProviderContainment', 'CoachingWebexBroker']);
 preg_match_all('/^require_once .*;$/m', $hybridModule, $foundRequires);
-check($foundRequires[0] === $expectedRequires, 'hybrid exact six deployment requires');
+check($foundRequires[0] === $expectedRequires, 'hybrid exact nine deployment requires');
 eval('?>' . str_replace($expectedRequires, '', $hybridModule));
 $wpdb = $db;
 resetRows($pdo);

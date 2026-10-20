@@ -16,11 +16,8 @@ function deny() { const e = new Error('Coaching access could not be verified.');
  * A successful read is an allowance snapshot, NOT an atomic refund/booking lock.
  */
 export function createWooCoachingAllowanceReader({ getServiceHeaders, fetchImpl = globalThis.fetch, now = Date.now } = {}) {
-  return async function readAllowances(session) {
-    const resolved = getSchedulerActor(session, 'student');
-    const actor = resolved.actor;
-    if (!resolved.ok || !actor?.supabaseIdentityConfirmed || !UUID.test(actor.userId)
-      || !positive(actor.wpUserId) || typeof getServiceHeaders !== 'function' || typeof fetchImpl !== 'function') deny();
+  async function readForActor(actor) {
+    if (!UUID.test(actor?.userId || '') || !positive(actor?.wpUserId) || typeof getServiceHeaders !== 'function' || typeof fetchImpl !== 'function') deny();
     let supplied;
     try { supplied = await getServiceHeaders(); } catch { deny(); }
     // Never forward cookies, arbitrary headers, a student token or browser data.
@@ -60,10 +57,10 @@ export function createWooCoachingAllowanceReader({ getServiceHeaders, fetchImpl 
       || data.complete !== true || !Array.isArray(data.packages) || data.packages.length > 100) deny();
     const orders = new Set(); const items = new Set(); const unitIds = new Set();
     for (const p of data.packages) {
-      if (!exact(p, ['order_id','order_item_id','product_id','sku','snapshot_digest','eligibility_revision','units'])
+      if (!exact(p, ['order_id','order_item_id','product_id','sku','snapshot_digest','eligibility_revision','units','eligible_unit_ids'])
         || !positive(p.order_id) || !positive(p.order_item_id) || !positive(p.product_id)
         || !Object.hasOwn(COUNT, p.sku) || !HASH.test(p.snapshot_digest) || !positive(p.eligibility_revision)
-        || orders.has(p.order_id) || items.has(p.order_item_id) || !Array.isArray(p.units)) deny();
+        || orders.has(p.order_id) || items.has(p.order_item_id) || !Array.isArray(p.units) || !Array.isArray(p.eligible_unit_ids)) deny();
       orders.add(p.order_id); items.add(p.order_item_id);
       const expected = COUNT[p.sku]; const seen = new Set();
       for (const u of p.units) {
@@ -76,9 +73,30 @@ export function createWooCoachingAllowanceReader({ getServiceHeaders, fetchImpl 
           || seen.has(u.unit_id) || unitIds.has(u.unit_id)) deny();
         seen.add(u.unit_id); unitIds.add(u.unit_id);
       }
-      if (p.units.length !== Object.values(expected).reduce((a,b) => a+b,0)) deny();
+      if (p.units.length !== Object.values(expected).reduce((a,b) => a+b,0)
+        || p.eligible_unit_ids.some(id => typeof id !== 'string' || !seen.has(id))
+        || new Set(p.eligible_unit_ids).size !== p.eligible_unit_ids.length) deny();
     }
     // No credentials, bank evidence or browser-owned grants survive this return.
     return data;
+  }
+  const readAllowances = async session => {
+    const resolved = getSchedulerActor(session, 'student');
+    if (!resolved.ok || resolved.actor?.supabaseIdentityConfirmed !== true) deny();
+    return readForActor(resolved.actor);
   };
+  // Server-only method. Subject is reloaded from native persistence, never a
+  // caller-supplied student UUID, WordPress id, receipt or synthetic session.
+  readAllowances.forStoredAppointment = async (repository, appointmentId) => {
+    const status = repository?.status?.();
+    if (!UUID.test(appointmentId || '') || status?.mode !== 'supabase_rest'
+      || status.configured !== true || status.service_role_configured !== true
+      || typeof repository.getAppointmentById !== 'function') deny();
+    const appointment = await repository.getAppointmentById(appointmentId);
+    if (!appointment || appointment.id !== appointmentId || !UUID.test(appointment.student_user_id || '')
+      || !positive(appointment.student_wp_user_id)) deny();
+    const receipt = await readForActor({ userId: appointment.student_user_id, wpUserId: appointment.student_wp_user_id });
+    return { appointment, receipt };
+  };
+  return readAllowances;
 }

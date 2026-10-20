@@ -25,6 +25,7 @@ import {
   ssaImportPreviewAdapter,
   stripePaymentAdapter,
   webexMeetingLinkAdapter,
+  webexMeetingPayload,
   webexRecordingLookupAdapter,
   zoomMeetingCleanupAdapter,
   zoomMeetingLinkAdapter,
@@ -36,6 +37,12 @@ import {
   schedulerEntitlementPolicySummary,
 } from './entitlements.mjs';
 import { createCoachingIntegration } from './coaching-integration.mjs';
+import { createHash } from 'node:crypto';
+import { createCoachingStaffCancellation } from './coaching-staff-cancellation.mjs';
+import { createCoachingStoredAccess, isStoredCoachingType } from './coaching-stored-access.mjs';
+import { dispatchCoachingNotification } from './coaching-notification-guard.mjs';
+import { createCoachingWebexProvider } from './coaching-provider.mjs';
+import { reconcileCoachingUsagePage } from './coaching-reconciliation.mjs';
 
 export { getSchedulerActor } from './auth.mjs';
 
@@ -119,7 +126,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
   const session = context.session;
   const authHeaders = context.authHeaders || {};
   const repository = context.schedulerRepository || createSchedulerRepository(context.schedulerRepositoryOptions || {});
-  const schedulerAdapters = context.schedulerAdapters || {};
+  const schedulerAdapters = { ...(context.schedulerAdapters || {}) };
   const enrollmentAdapter = schedulerAdapters.enrollmentGateAdapter || enrollmentGateAdapter;
   const paymentAdapter = schedulerAdapters.stripePaymentAdapter || stripePaymentAdapter;
 
@@ -147,6 +154,15 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
 
   const actor = actorResult.actor;
   const coaching = context.coachingIntegration || createCoachingIntegration({ repository, session, actor, readWooAllowances: context.readWooAllowances });
+  let coachingWebexProvider;
+  const coachingAccess = createCoachingStoredAccess({ repository, readWooAllowances: context.readWooAllowances,
+    cleanupCoachingMeeting: payload => schedulerAdapters.cleanupCoachingMeeting
+      ? schedulerAdapters.cleanupCoachingMeeting(payload) : coachingWebexProvider.cleanup(payload) });
+  coachingWebexProvider = schedulerAdapters.coachingWebexProvider || createCoachingWebexProvider({
+    getStoredCoachingAccess: coachingAccess.getStoredCoachingAccess, buildMeetingPayload: webexMeetingPayload,
+    env: context.env || process.env, fetchImpl: context.fetchImpl || globalThis.fetch,
+  });
+  schedulerAdapters.coachingWebexProvider = coachingWebexProvider;
 
   try {
     if (pathname === '/api/scheduler/bootstrap') {
@@ -250,7 +266,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
         : await repository.listMyAppointments(actor, Object.fromEntries(url.searchParams.entries()));
       sendJson(response, 200, schedulerOk({
         status: 'ready',
-        appointments,
+        appointments: await coachingAccess.redactForStudent(appointments, actor),
         history,
         student_user_id: actor.userId,
       }), authHeaders);
@@ -267,7 +283,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
       ]);
       sendJson(response, 200, schedulerOk({
         status: 'ready',
-        events: buildSchedulerCalendarFeedEvents(appointments, {
+        events: buildSchedulerCalendarFeedEvents(await coachingAccess.redactForStudent(appointments, actor), {
           providers,
           appointmentTypes,
           start: filters.start || filters.start_at || filters.startAt,
@@ -286,6 +302,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
         actor,
         repository,
         schedulerAdapters,
+        coachingAccess,
       });
       const statusCode = result.ok || ['processing', 'not_available'].includes(result.status) ? 200 : result.status_code || 404;
       sendJson(
@@ -391,6 +408,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
         appointmentType: configCheck.appointmentType,
         repository,
         schedulerAdapters,
+        coachingAccess,
       });
       const placeholders = await buildMutationPlaceholderSummary(
         action,
@@ -410,7 +428,7 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
     }
 
     if (pathname.startsWith('/api/scheduler/admin/')) {
-      return await handleAdminSchedulerRoute({ request, response, url, actor, context: { ...context, repository } });
+      return await handleAdminSchedulerRoute({ request, response, url, actor, context: { ...context, repository, coachingAccess, schedulerAdapters } });
     }
 
     if (pathname.startsWith('/api/scheduler/provider/')) {
@@ -535,6 +553,7 @@ async function handleAdminSchedulerRoute({ request, response, url, actor, contex
       schedulerAdapters,
       limit: payload.limit,
       now: payload.now || new Date(),
+      coachingAccess: context.coachingAccess,
     });
     sendJson(response, 200, schedulerOk({ status: 'ready', actor: safeSchedulerActor(actor), dispatch }), authHeaders);
     return true;
@@ -552,13 +571,27 @@ async function handleAdminSchedulerRoute({ request, response, url, actor, contex
       ...payload,
       idempotency_key: payload.idempotency_key || payload.idempotencyKey || `admin-${action}-${payload.appointment_id || payload.appointmentId || Date.now()}`,
     };
-      const result = action === 'override-book'
+    let coachingCancellation = null;
+    if (action === 'cancel') {
+      const appointmentId = mutationPayload.appointment_id || mutationPayload.appointmentId;
+      const actual = appointmentId ? await repository.getAppointmentById(appointmentId) : null;
+      const type = actual ? await resolveAppointmentTypeForIntegration(actual, repository) : null;
+      if (isStoredCoachingType(type)) {
+        coachingCancellation = await createCoachingStaffCancellation({ repository })(context.session, {
+          appointment_id: actual.id, idempotency_key: mutationPayload.idempotency_key,
+          reason: mutationPayload.reason,
+          client_request_digest: createHash('sha256').update(JSON.stringify(['cancel', actual.id, mutationPayload.idempotency_key, mutationPayload.reason ?? null]), 'utf8').digest('hex'),
+        });
+        if (!coachingCancellation) throw schedulerPersistenceStyleError('coaching_staff_cancellation_unconfirmed', 'Coaching cancellation could not be confirmed.', 503);
+      }
+    }
+      const result = coachingCancellation || (action === 'override-book'
         ? await repository.createAppointment({ actor, payload: { ...mutationPayload, actorType: 'admin' } })
         : action === 'reschedule'
           ? await repository.rescheduleAppointment({ actor, payload: { ...mutationPayload, actorType: 'admin' } })
           : action === 'no-show'
             ? await repository.adminMarkNoShow({ actor, payload: mutationPayload })
-            : await repository.cancelAppointment({ actor, payload: { ...mutationPayload, actorType: 'admin' } });
+            : await repository.cancelAppointment({ actor, payload: { ...mutationPayload, actorType: 'admin' } }));
     const integrations = action === 'cancel'
       ? await runSchedulerPostMutationIntegrations({
         action,
@@ -567,6 +600,7 @@ async function handleAdminSchedulerRoute({ request, response, url, actor, contex
         payload: mutationPayload,
         repository,
         schedulerAdapters,
+        coachingAccess: context.coachingAccess,
       })
       : null;
     sendJson(response, 200, schedulerOk({
@@ -1269,6 +1303,7 @@ async function runSchedulerPostMutationIntegrations({
   appointmentType,
   repository,
   schedulerAdapters = {},
+  coachingAccess,
 }) {
   const appointmentId = result?.appointment?.id || result?.appointment_id || result?.appointmentId || null;
   const appointment = result?.appointment || {
@@ -1306,7 +1341,9 @@ async function runSchedulerPostMutationIntegrations({
   }
 
   if (action === 'cancel') {
-    summary.meeting = await cleanupZoomMeetingAfterCancel({
+    summary.meeting = isStoredCoachingType(resolvedAppointmentType)
+      ? ((await coachingAccess.reconcile(appointmentId)).cleanup || { ok: false, status: 'held' })
+      : await cleanupZoomMeetingAfterCancel({
       appointment,
       appointmentType: resolvedAppointmentType,
       payload,
@@ -1331,6 +1368,7 @@ async function runSchedulerPostMutationIntegrations({
     payload,
     repository,
     schedulerAdapters,
+    coachingAccess,
   });
 
   return summary;
@@ -1350,7 +1388,8 @@ async function createAndPersistMeetingLink({
     return { status: 'not_required', provider: config.provider };
   }
 
-  const adapter = {
+  if (isStoredCoachingType(appointmentType) && config.provider !== 'webex') return { ok: false, status: 'held', provider: config.provider };
+  const adapter = isStoredCoachingType(appointmentType) ? schedulerAdapters.coachingWebexProvider.create : {
     zoom: schedulerAdapters.zoomMeetingLinkAdapter || zoomMeetingLinkAdapter,
     webex: schedulerAdapters.webexMeetingLinkAdapter || webexMeetingLinkAdapter,
     manual: schedulerAdapters.manualMeetingLinkAdapter || manualMeetingLinkAdapter,
@@ -1648,6 +1687,7 @@ async function enqueueAndDispatchSchedulerNotifications({
   payload,
   repository,
   schedulerAdapters = {},
+  coachingAccess,
 }) {
   const notifications = notificationRequestsForMutation({ action, appointment, appointmentType, provider, actor, payload });
   const emailAdapter = schedulerAdapters.emailMedMailNotificationAdapter || emailMedMailNotificationAdapter;
@@ -1662,7 +1702,17 @@ async function enqueueAndDispatchSchedulerNotifications({
     let dispatch = { status: 'queued_only' };
     if (immediate) {
       const adapter = request.channel === 'sms' ? smsAdapter : emailAdapter;
-      dispatch = await adapter({
+      const guarded = await dispatchCoachingNotification({ repository, access: coachingAccess, notification: { ...request, ...queued },
+        send: (fresh, current) => adapter({
+          ...normalizeMetadata(current.metadata), queued: true, notificationId: current.id, appointment: fresh, appointmentType,
+          template_key: request.template_key, templateKey: request.template_key,
+          recipient_role: request.recipient_role, recipientRole: request.recipient_role,
+          appointmentId: fresh.id, appointment_id: fresh.id,
+          meeting_url: appointmentMeetingUrl(fresh), join_url: appointmentMeetingUrl(fresh),
+          sms_opt_in: payload.sms_opt_in || payload.smsOptIn, to_phone: payload.sms_phone || payload.smsPhone,
+          to_email: current.metadata?.recipient_email, actor,
+        }) });
+      dispatch = guarded || await adapter({
         ...request.metadata,
         queued: true,
         notificationId: queued.id,
@@ -1680,7 +1730,7 @@ async function enqueueAndDispatchSchedulerNotifications({
         to_email: request.metadata?.recipient_email,
         actor,
       });
-      if (typeof repository.updateNotificationStatus === 'function' && ['sent', 'failed', 'suppressed'].includes(dispatch.status)) {
+      if (!guarded && typeof repository.updateNotificationStatus === 'function' && ['sent', 'failed', 'suppressed'].includes(dispatch.status)) {
         await repository.updateNotificationStatus(queued.id, {
           status: dispatch.status,
           sent_at: dispatch.status === 'sent' ? new Date().toISOString() : undefined,
@@ -1709,6 +1759,7 @@ async function dispatchDueSchedulerNotifications({
   schedulerAdapters = {},
   limit = 25,
   now = new Date(),
+  coachingAccess,
 } = {}) {
   if (typeof repository.listDueNotifications !== 'function') {
     return {
@@ -1719,13 +1770,22 @@ async function dispatchDueSchedulerNotifications({
   }
 
   const due = await repository.listDueNotifications({ now, limit });
+  const reconciliation = await reconcileCoachingUsagePage({ repository, access: coachingAccess, limit: 25 });
   const emailAdapter = schedulerAdapters.emailMedMailNotificationAdapter || emailMedMailNotificationAdapter;
   const smsAdapter = schedulerAdapters.smsNotificationProviderAdapter || smsNotificationProviderAdapter;
   const results = [];
   for (const notification of due) {
     const metadata = normalizeMetadata(notification.metadata);
     const adapter = notification.channel === 'sms' ? smsAdapter : emailAdapter;
-    const dispatch = await adapter({
+    const guarded = await dispatchCoachingNotification({ repository, access: coachingAccess, notification,
+      send: (fresh, current) => adapter({
+        ...normalizeMetadata(current.metadata), notificationId: current.id, appointment: fresh,
+        appointmentId: fresh.id, appointment_id: fresh.id, template_key: current.template_key, recipient_role: current.recipient_role,
+        meeting_url: appointmentMeetingUrl(fresh), join_url: appointmentMeetingUrl(fresh),
+        sms_opt_in: current.metadata?.sms_opt_in === true, to_phone: current.metadata?.to_phone || null,
+        to_email: current.metadata?.recipient_email || null, queued: true,
+      }) });
+    const dispatch = guarded || await adapter({
       ...metadata,
       notificationId: notification.id,
       appointmentId: notification.appointment_id,
@@ -1738,7 +1798,7 @@ async function dispatchDueSchedulerNotifications({
       to_email: metadata.recipient_email || null,
       queued: true,
     });
-    if (typeof repository.updateNotificationStatus === 'function' && ['sent', 'failed', 'suppressed'].includes(dispatch.status)) {
+    if (!guarded && typeof repository.updateNotificationStatus === 'function' && ['sent', 'failed', 'suppressed'].includes(dispatch.status)) {
       await repository.updateNotificationStatus(notification.id, {
         status: dispatch.status,
         sent_at: dispatch.status === 'sent' ? new Date().toISOString() : undefined,
@@ -1757,6 +1817,7 @@ async function dispatchDueSchedulerNotifications({
   return {
     status: 'processed',
     processed: results.length,
+    reconciliation,
     results,
   };
 }
@@ -2599,6 +2660,7 @@ async function getSchedulerAppointmentRecording({
   actor,
   repository,
   schedulerAdapters = {},
+  coachingAccess,
 } = {}) {
   const appointment = typeof repository.getAppointmentById === 'function'
     ? await repository.getAppointmentById(appointmentId)
@@ -2623,6 +2685,11 @@ async function getSchedulerAppointmentRecording({
     };
   }
 
+  const access = await coachingAccess.reconcile(appointmentId);
+  if (access.coaching !== false && access.state !== 'eligible') {
+    return { ok: false, status: 'forbidden', status_code: 403, error: 'coaching_recording_access_unavailable',
+      message: 'Recording access could not be confirmed.', data: { has_recording: false } };
+  }
   const metadata = normalizeCalendarMetadata(appointment.metadata);
   const integrations = normalizeCalendarMetadata(metadata.scheduler_integrations);
   const meeting = normalizeCalendarMetadata(integrations.meeting);
@@ -2642,7 +2709,7 @@ async function getSchedulerAppointmentRecording({
   }
 
   const existingRecording = normalizeCalendarMetadata(integrations.recording);
-  if (existingRecording.status === 'ready' && existingRecording.playback_url) {
+  if (access.coaching !== true && existingRecording.status === 'ready' && existingRecording.playback_url) {
     return {
       ok: true,
       status: 'ready',
@@ -2661,7 +2728,7 @@ async function getSchedulerAppointmentRecording({
       || appointment.external_event_id
       || '',
   ).trim();
-  if (!webexMeetingId) {
+  if (!webexMeetingId && access.coaching !== true) {
     return {
       ok: false,
       status: 'processing',
@@ -2681,7 +2748,10 @@ async function getSchedulerAppointmentRecording({
     metadata,
     repository,
   });
-  const lookupAdapter = schedulerAdapters.webexRecordingLookupAdapter || webexRecordingLookupAdapter;
+  const lookupAdapter = access.coaching === true ? async payload => {
+    const result = await schedulerAdapters.coachingWebexProvider.recordings({ appointment_id: appointment.id });
+    return { ok: result.ok === true, status: result.recordings?.length ? 'ready' : 'processing', recording: result.recordings?.[0] || null };
+  } : schedulerAdapters.webexRecordingLookupAdapter || webexRecordingLookupAdapter;
   const lookup = await lookupAdapter({
     appointment_id: appointment.id || appointmentId,
     meeting_id: webexMeetingId,
@@ -2921,7 +2991,7 @@ function buildSchedulerCalendarFeedEvent(appointment = {}, { provider = {}, appo
       join_button_label: joinLabel,
       source: 'scheduler',
       can_cancel: !['canceled', 'cancelled', 'completed', 'no_show'].includes(status),
-      can_reschedule: !['canceled', 'cancelled', 'completed', 'no_show'].includes(status),
+      can_reschedule: appointment.coaching_access?.can_reschedule !== false && !['canceled', 'cancelled', 'completed', 'no_show'].includes(status),
       ...(privilegedAudience ? {
         student_label: studentLabel,
         student_email: studentEmail,

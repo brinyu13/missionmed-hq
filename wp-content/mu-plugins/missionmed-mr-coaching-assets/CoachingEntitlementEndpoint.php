@@ -57,12 +57,14 @@ final class CoachingEntitlementEndpoint
                     $authority = mmed_mr_coaching_hybrid_allowance_authority($order);
                     if ($authority === null) { continue; } // Explicitly ineligible; no rights emitted.
                     if (!is_array($authority) || !is_array($authority['evidence'] ?? null)
+                        || !is_array($authority['eligible_unit_ids'] ?? null)
                         || !is_int($authority['eligibility_revision'] ?? null) || $authority['eligibility_revision'] <= 0
                         || $authority['eligibility_revision'] > 9007199254740991) { return $denied(); }
                     $p = $projection->project($snapshot, $authority['evidence'], new DateTimeImmutable('@' . $checked));
+                    if ($authority['eligible_unit_ids'] !== $p['eligible_unit_ids'] || $authority['eligibility_revision'] !== $p['eligibility_revision']) { return $denied(); }
                     $packages[] = ['order_id' => $id, 'order_item_id' => $authority['evidence']['order_item_id'],
                         'product_id' => $authority['evidence']['product_id'], 'sku' => $snapshot['sku'],
-                        'snapshot_digest' => $p['snapshot_digest'], 'eligibility_revision' => $authority['eligibility_revision'], 'units' => $p['units']];
+                        'snapshot_digest' => $p['snapshot_digest'], 'eligibility_revision' => $authority['eligibility_revision'], 'units' => $p['units'], 'eligible_unit_ids'=>$p['eligible_unit_ids']];
                     if (count($packages) > 100) { return $denied(); }
                 }
                 if ($page >= (int) $result->max_num_pages) { break; }

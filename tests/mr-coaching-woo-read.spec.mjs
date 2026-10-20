@@ -10,6 +10,7 @@ function pkg(sku = 'three', order = 1001) {
   const counts = { single: { mock: 1 }, three: { strategy: 1, mock: 3, debrief: 2 }, five: { strategy: 1, mock: 5, debrief: 3 } }[sku];
   const p = { order_id: order, order_item_id: order + 1000, product_id: 900001, sku, snapshot_digest: 'a'.repeat(64), eligibility_revision: 1, units: [] };
   for (const [service, count] of Object.entries(counts)) for (let ordinal = 1; ordinal <= count; ordinal++) p.units.push({ unit_id: `coaching-unit:v1:${p.order_id}:${p.order_item_id}:${service}:${ordinal}`, order_id: p.order_id, order_item_id: p.order_item_id, owner_wp_user_id: 42, product_id: p.product_id, sku, service, ordinal, duration_minutes: { strategy: 120, mock: 105, debrief: 45 }[service], snapshot_digest: p.snapshot_digest });
+  p.eligible_unit_ids = p.units.map(u => u.unit_id);
   return p;
 }
 function fixture({ mutate = () => {}, response, headers = { Authorization: AUTH }, now = () => SECOND * 1000, headerError } = {}) {

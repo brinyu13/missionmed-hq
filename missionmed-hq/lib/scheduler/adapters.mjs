@@ -1062,7 +1062,7 @@ function zoomExternalEventId(payload = {}) {
   ).trim();
 }
 
-function webexMeetingPayload(payload = {}, providerAccountId = '') {
+export function webexMeetingPayload(payload = {}, providerAccountId = '') {
   const timezone = String(payload.timezone || 'America/New_York');
   const body = {
     title: meetingTitle(payload),

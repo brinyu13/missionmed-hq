@@ -12,6 +12,12 @@ require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingWooAllocator.php'
 require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingAllowanceProjection.php';
 require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingEntitlementEndpoint.php';
 require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingStripeLifecycle.php';
+require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingRefundDisposition.php';
+require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingProviderContainment.php';
+require_once __DIR__ . '/missionmed-mr-coaching-assets/CoachingWebexBroker.php';
+
+add_action('rest_api_init','mmed_coaching_webex_register');
+add_filter('mmed_scheduler_webex_oauth_scopes','mmed_coaching_webex_scope');
 
 const MMED_MR_COACHING_OPTION = 'mmed_mr_coaching_v1';
 const MMED_MR_COACHING_CUTOFF = 1793505600; // Exclusive 2026-11-01T04:00:00Z.
@@ -293,6 +299,10 @@ function mmed_mr_coaching_payment_complete($order_id) {
     if (!$order) { return; }
     try {
         $s=mmed_mr_coaching_order_snapshot($order,false); if (!$s) { return; }
+        if (mmed_mr_coaching_cents($order->get_total_refunded()) > 0) {
+            if (mmed_mr_coaching_hybrid_allowance_authority($order) !== null) { return; }
+            throw new RuntimeException('coaching_refund_review_required');
+        }
         if ($order->get_meta('_mmed_mr_coaching_risk_hold',true)!=='' || !$order->is_paid() || !in_array($order->get_status(),['processing','completed'],true)
             || mmed_mr_coaching_cents($order->get_total_refunded()) !== 0 || !$order->get_date_paid()) {
             throw new RuntimeException('coaching_canonical_paid_state_required');
@@ -316,8 +326,7 @@ function mmed_mr_coaching_payment_complete($order_id) {
  * fingerprint leaves this boundary in the public allowance response.
  */
 function mmed_mr_coaching_hybrid_allowance_authority($order) {
-    if (!$order->is_paid() || !in_array($order->get_status(),['processing','completed'],true)
-        || mmed_mr_coaching_cents($order->get_total_refunded()) !== 0
+    if (!in_array($order->get_status(),['processing','completed','refunded'],true)
         || $order->get_meta('_mmed_mr_coaching_state',true) !== 'active' || !$order->get_date_paid()
         || $order->get_meta('_mmed_mr_coaching_risk_hold',true)!=='') { return null; }
     $proof=mmed_mr_coaching_financial_proof($order);
@@ -325,15 +334,20 @@ function mmed_mr_coaching_hybrid_allowance_authority($order) {
     if (!$row || $row['state'] !== 'paid' || $row['financial_fingerprint'] !== $proof['fingerprint']
         || (int)$row['paid_at'] !== $order->get_date_paid()->getTimestamp()
         || !hash_equals($s['snapshot_digest'],(string)$order->get_meta('_mmed_mr_coaching_fulfillment_ack',true))) { return null; }
+    try { $current=CoachingRefundDisposition::current($order,$s,(int)$row['revision']); }
+    catch (Throwable $e) { return null; }
+    if ((!$order->is_paid() && !($order->get_status()==='refunded' && $current['refunded_cents']===$s['total_cents']))
+        || ($order->get_status()==='refunded' && $current['refunded_cents']!==$s['total_cents'])) { return null; }
     $paid=gmdate('Y-m-d\TH:i:s\Z',$order->get_date_paid()->getTimestamp());
     $payment=['genuine_server_verified'=>true,'order_id'=>(int)$s['order_id'],'owner_wp_user_id'=>$s['wp_customer_id'],
         'snapshot_digest'=>$s['snapshot_digest'],'gateway'=>$s['gateway'],'amount_cents'=>$s['total_cents'],'currency'=>'USD',
         'paid_at'=>$paid,'kind'=>$proof['kind']];
     if ($s['gateway']==='stripe') { $payment['transaction_id']=$proof['transaction_id']; }
     else { $payment+=['receipt_state'=>$order->get_meta('_mm_zelle_state',true),'fingerprint'=>$proof['fingerprint'],'financial_ledger_order_id'=>(int)$s['order_id']]; }
-    return ['eligibility_revision'=>(int)$row['revision'],'evidence'=>[
-        'server_owned_evidence_verified'=>true,'canonical_woo_is_paid'=>true,'woo_status'=>$order->get_status(),
-        'refunded_cents'=>0,'chargeback'=>false,'quarantined'=>false,'order_id'=>(int)$s['order_id'],
+    return ['eligibility_revision'=>$current['eligibility_revision'],'eligible_unit_ids'=>$current['eligible_unit_ids'],'evidence'=>[
+        'server_owned_evidence_verified'=>true,'original_canonical_paid_verified'=>true,'canonical_woo_is_paid'=>$order->is_paid(),'woo_status'=>$order->get_status(),
+        'refunded_cents'=>$current['refunded_cents'],'eligible_unit_ids'=>$current['eligible_unit_ids'],'eligibility_revision'=>$current['eligibility_revision'],
+        'chargeback'=>false,'quarantined'=>false,'order_id'=>(int)$s['order_id'],
         'order_item_id'=>(int)$s['order_item_id'],'owner_wp_user_id'=>$s['wp_customer_id'],'product_id'=>$s['product_id'],
         'canonical_snapshot_digest'=>$s['snapshot_digest'],'admitted_snapshot_digest'=>$s['snapshot_digest'],
         'canonical_paid_at'=>$paid,'payment_proof'=>$payment]];
@@ -345,12 +359,79 @@ function mmed_mr_coaching_refund_observed($order_id,$refund_id) {
     try {
         $s=mmed_mr_coaching_order_snapshot($order,false); if (!$s) { return; }
         if (mmed_mr_coaching_cents($refund->get_amount()) <= 0 || mmed_mr_coaching_cents($order->get_total_refunded()) <= 0) { return; }
-        // Immediate fresh Woo reads deny refunded access even if this storage
-        // observation fails. Never undo the genuine canonical refund record.
+        mmed_mr_coaching_refund_original_authority($order);
+        CoachingRefundDisposition::finalize($refund);
+        // Risk holds and existing quarantine are never cleared by a refund.
+        if ($order->get_meta('_mmed_mr_coaching_risk_hold',true)==='' && $order->get_meta('_mmed_mr_coaching_state',true)==='active') { $order->save(); }
+    } catch (Throwable $e) {
         $order->update_meta_data('_mmed_mr_coaching_state','refund_review_required'); $order->save();
-        mmed_mr_coaching_allocator()->quarantineRefund($s);
-    } catch (Throwable $e) { $order->update_meta_data('_mmed_mr_coaching_state','refund_review_required'); $order->save(); }
+        try { if (isset($s) && $s) { mmed_mr_coaching_allocator()->quarantineRefund($s); } } catch (Throwable $ignored) {}
+    }
 }
+
+/** Refund-only evidence boundary. Access can be revoked/cancelled while the
+ * original genuine payment remains refundable. This never authorizes access. */
+function mmed_mr_coaching_refund_original_authority($order) {
+    $proof=mmed_mr_coaching_financial_proof($order); $s=$proof['snapshot'];
+    $row=mmed_mr_coaching_allocator()->readOwned($s);
+    if (!$row || !in_array($row['state'],['paid','revoked','review'],true) || $row['paid_at']===null || !$order->get_date_paid()
+        || $row['financial_fingerprint']!==$proof['fingerprint'] || (int)$row['paid_at']!==$order->get_date_paid()->getTimestamp()
+        || !hash_equals($s['snapshot_digest'],(string)$order->get_meta('_mmed_mr_coaching_fulfillment_ack',true))) { throw new RuntimeException('coaching_original_paid_allocation_required'); }
+    $current=CoachingRefundDisposition::current($order,$s,(int)$row['revision']);
+    $mustRetainNone=$row['state']!=='paid' || !$order->is_paid() || !in_array($order->get_status(),['processing','completed'],true)
+        || $order->get_meta('_mmed_mr_coaching_state',true)!=='active' || $order->get_meta('_mmed_mr_coaching_risk_hold',true)!=='';
+    return ['snapshot'=>$s,'row'=>$row,'current'=>$current,'must_retain_none'=>$mustRetainNone];
+}
+
+/** No financial call occurs here. Woo invokes this before refund save and the
+ * gateway request; missing/stale entitlement decisions reject that operation. */
+function mmed_mr_coaching_refund_before_create($refund,$args) {
+    $order=wc_get_order((int)($args['order_id'] ?? 0)); if (!$order) { return; }
+    $s=mmed_mr_coaching_order_snapshot($order,false); if (!$s) { return; }
+    $authority=mmed_mr_coaching_refund_original_authority($order);
+    CoachingRefundDisposition::bindBeforeRefund($refund,$order,$s,(int)$authority['row']['revision'],$args,mmed_mr_coaching_now(),$authority['must_retain_none']);
+}
+
+function mmed_mr_coaching_refund_approve($order_id,$amount,$retained,$nonce) {
+    if (!current_user_can('manage_woocommerce') || !is_int($order_id) || $order_id<1 || !is_string($nonce)
+        || !wp_verify_nonce($nonce,'mmed_coaching_refund_'.$order_id) || !is_array($retained)) { throw new RuntimeException('coaching_refund_admin_nonce_required'); }
+    $order=wc_get_order($order_id); if (!$order) { throw new RuntimeException('coaching_owned_order_required'); }
+    $s=mmed_mr_coaching_order_snapshot($order,false);
+    if (!$s) { throw new RuntimeException('coaching_original_paid_authority_required'); }
+    $authority=mmed_mr_coaching_refund_original_authority($order);
+    if ($authority['must_retain_none'] && $retained!==[]) { throw new RuntimeException('coaching_revoked_refund_must_retain_none'); }
+    return CoachingRefundDisposition::approve($order,$s,(int)$authority['row']['revision'],mmed_mr_coaching_cents($amount),$retained,mmed_mr_coaching_now());
+}
+
+function mmed_mr_coaching_refund_admin_page() {
+    if (!current_user_can('manage_woocommerce')) { wp_die('Coaching refund administrator access required.'); }
+    $id=isset($_GET['order_id']) && is_string($_GET['order_id']) && ctype_digit($_GET['order_id']) ? (int)$_GET['order_id'] : 0;
+    echo '<div class="wrap"><h1>Coaching refund disposition</h1><p>Approve which purchased units remain eligible before creating the matching Woo refund. This page does not issue money or change delivered-service history. Review service delivery and bookings separately; no deduction is calculated here.</p><form method="get"><input type="hidden" name="page" value="mmed-coaching-refund-disposition"><label>Woo order ID <input name="order_id" type="number" min="1" required value="'.esc_attr((string)$id).'"></label><button class="button">Load order</button></form>';
+    if ($id>0) {
+        try {
+            $order=wc_get_order($id); if (!$order) { throw new RuntimeException('Order unavailable.'); }
+            $a=mmed_mr_coaching_refund_original_authority($order);
+            echo '<form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="mmed_coaching_refund_disposition"><input type="hidden" name="order_id" value="'.esc_attr((string)$id).'">';
+            wp_nonce_field('mmed_coaching_refund_'.$id,'_wpnonce');
+            echo '<p>Already refunded: '.esc_html(number_format($a['current']['refunded_cents']/100,2,'.','')).' USD. Eligibility revision: '.esc_html((string)$a['current']['eligibility_revision']).'.</p><label>Exact next refund amount USD <input name="refund_amount" inputmode="decimal" required></label><p>Check only units to retain. A full refund must retain none. Previously removed rights cannot be restored.</p>';
+            if ($a['must_retain_none']) { echo '<p>This order has no current access authority. Its refund must retain zero eligible units and will not clear its existing hold.</p>'; }
+            foreach ($a['must_retain_none'] ? [] : $a['current']['eligible_unit_ids'] as $unit) { echo '<p><label><input type="checkbox" name="retained[]" value="'.esc_attr($unit).'" checked> '.esc_html($unit).'</label></p>'; }
+            echo '<button class="button button-primary">Approve one matching refund for 15 minutes</button></form>';
+        } catch (Throwable $e) { echo '<p>'.esc_html($e->getMessage()).'</p>'; }
+    }
+    echo '</div>';
+}
+
+add_action('woocommerce_create_refund','mmed_mr_coaching_refund_before_create',1,2);
+add_action('admin_menu',function(){ add_submenu_page('woocommerce','Coaching refund disposition','Coaching refund disposition','manage_woocommerce','mmed-coaching-refund-disposition','mmed_mr_coaching_refund_admin_page'); });
+add_action('admin_post_mmed_coaching_refund_disposition',function(){
+    try {
+        $id=$_POST['order_id'] ?? null;
+        if (!is_string($id) || !preg_match('/^[1-9][0-9]{0,14}$/D',$id)) { throw new RuntimeException('Exact Woo order required.'); }
+        mmed_mr_coaching_refund_approve((int)$id,wp_unslash($_POST['refund_amount'] ?? ''),wp_unslash($_POST['retained'] ?? []),wp_unslash($_POST['_wpnonce'] ?? ''));
+        wp_safe_redirect(admin_url('admin.php?page=mmed-coaching-refund-disposition&order_id='.(int)$id)); exit;
+    } catch (Throwable $e) { wp_die('Coaching refund disposition was not approved. Reload the order and review its current payment, refund and unit history.'); }
+});
 
 /** Only an independently paid new package contributes Scheduler visibility.
  * Preserve exact pre-existing modules; no user-meta/course/role write occurs.
@@ -365,7 +446,8 @@ function mmed_mr_coaching_matrix_modules($value,$user_id,$key,$single) {
             if (!is_object($result) || !is_array($result->orders ?? null) || !is_numeric($result->max_num_pages ?? null)
                 || (int)$result->max_num_pages>20) { return $value; }
             foreach ($result->orders as $order) {
-                if ((int)$order->get_customer_id()===(int)$user_id && mmed_mr_coaching_hybrid_allowance_authority($order)!==null) { $eligible=true; break; }
+                $authority=mmed_mr_coaching_hybrid_allowance_authority($order);
+                if ((int)$order->get_customer_id()===(int)$user_id && $authority!==null && $authority['eligible_unit_ids']!==[]) { $eligible=true; break; }
             }
             if ($eligible || $page >= (int)$result->max_num_pages) { break; }
         }

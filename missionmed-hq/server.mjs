@@ -13,6 +13,9 @@ import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMe
 import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
 import { handleSchedulerApiRoute } from './lib/scheduler/routes.mjs';
 import { createWooCoachingAllowanceReader } from './lib/scheduler/coaching-woo-read.mjs';
+import { startCoachingMaintenanceWorker } from './lib/scheduler/coaching-worker.mjs';
+import { runCoachingMaintenance } from './lib/scheduler/coaching-maintenance.mjs';
+import { createSchedulerRepository } from './lib/scheduler/persistence.mjs';
 import { readSessionFromHeaders } from './lib/auth/session-token.mjs';
 import { readCurrentRiseEligibility, riseDelegatedProjection } from './lib/auth/rise-current-eligibility.mjs';
 import {
@@ -311,6 +314,7 @@ let dbocEncodeWorkerBusy = false;
 let dbocEncodeWorkerTimer = null;
 let dbocMetricsWorkerBusy = false;
 let dbocMetricsWorkerTimer = null;
+let coachingMaintenanceWorker = null;
 const MEDIA_FALLBACK_STORE_PATH = path.join(__dirname, 'data', 'media_system_fallback.json');
 const MEDIA_SUBMISSION_STORE_PATH = path.join(__dirname, 'data', 'media_submissions.json');
 const MEDIA_UPLOAD_MAX_BYTES = Math.max(1_000_000, Number(envValue('MMHQ_MEDIA_UPLOAD_MAX_BYTES', String(2 * 1024 * 1024 * 1024))));
@@ -635,13 +639,14 @@ const server = http.createServer(async (request, response) => {
 });
 
 function closeHttpAdmission() {
+  const coachingDrain = coachingMaintenanceWorker?.stop();
   for (const timer of [dbocTranscribeWorkerTimer, dbocEncodeWorkerTimer, dbocMetricsWorkerTimer]) {
     if (timer) clearTimeout(timer);
   }
   dbocTranscribeWorkerTimer = null;
   dbocEncodeWorkerTimer = null;
   dbocMetricsWorkerTimer = null;
-  return new Promise((resolve, reject) => {
+  const httpClosed = new Promise((resolve, reject) => {
     if (!server.listening) {
       resolve();
       return;
@@ -651,6 +656,7 @@ function closeHttpAdmission() {
       else resolve();
     });
   });
+  return Promise.all([httpClosed, coachingDrain]);
 }
 
 LOR_STUDIO_SHUTDOWN = createLorStudioShutdownCoordinator({
@@ -685,6 +691,14 @@ try {
   startDbocTranscribeWorker();
   startDbocEncodeWorker();
   startDbocMetricsWorker();
+  // Existing HQ lifecycle only. The private Scheduler DB gate defaults OFF;
+  // disabled claims do not mutate state, read Woo, send mail or call Webex.
+  const coachingRepository = createSchedulerRepository();
+  const coachingWooReader = createWooCoachingAllowanceReader({ getServiceHeaders: () => getWordPressServiceHeaders() });
+  coachingMaintenanceWorker = startCoachingMaintenanceWorker({ enabled: true,
+    run: () => runCoachingMaintenance({ repository: coachingRepository, readWooAllowances: coachingWooReader }),
+    onFailure: () => console.warn('COACHING_MAINTENANCE_REVIEW_REQUIRED'),
+  });
   server.listen(PORT, '0.0.0.0', () => {
     console.log('HQ server running on port:', PORT);
   });

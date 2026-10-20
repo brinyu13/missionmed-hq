@@ -25,6 +25,8 @@ function fixtures(string $sku, string $gateway = 'stripe'): array {
         'order_id' => 910001, 'order_item_id' => 920001, 'owner_wp_user_id' => 930001, 'product_id' => $products[$sku],
         'canonical_snapshot_digest' => $snapshot['snapshot_digest'], 'admitted_snapshot_digest' => $snapshot['snapshot_digest'],
         'canonical_paid_at' => $proof['paid_at'], 'payment_proof' => $proof];
+    $evidence += ['original_canonical_paid_verified'=>true,'eligibility_revision'=>1,
+        'eligible_unit_ids'=>$sku==='emergency' ? [] : CoachingAllowanceProjection::unitIds($snapshot)];
     return [$snapshot, $evidence];
 }
 function rehash(array $snapshot, array $evidence): array {
@@ -53,10 +55,10 @@ denies(fn() => (new CoachingAllowanceProjection())->project($s, $e, $now), 'no p
 foreach (['pending', 'on-hold', 'failed', 'cancelled', 'refunded', 'chargeback', 'quarantined', 'unknown', ''] as $status) {
     $bad = $e; $bad['woo_status'] = $status; denies(fn() => $helper->project($s, $bad, $now), 'unpaid or unknown Woo state closed');
 }
-foreach (['server_owned_evidence_verified', 'canonical_woo_is_paid', 'refunded_cents', 'chargeback', 'quarantined', 'canonical_snapshot_digest', 'admitted_snapshot_digest', 'canonical_paid_at', 'payment_proof'] as $key) {
+foreach (['server_owned_evidence_verified', 'canonical_woo_is_paid', 'original_canonical_paid_verified', 'eligible_unit_ids', 'eligibility_revision', 'refunded_cents', 'chargeback', 'quarantined', 'canonical_snapshot_digest', 'admitted_snapshot_digest', 'canonical_paid_at', 'payment_proof'] as $key) {
     $bad = $e; unset($bad[$key]); denies(fn() => $helper->project($s, $bad, $now), 'missing canonical evidence ' . $key);
 }
-foreach (['refunded_cents' => 1, 'chargeback' => true, 'quarantined' => true, 'canonical_woo_is_paid' => false] as $key => $value) {
+foreach (['refunded_cents' => -1, 'chargeback' => true, 'quarantined' => true, 'canonical_woo_is_paid' => false, 'original_canonical_paid_verified'=>false] as $key => $value) {
     $bad = $e; $bad[$key] = $value; denies(fn() => $helper->project($s, $bad, $now), 'risk/refund/unpaid fails closed');
 }
 foreach (['order_id', 'order_item_id', 'owner_wp_user_id', 'product_id'] as $key) {
@@ -86,5 +88,21 @@ denies(fn() => $helper->project($em, $eme, $now), 'Emergency request-first, no n
 $eme['emergency_staff_date_approval_verified'] = $eme['emergency_native_hold_verified'] = true;
 denies(fn() => $helper->project($em, $eme, $now), 'extra speculative Emergency flags cannot enable unsupported flow');
 $different = $s; $different['order_item_id'] = '920002'; $differentEvidence = $e; $differentEvidence['order_item_id'] = 920002; [$different, $differentEvidence] = rehash($different, $differentEvidence);
+$differentEvidence['eligible_unit_ids']=CoachingAllowanceProjection::unitIds($different);
 check($helper->project($different, $differentEvidence, $now)['units'][0]['unit_id'] !== $helper->project($s, $e, $now)['units'][0]['unit_id'], 'different canonical item has distinct stable unit identity');
+[$ps,$pe]=fixtures('three'); $original=$helper->project($ps,$pe,$now);
+$pe['refunded_cents']=10000; $pe['eligible_unit_ids']=[$pe['eligible_unit_ids'][0],...array_slice($pe['eligible_unit_ids'],2)]; $pe['eligibility_revision']=2;
+$partial=$helper->project($ps,$pe,$now);
+check($partial['units']===$original['units'] && $partial['eligible_unit_ids']===$pe['eligible_unit_ids'] && $partial['eligibility_revision']===2,'SIMULATED server-approved partial refund preserves immutable units and exact retained subset');
+$pe['refunded_cents']=$ps['total_cents']; $pe['eligible_unit_ids']=[]; $pe['eligibility_revision']=3; $pe['woo_status']='refunded'; $pe['canonical_woo_is_paid']=false;
+check($helper->project($ps,$pe,$now)['units']===$original['units'] && $helper->project($ps,$pe,$now)['eligible_unit_ids']===[],'SIMULATED full refund preserves original paid units with zero eligibility');
+foreach (['foreign','duplicate','nonlist','scalar','missingOriginalPaid'] as $case) {
+    $bad=$e;
+    if($case==='foreign'){$bad['eligible_unit_ids']=['coaching-unit:v1:999:999:mock:1'];}
+    if($case==='duplicate'){$bad['eligible_unit_ids']=[$e['eligible_unit_ids'][0],$e['eligible_unit_ids'][0]];}
+    if($case==='nonlist'){$bad['eligible_unit_ids']=[1=>$e['eligible_unit_ids'][0]];}
+    if($case==='scalar'){$bad['eligible_unit_ids']='all';}
+    if($case==='missingOriginalPaid'){unset($bad['original_canonical_paid_verified']);}
+    denies(fn()=>$helper->project($s,$bad,$now),'exact eligible/original-paid contract denies '.$case);
+}
 echo 'PASS: ' . $count . " deterministic nonfinancial allowance-projection assertions\n";

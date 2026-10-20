@@ -214,6 +214,35 @@ class SupabaseSchedulerRepository {
   async updateNotificationStatus(notificationId, patch = {}) {
     return this.restUpdate(TABLES.notifications, notificationId, normalizeNotificationStatusPatch(patch));
   }
+  async getNotificationById(id) {
+    const rows = await this.restSelect(TABLES.notifications, { select: '*', id: `eq.${id}`, limit: 1 });
+    return rows[0] || null;
+  }
+
+  async claimCoachingNotification(id, token, attempt) {
+    const rows = await this.request(TABLES.notifications, { method: 'PATCH',
+      params: { id: `eq.${id}`, status: 'eq.pending' },
+      body: { status: 'failed', last_error: token, attempt_count: attempt, updated_at: new Date().toISOString() },
+      includeContentType: true, prefer: 'return=representation' });
+    return rows[0] || null;
+  }
+
+  async finishCoachingNotification(id, token, patch) {
+    if (!['sent','failed','suppressed'].includes(patch.status)) throw new SchedulerPersistenceError('invalid_coaching_notification_status', 'Invalid coaching notification state.', 400);
+    const rows = await this.request(TABLES.notifications, { method: 'PATCH',
+      params: { id: `eq.${id}`, status: 'eq.failed', last_error: `eq.${token}` },
+      body: { ...patch, updated_at: new Date().toISOString() },
+      includeContentType: true, prefer: 'return=representation' });
+    return rows[0] || null;
+  }
+
+  async suppressCoachingNotifications(appointmentId) {
+    return this.request(TABLES.notifications, { method: 'PATCH',
+      params: { appointment_id: `eq.${appointmentId}`, status: 'in.(pending,failed)' },
+      body: { status: 'suppressed', last_error: 'coaching_unit_revoked', updated_at: new Date().toISOString() },
+      includeContentType: true, prefer: 'return=representation' });
+  }
+
 
   async adminListAppointments(filters = {}) {
     return this.restSelect(TABLES.appointments, {

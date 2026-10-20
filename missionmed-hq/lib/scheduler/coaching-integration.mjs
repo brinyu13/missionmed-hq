@@ -97,7 +97,7 @@ export function createCoachingIntegration({ repository, session, actor, readWooA
   }
   async function availableCredits(data, serviceKind, start = Infinity) {
     const result = [];
-    for (const credit of credits(data).filter(item => item.service === serviceKind && item.state === 'available' && item.package.booking_allowed !== false)) {
+    for (const credit of credits(data).filter(item => item.service === serviceKind && item.state === 'available' && item.booking_allowed === true && item.package.booking_allowed !== false)) {
       const threshold = await strategyEnd(credit);
       if (threshold !== Infinity && threshold <= start) result.push(credit);
     }
@@ -162,7 +162,7 @@ export function createCoachingIntegration({ repository, session, actor, readWooA
     const start = date(value(filters, 'start_date', 'startDate', 'start'));
     const end = date(value(filters, 'end_date', 'endDate', 'end'));
     if (!start || !end || end <= start || end - start > 93 * 86400000) deny('coaching_date_range_required', 'Choose a valid date range.', 400);
-    const pool = target ? (target.package.booking_allowed === false ? [] : [target]) : await availableCredits(data, kind(rawType));
+    const pool = target ? (target.package.booking_allowed === false || target.booking_allowed !== true ? [] : [target]) : await availableCredits(data, kind(rawType));
     if (!pool.length) return [];
     if (!Array.isArray(data.weekly_usage)) deny('coaching_weekly_usage_unavailable', 'Availability needs staff review.', 503);
     const prior = target?.appointment_id ? await appointment(target.appointment_id) : null;
@@ -213,7 +213,7 @@ export function createCoachingIntegration({ repository, session, actor, readWooA
       for (const row of sanitizedTypes) {
         const source = raw.get(String(row.id)) || row;
         if (!coaching(source)) { result.push(row); continue; }
-        const remaining = credits(data).filter(c => c.service === kind(source) && c.state === 'available' && c.package.booking_allowed !== false).length;
+        const remaining = credits(data).filter(c => c.service === kind(source) && c.state === 'available' && c.booking_allowed === true && c.package.booking_allowed !== false).length;
         const eligible = approvals(data, source).length > 0 && (await availableCredits(data, kind(source))).length > 0;
         result.push({ ...row, division: 'mission-residency', coaching_service: kind(source) || 'unavailable', coaching_remaining: remaining,
           entitlement: { status: eligible ? 'eligible' : 'locked', locked: !eligible,
@@ -270,7 +270,7 @@ export function createCoachingIntegration({ repository, session, actor, readWooA
       }
       if (!credit) credit = (await availableCredits(data, kind(rawType), start.getTime()))[0];
       if (!credit) deny('coaching_paid_credit_required', 'No eligible paid coaching credit is available.');
-      if (action !== 'cancel' && credit.package.booking_allowed === false) deny('coaching_package_review_required');
+      if (action !== 'cancel' && (credit.package.booking_allowed === false || credit.booking_allowed !== true)) deny('coaching_package_review_required');
       if (action === 'cancel' && await dependentMockStart(credit) !== Infinity) deny('coaching_strategy_has_dependent_mocks', 'Update your later mocks before canceling strategy.');
       const approval = action === 'cancel' ? null : approvals(data, rawType, provider).find(a => date(a.approved_from) <= start && date(a.approved_until) >= end);
       if (action !== 'cancel' && !approval) deny('coaching_service_approval_required');

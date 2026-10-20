@@ -37,7 +37,9 @@ function orderFixture(string $sku = 'single', int $id = 1001): OrderFixture {
     $snapshot['snapshot_digest'] = hash('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR));
     $proof = ['genuine_server_verified' => true, 'order_id' => $id, 'owner_wp_user_id' => 42, 'snapshot_digest' => $snapshot['snapshot_digest'], 'gateway' => 'stripe', 'amount_cents' => $amount, 'currency' => 'USD', 'paid_at' => '2027-01-14T09:00:00Z', 'kind' => 'canonical_stripe_payment', 'transaction_id' => 'pi_fixtureOnly'];
     $evidence = ['server_owned_evidence_verified' => true, 'canonical_woo_is_paid' => true, 'woo_status' => 'processing', 'refunded_cents' => 0, 'chargeback' => false, 'quarantined' => false, 'order_id' => $id, 'order_item_id' => $id + 1000, 'owner_wp_user_id' => 42, 'product_id' => $product, 'canonical_snapshot_digest' => $snapshot['snapshot_digest'], 'admitted_snapshot_digest' => $snapshot['snapshot_digest'], 'canonical_paid_at' => $proof['paid_at'], 'payment_proof' => $proof];
-    return new OrderFixture($id, 42, $snapshot, ['evidence' => $evidence, 'eligibility_revision' => 1]);
+    $eligible=CoachingAllowanceProjection::unitIds($snapshot);
+    $evidence += ['original_canonical_paid_verified'=>true,'eligible_unit_ids'=>$eligible,'eligibility_revision'=>1];
+    return new OrderFixture($id, 42, $snapshot, ['evidence' => $evidence, 'eligibility_revision' => 1,'eligible_unit_ids'=>$eligible]);
 }
 function resetFixture(): void {
     global $config, $currentId, $capability, $applicationPassword, $pages, $queryCalls, $ticks;
@@ -92,7 +94,10 @@ foreach (['wrongOrderOwner', 'duplicateOrder', 'proofWrongOwner', 'proofUnknown'
     if ($case === 'proofWrongOwner') { $pages[1]->orders[0]->authority['evidence']['owner_wp_user_id'] = 99; }
     if ($case === 'proofUnknown') { $pages[1]->orders[0]->authority = false; }
     if ($case === 'snapshotUnknown') { $pages[1]->orders[0]->snapshot['snapshot_digest'] = str_repeat('0', 64); }
-    if ($case === 'refund') { $pages[1]->orders[0]->authority['evidence']['refunded_cents'] = 1; }
+    if ($case === 'refund') {
+        $pages[1]->orders[0]->authority['evidence']['refunded_cents'] = 1;
+        unset($pages[1]->orders[0]->authority['evidence']['eligible_unit_ids']); // Refund without its required server-owned disposition.
+    }
     if ($case === 'authorityException') { $pages[1]->orders[0]->authority = new RuntimeException('private financial detail'); }
     if ($case === 'queryException') { $pages[1] = new RuntimeException('database uncertain'); }
     if ($case === 'incompleteResult') { $pages[1] = false; }
@@ -120,5 +125,25 @@ foreach (['missingTotal', 'negativePages', 'fractionalPages', 'numericStringPage
 resetFixture(); $pages[1]->orders[0]->authority = null;
 $result = CoachingEntitlementEndpoint::read(request()); check($result instanceof WP_REST_Response && $result->data['packages'] === [], 'explicit authoritative ineligibility distinct from query failure');
 CoachingEntitlementEndpoint::register(); check($routes[0][0] === 'mmed-coaching/v1' && $routes[0][2]['methods'] === 'POST' && $routes[0][2]['permission_callback'] === [CoachingEntitlementEndpoint::class, 'permission'], 'native route uses explicit authenticated read boundary');
+foreach (['missingOriginalPaid','missingEvidenceEligible','missingAuthorityEligible','missingEvidenceRevision','foreignEligible','disagreeingSubset','disagreeingRevision'] as $case) {
+    resetFixture(); $a=&$pages[1]->orders[0]->authority;
+    if($case==='missingOriginalPaid'){unset($a['evidence']['original_canonical_paid_verified']);}
+    if($case==='missingEvidenceEligible'){unset($a['evidence']['eligible_unit_ids']);}
+    if($case==='missingAuthorityEligible'){unset($a['eligible_unit_ids']);}
+    if($case==='missingEvidenceRevision'){unset($a['evidence']['eligibility_revision']);}
+    if($case==='foreignEligible'){$a['eligible_unit_ids']=$a['evidence']['eligible_unit_ids']=['coaching-unit:v1:999:999:mock:1'];}
+    if($case==='disagreeingSubset'){$a['eligible_unit_ids']=[];}
+    if($case==='disagreeingRevision'){$a['evidence']['eligibility_revision']=2;}
+    check(errorResult(CoachingEntitlementEndpoint::read(request())),'required eligibility/original-paid boundary denies '.$case);
+    unset($a);
+}
+resetFixture(); $o=orderFixture('three'); $pages[1]->orders=[$o]; $a=&$o->authority;
+$a['evidence']['refunded_cents']=10000; $a['eligible_unit_ids']=$a['evidence']['eligible_unit_ids']=[$a['eligible_unit_ids'][0],...array_slice($a['eligible_unit_ids'],2)]; $a['eligibility_revision']=$a['evidence']['eligibility_revision']=2;
+$result=CoachingEntitlementEndpoint::read(request());
+check($result instanceof WP_REST_Response && count($result->data['packages'][0]['units'])===6 && $result->data['packages'][0]['eligible_unit_ids']===$a['eligible_unit_ids'] && $result->data['packages'][0]['eligibility_revision']===2,'SIMULATED server-owned partial disposition returns immutable units with exact subset');
+$a['evidence']['refunded_cents']=74900; $a['evidence']['canonical_woo_is_paid']=false; $a['evidence']['woo_status']='refunded'; $a['eligible_unit_ids']=$a['evidence']['eligible_unit_ids']=[]; $a['eligibility_revision']=$a['evidence']['eligibility_revision']=3;
+$result=CoachingEntitlementEndpoint::read(request());
+check($result instanceof WP_REST_Response && count($result->data['packages'][0]['units'])===6 && $result->data['packages'][0]['eligible_unit_ids']===[],'SIMULATED original paid full-refund package emits zero eligibility');
+unset($a);
 if ($failures) { echo 'FAIL: ' . count($failures) . ' / ' . $count . " assertions\n" . implode("\n", $failures) . "\n"; exit(1); }
 echo 'PASS: ' . $count . " isolated entitlement endpoint assertions; no real connection or financial operation\n";

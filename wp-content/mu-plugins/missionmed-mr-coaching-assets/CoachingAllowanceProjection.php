@@ -27,9 +27,10 @@ final class CoachingAllowanceProjection
     public function project(array $snapshot, array $evidence, DateTimeImmutable $serverNow): array
     {
         if (($evidence['server_owned_evidence_verified'] ?? false) !== true
-            || ($evidence['canonical_woo_is_paid'] ?? false) !== true
-            || !in_array($evidence['woo_status'] ?? null, ['processing', 'completed'], true)
-            || ($evidence['refunded_cents'] ?? null) !== 0
+            || !is_bool($evidence['canonical_woo_is_paid'] ?? null)
+            || ($evidence['original_canonical_paid_verified'] ?? false) !== true
+            || !in_array($evidence['woo_status'] ?? null, ['processing', 'completed', 'refunded'], true)
+            || !is_int($evidence['refunded_cents'] ?? null) || $evidence['refunded_cents'] < 0
             || ($evidence['chargeback'] ?? null) !== false || ($evidence['quarantined'] ?? null) !== false) {
             throw new DomainException('canonical_paid_evidence_required');
         }
@@ -108,9 +109,32 @@ final class CoachingAllowanceProjection
                     'duration_minutes' => self::MINUTES[$service], 'snapshot_digest' => $digest];
             }
         }
+        $eligible = self::eligibleSubset($evidence['eligible_unit_ids'] ?? null, array_column($units,'unit_id'));
+        if (!array_key_exists('eligible_unit_ids',$evidence) || !is_int($evidence['eligibility_revision'] ?? null) || $evidence['eligibility_revision'] < 1
+            || $evidence['eligibility_revision'] > 9007199254740991 || $evidence['refunded_cents'] > $snapshot['total_cents']
+            || ($evidence['refunded_cents'] === 0 && $eligible !== array_column($units,'unit_id'))
+            || ($evidence['refunded_cents'] === $snapshot['total_cents'] && $eligible !== [])
+            || (!$evidence['canonical_woo_is_paid'] && !($evidence['woo_status'] === 'refunded' && $evidence['refunded_cents'] === $snapshot['total_cents']))
+            || ($evidence['woo_status'] === 'refunded' && $evidence['refunded_cents'] !== $snapshot['total_cents'])) { throw new DomainException('current_exact_eligibility_required'); }
         return ['projection_version' => 1, 'kind' => 'immutable_service_allowance',
             'order_id' => $evidence['order_id'], 'owner_wp_user_id' => $evidence['owner_wp_user_id'],
-            'snapshot_digest' => $digest, 'units' => $units];
+            'snapshot_digest' => $digest, 'units' => $units,'eligible_unit_ids'=>$eligible,'eligibility_revision'=>$evidence['eligibility_revision']];
+    }
+
+    public static function unitIds(array $snapshot): array {
+        if (!isset(self::PACKAGES[$snapshot['sku'] ?? '']) || !is_string($snapshot['order_id'] ?? null) || !is_string($snapshot['order_item_id'] ?? null)) { throw new DomainException('canonical_package_required'); }
+        $ids=[];
+        foreach (self::PACKAGES[$snapshot['sku']] as $service=>$count) {
+            for ($i=1;$i<=$count;++$i) { $ids[]='coaching-unit:v1:'.$snapshot['order_id'].':'.$snapshot['order_item_id'].':'.$service.':'.$i; }
+        }
+        return $ids;
+    }
+
+    public static function eligibleSubset($requested,array $available): array {
+        if (!is_array($requested) || !array_is_list($requested) || count(array_unique($requested,SORT_REGULAR))!==count($requested)) { throw new DomainException('exact_retained_subset_required'); }
+        foreach ($requested as $id) { if (!is_string($id) || !in_array($id,$available,true)) { throw new DomainException('exact_retained_subset_required'); } }
+        if (array_values(array_intersect($available,$requested))!==$requested) { throw new DomainException('exact_retained_subset_required'); }
+        return $requested;
     }
 
     private static function digest($value): bool { return is_string($value) && preg_match('/^[a-f0-9]{64}$/D', $value) === 1; }
