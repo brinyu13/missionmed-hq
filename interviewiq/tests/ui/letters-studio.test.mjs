@@ -64,7 +64,10 @@ test('home card routes to Letters and ineligible roles never see the studio',()=
 test('read example shows the fictional sample with guidance and copies it with a warning',async()=>{
   const x=setup();try{
     await click(x,'[data-act="studio-read"][data-template="intent"]');
-    assert.match(x.doc.querySelector('#studio-sample').textContent,/intend to rank Lakeside first/);
+    assert.doesNotMatch(x.doc.querySelector('#studio-sample').textContent,/intend to rank|rank .* first|#1/i);
+    assert.match(x.doc.body.textContent,/not automatically a Match violation/);
+    assert.ok(x.doc.querySelector('a[href*="2027-MPA-Main-Match-Applicant"]'));
+    assert.match(x.doc.body.textContent,/Professional guidance/);
     assert.match(x.doc.body.textContent,/Fictional example/);
     assert.match(x.doc.body.textContent,/Why it works/);assert.match(x.doc.body.textContent,/What you must personalize/);assert.match(x.doc.body.textContent,/What to avoid/);
     await click(x,'[data-act="studio-copy-sample"]');
@@ -109,18 +112,85 @@ test('personalize from saved interviews, live preview, edit, copy and download, 
   }finally{x.close();}
 });
 
-test('letter of intent withholds the ranking sentence until first choice is confirmed, and copies with placeholder warning',async()=>{
+const rankKeys=['firstChoice','rankVoluntary','rankUnpressured','rankNoReciprocity'];
+const blobText=(x,blob)=>new Promise((resolve,reject)=>{const r=new x.w.FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.readAsText(blob);});
+test('intent default, four confirmations, revocation, copy/download and student edits stay consistent',async()=>{
   const x=setup();try{
     await click(x,'[data-act="studio-use"][data-template="intent"]');
-    assert.match(x.doc.body.textContent,/ranking sentence is left out/);
+    assert.match(x.doc.body.textContent,/all four confirmations/);
     assert.doesNotMatch(x.doc.getElementById('studio-preview').textContent,/rank/i);
-    type(x,'studio-f-firstChoice',true);
+    await click(x,'[data-act="studio-continue"]');
+    await click(x,'[data-act="studio-copy"]');
+    await click(x,'[data-act="studio-download"]');
+    assert.doesNotMatch(x.clip.at(-1),/intend to rank|#1/i);
+    assert.equal(await blobText(x,x.downloads.at(-2)),x.clip.at(-1));
+    await click(x,'[data-act="studio-personalize"]');
+    for(const key of rankKeys.slice(0,-1)){
+      type(x,'studio-f-'+key,true);
+      assert.doesNotMatch(x.doc.getElementById('studio-preview').textContent,/intend to rank/);
+    }
+    type(x,'studio-f-rankNoReciprocity',true);
     assert.match(x.doc.getElementById('studio-preview').textContent,/intend to rank your program first/);
     assert.equal(x.doc.querySelector('.studioWarn'),null);
     await click(x,'[data-act="studio-continue"]');
     await click(x,'[data-act="studio-copy"]');
-    assert.match(x.doc.getElementById('toast').textContent,/still contains \[bracketed\] placeholders/);
-    assert.match(x.doc.querySelector('.studioMissing').textContent,/details still in \[brackets\]/);
+    await click(x,'[data-act="studio-download"]');
+    assert.match(x.clip.at(-1),/intend to rank your program first/);
+    assert.equal(await blobText(x,x.downloads.at(-2)),x.clip.at(-1));
+    assert.match(x.doc.getElementById('toast').textContent,/downloaded/);
+    // Withdraw each consent from an edited draft. Only the composer sentence is removed.
+    for(const key of rankKeys){
+      const note='My own additional sentence remains exactly as entered.';
+      const before=x.doc.getElementById('studio-text').value+note;
+      type(x,'studio-text',before);
+      await click(x,'[data-act="studio-personalize"]');
+      type(x,'studio-f-'+key,false);
+      assert.match(x.doc.getElementById('toast').textContent,/sentence removed.*other edits are preserved/);
+      await click(x,'[data-act="studio-continue"]');
+      const expected=before.replace(' After completing my interviews, I am writing to let you know that I intend to rank your program first on my rank order list.','');
+      assert.equal(x.doc.getElementById('studio-text').value,expected);
+      assert.doesNotMatch(expected,/intend to rank/);
+      await click(x,'[data-act="studio-copy"]');
+      await click(x,'[data-act="studio-download"]');
+      assert.equal(x.clip.at(-1),expected);
+      assert.equal(await blobText(x,x.downloads.at(-2)),expected);
+      await click(x,'[data-act="studio-personalize"]');
+      type(x,'studio-f-'+key,true);
+      await click(x,'[data-act="studio-continue"]');
+      assert.equal(x.doc.getElementById('studio-text').value,expected,'reconfirming does not silently replace edited text');
+      await click(x,'[data-act="studio-regenerate"]');
+      assert.match(x.doc.getElementById('studio-text').value,/intend to rank your program first/);
+    }
+  }finally{x.close();}
+});
+
+test('revocation also removes an app-generated sentence moved onto its own line',async()=>{
+  const x=setup();try{
+    await click(x,'[data-act="studio-use"][data-template="intent"]');
+    for(const key of rankKeys)type(x,'studio-f-'+key,true);
+    await click(x,'[data-act="studio-continue"]');
+    const before=x.doc.getElementById('studio-text').value.replace(' After completing my interviews,','\nAfter completing my interviews,');
+    type(x,'studio-text',before);
+    await click(x,'[data-act="studio-personalize"]');
+    type(x,'studio-f-firstChoice',false);
+    await click(x,'[data-act="studio-continue"]');
+    assert.doesNotMatch(x.doc.getElementById('studio-text').value,/intend to rank/);
+    assert.match(x.doc.getElementById('studio-text').value,/strongly interested/);
+  }finally{x.close();}
+});
+
+test('changing confirmation preserves manually rewritten student wording and asks for review',async()=>{
+  const x=setup();try{
+    await click(x,'[data-act="studio-use"][data-template="intent"]');
+    for(const key of rankKeys)type(x,'studio-f-'+key,true);
+    await click(x,'[data-act="studio-continue"]');
+    const custom=x.doc.getElementById('studio-text').value.replace('I intend to rank your program first on my rank order list.','Your clinic is especially meaningful to me.');
+    type(x,'studio-text',custom);
+    await click(x,'[data-act="studio-personalize"]');
+    type(x,'studio-f-rankVoluntary',false);
+    assert.match(x.doc.getElementById('toast').textContent,/review any ranking language you wrote yourself/);
+    await click(x,'[data-act="studio-continue"]');
+    assert.equal(x.doc.getElementById('studio-text').value,custom);
   }finally{x.close();}
 });
 

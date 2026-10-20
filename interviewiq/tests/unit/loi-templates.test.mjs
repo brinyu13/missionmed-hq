@@ -38,9 +38,8 @@ test('seven meaningfully different templates with complete guidance and fictiona
   }
   assert.equal(fieldSets.size,7,'each template collects a different set of facts');
   const intent=t.find(x=>x.id==='intent');
-  assert.match(intent.sample,/intend to rank .* first/,'intent sample states the ranking intent once');
-  assert.equal((intent.sample.match(/intend to rank/g)||[]).length,1);
-  for(const x of t)if(x.id!=='intent')assert.doesNotMatch(x.sample,/rank (you|your program|it) first|intend to rank/i,x.id+' makes no ranking commitment');
+  assert.match(intent.sample,/strongly interested/);
+  for(const x of t)assert.doesNotMatch(x.sample,/rank (you|your program|it) first|intend to rank/i,x.id+' makes no ranking commitment');
 });
 
 test('composer never invents facts: empty fields become visible bracket placeholders',()=>{
@@ -81,8 +80,17 @@ test('letter of intent includes the ranking sentence only after explicit first-c
   const base={yourName:'Priya Raman, MBBS',programName:'Lakeside Pediatrics Residency',specialty:'Pediatrics',interviewDate:'January 8',moment:'Morning report was resident-led.',reasons:'The refugee health clinic.',contribute:'Three years of pediatric experience.'};
   const off=h.composeLoiStudio('intent',base);
   assert.doesNotMatch(off.text,/rank/i);
-  assert.equal(off.warnings.length,1);assert.match(off.warnings[0],/first choice/);
-  const on=h.composeLoiStudio('intent',{...base,firstChoice:true});
+  assert.equal(off.warnings.length,1);assert.match(off.warnings[0],/all four confirmations/);
+  const confirmations={firstChoice:true,rankVoluntary:true,rankUnpressured:true,rankNoReciprocity:true};
+  for(const key of Object.keys(confirmations)){
+    for(const value of [false,undefined,'true']){
+      const incomplete=h.composeLoiStudio('intent',{...base,...confirmations,[key]:value});
+      assert.doesNotMatch(incomplete.text,/intend to rank|#1/i,key+' needs explicit confirmation');
+    }
+  }
+  assert.doesNotMatch(h.composeLoiStudio('intent',{...base,firstChoice:true}).text,/intend to rank/,'legacy single confirmation is insufficient');
+  for(const id of ids.filter(id=>id!=='intent'))assert.doesNotMatch(h.composeLoiStudio(id,{...base,...confirmations}).text,/intend to rank|rank (you|your program|it) first|#1/i,id+' ignores intent confirmations');
+  const on=h.composeLoiStudio('intent',{...base,...confirmations});
   assert.match(on.text,/I intend to rank your program first on my rank order list\./);
   assert.equal(on.warnings.length,0);
   assert.doesNotMatch(on.text,/guarantee|commit|promise/i);
