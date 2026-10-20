@@ -5,6 +5,12 @@ require_once __DIR__ . '/CoachingProviderContainment.php';
 
 function mmed_coaching_webex_scope(string $scopes): string {
     $parts = preg_split('/\s+/', trim($scopes));
+    // This existing integration configures Spark All, not the mutually exclusive
+    // people-read grant. Preserve every other pre-existing meeting scope.
+    $parts = array_values(array_unique(array_map(
+        static fn(string $scope): string => $scope === 'spark:people_read' ? 'spark:all' : $scope,
+        $parts
+    )));
     if (!in_array('meeting:recordings_write', $parts, true)) { $parts[] = 'meeting:recordings_write'; }
     return implode(' ', $parts);
 }
@@ -23,9 +29,33 @@ function mmed_coaching_webex_register_oauth(): void {
         'callback' => 'mm_scheduler_webex_admin_auth_url',
     ], true);
     register_rest_route('mmed/v1', '/admin/webex/callback', [
-        'methods' => 'GET', 'permission_callback' => 'mm_scheduler_webex_admin_can_manage',
+        'methods' => 'GET', 'permission_callback' => 'mmed_coaching_webex_oauth_can_manage',
         'callback' => 'mm_scheduler_webex_admin_oauth_callback',
     ], true);
+}
+
+/** Callback only: core REST may clear the user when no REST nonce is supplied.
+ * Validate the existing logged-in cookie and this session's OAuth nonce; never
+ * treat the callback state or an existing REST user as authentication alone.
+ */
+function mmed_coaching_webex_oauth_can_manage($request): bool {
+    $original = get_current_user_id();
+    $allowed = false;
+    try {
+        $code = $request->get_param('code');
+        $error = $request->get_param('error');
+        if (!is_string($code) || trim($code) === '' || strlen($code) > 4096
+            || ($error !== null && $error !== '')) { return false; }
+        $state = $request->get_param('state');
+        if (!is_string($state) || !preg_match('/^[A-Za-z0-9]{10}$/D', $state)) { return false; }
+        $user = wp_validate_auth_cookie('', 'logged_in');
+        if (!is_int($user) || $user <= 0) { return false; }
+        wp_set_current_user($user);
+        $allowed = current_user_can('manage_options') && wp_verify_nonce($state, 'mmed_webex_oauth') !== false;
+        return $allowed;
+    } finally {
+        if (!$allowed) { wp_set_current_user($original); }
+    }
 }
 
 /** HMAC is checked by REST before this callback. Persisted binding, not the

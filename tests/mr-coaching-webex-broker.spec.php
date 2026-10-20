@@ -3,7 +3,14 @@ declare(strict_types=1);
 $options = []; $calls = []; $gone = []; $sentInvites = 0; $mode = ''; $registered = [];
 final class WP_Error { public function __construct(public string $code, public string $message, public array $data = []) {} }
 final class FixtureResponse { public function __construct(private array $data) {} public function get_data(): array { return $this->data; } }
-final class FixtureRequest { public function __construct(private array $data) {} public function get_json_params(): array { return $this->data; } }
+final class FixtureRequest { public function __construct(private array $data) {} public function get_json_params(): array { return $this->data; } public function get_param($key) { return $this->data[$key]??null; } }
+// Model core cookie/session validation, not browser-supplied user/role claims.
+$fixtureUser=0; $fixtureCookie=false; $fixtureNonce='VALID12345'; $fixtureSession='session-a'; $fixtureNonceSession='session-a';
+function get_current_user_id(): int { global $fixtureUser; return $fixtureUser; }
+function wp_set_current_user($id): void { global $fixtureUser; $fixtureUser=$id; }
+function wp_validate_auth_cookie($cookie='',$scheme='') { global $fixtureCookie; if($cookie!==''||$scheme!=='logged_in')throw new RuntimeException('core logged_in cookie required'); return $fixtureCookie; }
+function current_user_can($capability): bool { global $fixtureUser; return $capability==='manage_options' && $fixtureUser===17; }
+function wp_verify_nonce($state,$action) { global $fixtureUser,$fixtureNonce,$fixtureSession,$fixtureNonceSession; return $fixtureUser===17 && $state===$fixtureNonce && $action==='mmed_webex_oauth' && $fixtureSession===$fixtureNonceSession ? 1 : false; }
 function register_rest_route($ns,$route,$args,$override=false): void { global $registered,$routes; $registered = $args; $routes[]=[$ns,$route,$args,$override]; }
 function add_option($key,$value,$unused='',$autoload=false): bool { global $options; if (array_key_exists($key,$options)) return false; $options[$key]=$value; return true; }
 function get_option($key,$fallback=null) { global $options; return $options[$key] ?? $fallback; }
@@ -52,7 +59,7 @@ foreach (['/admin/webex/auth-url'=>'mm_scheduler_webex_admin_auth_url','/admin/w
     check($entry[0]==='mmed/v1' && $entry[1]===$route,'same existing integration route only');
     check($entry[2]['methods']==='GET','OAuth remains read-method only');
     check($entry[2]['callback']===$callback,'reviewed same-host broker handler');
-    check($entry[2]['permission_callback']==='mm_scheduler_webex_admin_can_manage','actual manage-options permission retained');
+    check($entry[2]['permission_callback']===($route==='/admin/webex/callback'?'mmed_coaching_webex_oauth_can_manage':'mm_scheduler_webex_admin_can_manage'),'callback-only cookie/nonce permission; auth-url permission unchanged');
     check($entry[3]===true,'override displaces shadowed handler instead of appending');
 }
 check(count($calls)===$before,'registration makes no provider calls');
@@ -61,6 +68,45 @@ check(substr_count($mu,"add_action('rest_api_init','mmed_coaching_webex_register
 $scopes=mmed_coaching_webex_scope('meeting:recordings_read');
 check($scopes==='meeting:recordings_read meeting:recordings_write','adds only required scope');
 check(mmed_coaching_webex_scope($scopes)===$scopes,'scope update idempotent');
+$legacy='spark:people_read meeting:schedules_read meeting:schedules_write meeting:recordings_read';
+$expected='spark:all meeting:schedules_read meeting:schedules_write meeting:recordings_read meeting:recordings_write';
+check(mmed_coaching_webex_scope($legacy)===$expected,'only incompatible people-read replaced by already configured Spark All');
+check(mmed_coaching_webex_scope($expected)===$expected,'already Spark All and recordings-write remain idempotent');
+check(mmed_coaching_webex_scope('spark:all spark:people_read meeting:recordings_write')==='spark:all meeting:recordings_write','Spark All and write scope occur once');
+check(!preg_match('/(?:^|\s)(?:meeting:admin|spark-admin:)/',mmed_coaching_webex_scope($legacy)),'no admin scopes introduced');
+$snapshot=$options; $providerCalls=count($calls); $fixtureCookie=17;
+check(mmed_coaching_webex_oauth_can_manage(new FixtureRequest(['state'=>'VALID12345','code'=>'opaque code+/%='])) && $fixtureUser===17,'native REST user zero restored only from valid core cookie/admin/same-session nonce; code remains opaque');
+foreach ([
+    ['missing_cookie',false,'VALID12345','session-a'],
+    ['forged_cookie',false,'VALID12345','session-a'],
+    ['customer_cookie',23,'VALID12345','session-a'],
+    ['missing_nonce',17,null,'session-a'],
+    ['forged_nonce',17,'FORGED1234','session-a'],
+    ['other_session',17,'VALID12345','session-b'],
+    ['malformed_array',17,['VALID12345'],'session-a'],
+    ['malformed_integer',17,12345,'session-a'],
+    ['malformed_length',17,'x','session-a'],
+] as [$label,$cookie,$state,$session]) {
+    foreach ([0,41,17] as $original) {
+        $fixtureUser=$original; $fixtureCookie=$cookie; $fixtureSession=$session;
+        check(!mmed_coaching_webex_oauth_can_manage(new FixtureRequest(['state'=>$state,'code'=>'opaque code+/%='])) && $fixtureUser===$original,$label.' denies and restores original user context');
+    }
+}
+$fixtureCookie=17; $fixtureSession='session-a';
+foreach ([
+    ['missing_code',[]], ['null_code',['code'=>null]], ['array_code',['code'=>[]]],
+    ['integer_code',['code'=>42]], ['empty_code',['code'=>'']], ['whitespace_code',['code'=>'  ']],
+    ['oversize_code',['code'=>str_repeat('x',4097)]],
+    ['provider_error',['code'=>'opaque','error'=>'access_denied']],
+    ['malformed_error',['code'=>'opaque','error'=>[]]],
+] as [$label,$params]) {
+    $fixtureUser=41;
+    check(!mmed_coaching_webex_oauth_can_manage(new FixtureRequest(array_replace(['state'=>'VALID12345'],$params))) && $fixtureUser===41,$label.' denies before exchange and restores original user');
+}
+$fixtureUser=0;
+check(mmed_coaching_webex_oauth_can_manage(new FixtureRequest(['state'=>'VALID12345','code'=>str_repeat('x',4096),'error'=>''])) && $fixtureUser===17,'bounded opaque maximum-length code and no provider error accepted');
+$fixtureUser=0; $fixtureCookie=false; $fixtureSession='session-a';
+check($snapshot===$options && count($calls)===$providerCalls,'permission checks cannot write tokens/options or call provider');
 $r=mmed_coaching_webex_request(new FixtureRequest($input));
 check(!is_wp_error($r),'owned creation succeeds'); check($options[$key]['cleanup_state']==='active','same host verified before activation');
 check($r->get_data()['invitee']['invitee_email_sent']===false,'provider invite email suppressed');
