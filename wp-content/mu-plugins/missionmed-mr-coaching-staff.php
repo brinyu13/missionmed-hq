@@ -65,6 +65,13 @@ function mmed_staff_coaching_order($order) {
     foreach ($order->get_items('line_item') as $item) { if (mmed_staff_coaching_sku($item->get_product_id())) { return true; } }
     return false;
 }
+/** Existing Bootcamp gateway labels must not quote its tuition for coaching. */
+function mmed_staff_coaching_gateway_title($title,$gateway) {
+    if ($gateway!=='bacs' || !mmed_staff_coaching_cart()) { return $title; }
+    $lines=mmed_staff_coaching_lines(); if (count($lines)!==1) { return $title; }
+    $line=reset($lines); $sku=mmed_staff_coaching_sku($line['product_id'] ?? 0);
+    return $sku && mmed_staff_coaching_ready($sku) && (float)($line['quantity'] ?? 0)===1.0 ? 'Zelle' : $title;
+}
 function mmed_staff_coaching_coupon($valid,$coupon) {
     if (!mmed_staff_coaching_cart()) { return $valid; }
     if (!$valid) { return false; }
@@ -203,6 +210,7 @@ add_filter('woocommerce_coupon_is_valid','mmed_staff_coaching_coupon',200,2);
 // before Woo loads the cart (wp_loaded:10), so our same-priority callback is last.
 add_action('wp_loaded',function(){
     add_action('woocommerce_cart_calculate_fees','mmed_staff_coaching_fees',PHP_INT_MAX);
+    add_filter('woocommerce_gateway_title','mmed_staff_coaching_gateway_title',PHP_INT_MAX,2);
 },1);
 add_filter('woocommerce_coupon_get_discount_amount','mmed_staff_coaching_discount',200,5);
 add_action('woocommerce_add_to_cart',function($key,$id){

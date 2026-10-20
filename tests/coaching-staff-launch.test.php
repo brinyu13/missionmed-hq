@@ -96,6 +96,16 @@ $woo->cart->lines=[['product_id'=>5504,'quantity'=>1]];mmed_staff_coaching_fees(
 check($woo->cart->feeApi->fees===$feeFixture,'unrelated cart fee state unchanged');
 $woo->cart->lines=[['product_id'=>91001,'quantity'=>1]];$woo->session->chosen='bacs';mmed_staff_coaching_fees($woo->cart);
 check($woo->cart->feeApi->fees===$feeFixture,'Zelle cart fee state unchanged');$woo->session->chosen='stripe';
+$woo->cart->lines=[['product_id'=>91001,'quantity'=>1]];
+check(mmed_staff_coaching_gateway_title('Zelle - $499 total','bacs')==='Zelle','coaching label excludes unrelated Bootcamp tuition');
+check(mmed_staff_coaching_gateway_title('Card','stripe')==='Card','card gateway label preserved');
+$options['mmed_staff_coaching_v1']['enabled']=false;
+check(mmed_staff_coaching_gateway_title('Original','bacs')==='Original','disabled label unchanged');
+$options['mmed_staff_coaching_v1']['enabled']=true;
+$woo->cart->lines[]=['product_id'=>5504,'quantity'=>1];
+check(mmed_staff_coaching_gateway_title('Original','bacs')==='Original','mixed cart label unchanged');
+$woo->cart->lines=[['product_id'=>5504,'quantity'=>1]];
+check(mmed_staff_coaching_gateway_title('Zelle - $499 total','bacs')==='Zelle - $499 total','unrelated Bootcamp gateway label preserved');
 $woo->cart->lines=[];check($cartGuard(true,91001,1,0),'one standard cart admitted');check(!$cartGuard(true,91004,1,0),'emergency cart denied');check(!$cartGuard(true,91001,2,0),'quantity two cart denied');check(!$cartGuard(true,91001,1,4),'variation cart denied');
 $woo->cart->lines=[['product_id'=>91001,'quantity'=>1]];check(!$cartGuard(true,91002,1,0),'second package cart denied');check(!$cartGuard(true,5504,1,0),'mixed protected product denied');
 $coupon=new StaffCoupon('MATCHREADY2026');check(mmed_staff_coaching_coupon(true,$coupon),'correct coupon on one mapped cart');check(mmed_staff_coaching_coupon(false,$coupon)===false,'prior coupon denial preserved');
