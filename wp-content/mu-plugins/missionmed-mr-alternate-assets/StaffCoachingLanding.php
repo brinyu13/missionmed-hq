@@ -113,10 +113,17 @@ function mmed_staff_coaching_landing(): string
         $h .= '<div class="mm-coaching-offer"><div><p class="mm-coaching-offer-title">Your October introductory offer</p><p>Through <time datetime="2026-10-31T23:59:00-04:00">October 31, 2026, 11:59 PM America/New_York (EDT)</time>.</p></div><div class="mm-coaching-coupon"><code id="staff-coaching-coupon" data-coaching-code>MATCHREADY2026</code><button type="button" data-coaching-copy aria-describedby="staff-coaching-copy-status">Copy code</button><span id="staff-coaching-copy-status" data-coaching-copy-status class="mm-coaching-copy-status" role="status" aria-live="polite"></span></div><p class="mm-coaching-offer-note">For these coaching offers only. Cannot combine with other coupons. Standard prices shown below are intended future prices, not previously charged prices.</p></div>';
     }
     $h .= '<div class="mm-coaching-options">';
+    // Existing authorized MissionMed photography only; decorative, not package outcome evidence.
+    $photos = [
+        'single' => '/wp-content/uploads/2026/03/DrBrian_Headshot_01-600x485.jpg',
+        'three' => '/wp-content/uploads/2026/03/Mission_Class_Screenshot-1-scaled.png.webp',
+        'five' => '/wp-content/mu-plugins/missionmed-mr-alternate-assets/media/montage-960.webp',
+        'emergency' => '/wp-content/uploads/2026/03/DrBrian_Headshot_01-600x485.jpg',
+    ];
     foreach ($features as $sku => $feature) {
         $offer = $catalog[$sku];
         $class = $sku === 'three' ? ' mm-coaching-recommended' : ($sku === 'emergency' ? ' mm-coaching-intensive' : '');
-        $h .= '<article class="mm-alt-option mm-coaching-card' . $class . '" aria-labelledby="staff-coaching-' . $sku . '"><p class="mm-coaching-card-eyebrow">' . $escape($feature['eyebrow']) . '</p><h3 id="staff-coaching-' . $sku . '">' . $escape($offer['name']) . '</h3><p class="mm-coaching-card-lead">' . $escape($feature['lead']) . '</p>';
+        $h .= '<article class="mm-alt-option mm-coaching-card' . $class . '" data-coaching-option="' . $sku . '" aria-labelledby="staff-coaching-' . $sku . '"><div class="mm-coaching-photo" data-coaching-depth aria-hidden="true"><img src="' . $escape($photos[$sku]) . '" width="' . ($sku === 'five' ? '960' : ($sku === 'three' ? '2560' : '600')) . '" height="' . ($sku === 'five' ? '355' : ($sku === 'three' ? '1655' : '485')) . '" loading="lazy" decoding="async" alt=""></div><p class="mm-coaching-card-eyebrow">' . $escape($feature['eyebrow']) . '</p><h3 id="staff-coaching-' . $sku . '">' . $escape($offer['name']) . '</h3><p class="mm-coaching-card-lead">' . $escape($feature['lead']) . '</p>';
         $h .= mmed_staff_coaching_ui_price($offer, $promo);
         $h .= '<ul class="mm-coaching-inclusions">';
         foreach ($feature['list'] as $item) { $h .= '<li>' . $escape($item) . '</li>'; }

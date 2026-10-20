@@ -62,9 +62,40 @@ test('Coupon interaction copies exact code and fails truthfully without network 
  for(const fail of [false,true]){
    let listener;let copied='';const status={textContent:''};const button={disabled:false,addEventListener:(event,fn)=>{assert.equal(event,'click');listener=fn;}};
    const code={textContent:'MATCHREADY2026'};const nodes={'[data-coaching-copy]':button,'[data-coaching-code]':code,'[data-coaching-copy-status]':status};
-   const context={document:{querySelector:q=>{assert.equal(q,'#private-coaching');return {querySelector:k=>nodes[k]};}},navigator:{clipboard:{writeText:async value=>{if(fail)throw Error('denied');copied=value;}}}};
+   const context={window:{},document:{querySelector:q=>{assert.equal(q,'#private-coaching');return {querySelector:k=>nodes[k]};}},navigator:{clipboard:{writeText:async value=>{if(fail)throw Error('denied');copied=value;}}}};
    vm.runInNewContext(behavior,context);await listener();assert.equal(button.disabled,false);
    if(fail){assert.equal(copied,'');assert.match(status.textContent,/Select and copy/);}else{assert.equal(copied,'MATCHREADY2026');assert.match(status.textContent,/Code copied/);}
  }
  assert.doesNotMatch(behavior,/fetch\(|localStorage|gtag|\.cl1403c-a-hero/);
+});
+test('Four photographic surfaces are decorative, lazy and dimensioned; no package or Hero rewrite',()=>{
+ const html=render({});
+ assert.equal((html.match(/data-coaching-depth aria-hidden="true"/g)||[]).length,4);
+ assert.equal((html.match(/class="mm-coaching-photo"[^>]*><img[^>]*loading="lazy"[^>]*alt=""/g)||[]).length,4);
+ assert.equal((html.match(/data-coaching-option=/g)||[]).length,4);
+ for(const image of html.matchAll(/class="mm-coaching-photo"[^>]*><img([^>]+)>/g)){
+   assert.match(image[1],/width="\d+" height="\d+"/);
+   assert.match(image[1],/src="\/wp-content\//);
+ }
+ assert.equal(page,execFileSync('git',['show','44198a551670608b9e1fd224fe3f6ab6269da819:'+directory+'page.php'],{encoding:'utf8'}));
+ assert.doesNotMatch(behavior,/setInterval|setTimeout|location\.assign|\.hero/);
+});
+test('Depth is bounded, scroll-driven, pausable, hidden-tab safe and disabled on mobile/reduced motion',()=>{
+ const styles=new Map();const callbacks={};const classes=new Set();let intersection,rootChange,paint;
+ const photo={classList:{contains:()=>false},getBoundingClientRect:()=>({top:100,height:224}),style:{setProperty:(key,value)=>styles.set(key,value)}};
+ const media={reduce:{matches:false,addEventListener:(_,fn)=>{callbacks.reduce=fn;}},desktop:{matches:true,addEventListener:(_,fn)=>{callbacks.desktop=fn;}}};
+ const section={dataset:{},querySelector:()=>null,querySelectorAll:()=>[photo]};
+ const document={hidden:false,documentElement:{classList:{contains:key=>classes.has(key)}},querySelector:()=>section,addEventListener:(event,fn)=>{callbacks[event]=fn;}};
+ class Intersection{constructor(fn){intersection=fn;}observe(){}}
+ class Mutation{constructor(fn){rootChange=fn;}observe(){}}
+ const context={document,window:{IntersectionObserver:Intersection,MutationObserver:Mutation,addEventListener:(event,fn)=>{callbacks[event]=fn;}},IntersectionObserver:Intersection,MutationObserver:Mutation,matchMedia:q=>q.includes('reduced')?media.reduce:media.desktop,innerHeight:900,requestAnimationFrame:fn=>{paint=fn;return 1;},cancelAnimationFrame:()=>{paint=null;}};
+ vm.runInNewContext(behavior,context);
+ intersection([{target:photo,isIntersecting:true}]);paint();
+ assert.equal(section.dataset.coachingMotion,'active');assert.ok(Math.abs(Number(styles.get('--mm-coaching-depth').replace('px','')))<=22);
+ classes.add('mm-motion-paused');rootChange();assert.equal(section.dataset.coachingMotion,'paused');assert.equal(styles.get('--mm-coaching-depth'),'0px');
+ classes.clear();rootChange();paint();assert.equal(section.dataset.coachingMotion,'active');
+ media.reduce.matches=true;callbacks.reduce();assert.equal(styles.get('--mm-coaching-depth'),'0px');assert.equal(section.dataset.coachingMotion,'paused');
+ media.reduce.matches=false;media.desktop.matches=false;callbacks.desktop();assert.equal(section.dataset.coachingMotion,'paused');
+ media.desktop.matches=true;document.hidden=true;callbacks.visibilitychange();assert.equal(section.dataset.coachingMotion,'paused');
+ assert.match(css,/@media\(max-width:1024px\),\(prefers-reduced-motion:reduce\)/);
 });
