@@ -1240,3 +1240,29 @@ body:has(.calendar-first) .route-hint{display:none}
 @media(max-width:600px){section[data-view="letters"] .pageIntro .how{display:none}section[data-view="letters"] .pageIntro{margin-bottom:12px}}
 @media(max-width:600px){.studioGrid{grid-template-columns:1fr}.studioLetter{padding:16px;font-size:15px}.studioActions .btn{flex:1 1 45%;justify-content:center}.studioBar .row{width:100%}.studioBar .row .btn{flex:1 1 auto;justify-content:center}}
 @media(prefers-reduced-motion:reduce){.studioCard,.studioCard:hover{transition:none;transform:none}}
+/* ---- LOI studio Release A: account drafts + RISE evidence ---- */
+.studioStatus-saved{border-color:rgba(74,222,157,.45);background:rgba(74,222,157,.07)}
+.studioStatus-error,.studioStatus-conflict{border-color:rgba(255,84,112,.5);background:rgba(44,18,26,.6)}
+.studioStatus-saving{border-color:rgba(57,214,255,.4)}
+.studioStatus .chip.ok{color:var(--gn);border-color:rgba(74,222,157,.5)}
+.studioStatusActions{margin-left:auto;display:flex;gap:6px}
+.studioStatusText{flex:1 1 240px;min-width:0}
+.studioEvidence{margin:4px 0 10px}
+.studioEvidence h3{display:flex;align-items:center;gap:8px}
+.studioFacts{display:grid;gap:8px;margin-top:8px}
+.studioFact{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--edge);border-radius:12px;background:rgba(10,13,20,.5)}
+.studioFact.on{border-color:rgba(255,179,64,.5);background:rgba(255,179,64,.05)}
+.studioFact .studioCheck{padding:0;border:0;background:none}
+.studioFact .studioCheck small{color:var(--mid);font-size:13.5px;line-height:1.45}
+.studioFact .studioCheck small.studioSrc{color:var(--dim);font-family:var(--num);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:4px}
+.studioFact .studioCheck small.studioSrc a{color:var(--cy);text-transform:none;letter-spacing:0}
+.studioFact textarea{min-height:60px}
+.studioEvidenceEdit{margin-top:12px}
+.studioEvidenceEdit summary{cursor:pointer;font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--em)}
+.studioEvidenceEdit .studioEvidence{border:0;padding:8px 0 0;background:none}
+.studioSaved{margin-bottom:22px}
+.studioSavedGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:10px}
+.studioSavedCard{padding:14px 16px;border:1px solid rgba(74,222,157,.35);border-radius:14px;background:linear-gradient(160deg,rgba(18,40,34,.8),rgba(15,21,34,.9))}
+.studioSavedCard h3{font-size:16px;font-weight:900;font-style:italic;margin-bottom:4px;color:var(--tx)}
+.studioSavedCard .row{margin-top:8px}
+@media(max-width:600px){.studioStatusActions{margin-left:0;width:100%}.studioStatusActions .btn{flex:1;justify-content:center}.studioSavedGrid{grid-template-columns:1fr}}
