@@ -256,3 +256,22 @@ test('a pending RISE read does not queue an uncited draft save',async()=>{
   const saving=click(x,'[data-act="studio-save"]');await settle();assert.equal(saves(x).length,1);await saving;assert.match(status(x),/SAVED TO YOUR ACCOUNT/);
  }finally{release?.();await settle();x.close();}
 });
+
+
+test('fresh session restores student-entered program name and specialty with no catalog metadata or spurious save',async()=>{
+  const ws=workspace();ws.catalog.programs[0].specialty='';
+  const x=setup(ws);try{
+    await click(x,'[data-act="studio-use"][data-template="short"]');type(x,'studio-program-pick',id);await settle();
+    type(x,'studio-f-yourName','Amara');type(x,'studio-f-programName','Example Program — categorical');type(x,'studio-f-specialty','Internal Medicine');type(x,'studio-f-reason','One true reason.');
+    await click(x,'[data-act="studio-continue"]');type(x,'studio-text',x.doc.getElementById('studio-text').value+'\nMy own final edit.');await click(x,'[data-act="studio-save"]');
+    const saved=x.srv.ws.state.loi[id].current;assert.equal(saves(x)[0].body.interviewId,id);assert.ok(saved.facts.some(f=>f.text==='Program name: Example Program — categorical'));assert.ok(saved.facts.some(f=>f.text==='Specialty: Internal Medicine'));
+    const y=setup(JSON.parse(JSON.stringify(x.srv.ws)));try{
+      await click(y,'[data-act="studio-reopen"]');await settle();
+      assert.equal(y.doc.getElementById('studio-text').value,saved.text);assert.equal(y.h.loiStudioBound().id,id);
+      assert.equal(y.doc.getElementById('studio-subject').textContent,'Letter of Interest – Amara, Internal Medicine Applicant');
+      assert.equal(y.h.loiStudioDirty(),false);assert.equal(saves(y).length,0);
+      await click(y,'[data-act="studio-personalize"]');
+      assert.equal(y.doc.getElementById('studio-f-programName').value,'Example Program — categorical');assert.equal(y.doc.getElementById('studio-f-specialty').value,'Internal Medicine');
+    }finally{y.close();}
+  }finally{x.close();}
+});
