@@ -22,6 +22,24 @@
   });
 })();
 
+/* Native, explicit three-versus-five choice. No purchase is selected for the student. */
+(() => {
+  'use strict';
+  const section = document.querySelector('#private-coaching');
+  const trigger = section?.querySelector('[data-coaching-choose]');
+  const choices = section?.querySelector('#coaching-package-choices');
+  if (!trigger || !choices || choices.tagName !== 'DETAILS') return;
+  trigger.addEventListener('click', event => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    choices.open = true;
+    choices.querySelector('summary')?.focus({preventScroll:true});
+    // Native fragment navigation scrolls to the now-open choices, including keyboard activation.
+  });
+  const syncHash = () => { if (location.hash === '#coaching-package-choices') choices.open = true; };
+  window.addEventListener('hashchange', syncHash);
+  syncHash();
+})();
+
 /* Extend photo depth through the offering, never its text/buttons or the locked Hero.
  * The existing page Pause motion control remains the single user control. */
 (() => {

@@ -1,107 +1,75 @@
-/* MR conversion fragment only. No hero, global, navigation or page-wide selectors. */
-#private-coaching.mm-coaching{background:#faf8f4;color:#172438;padding:92px 28px;font:400 15px/1.75 Poppins,Arial,sans-serif;scroll-margin-top:28px}
-#private-coaching .mm-alt-enroll-inner{max-width:1200px;margin:0 auto}
+/* Concept 1 only. No main Hero, shared page, finance or global selectors. */
+#private-coaching.mm-coaching{padding:0;background:#f4f0e8;color:#0a1628;font:400 15px/1.65 Poppins,Arial,sans-serif;scroll-margin-top:24px}
 #private-coaching *{box-sizing:border-box}
 #private-coaching h2,#private-coaching h3,#private-coaching p,#private-coaching figure{margin:0}
-#private-coaching h2,#private-coaching h3{font-family:Georgia,serif;font-weight:400;color:#0a1628}
-#private-coaching p,#private-coaching li{color:#172438}
-#private-coaching .mm-alt-kicker{font:700 12px/1.6 Poppins,Arial,sans-serif;text-transform:uppercase;letter-spacing:1.8px;color:#675017;margin-bottom:18px}
-#private-coaching .mm-coaching-editorial{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.85fr);align-items:center;gap:64px;margin-bottom:76px}
-#private-coaching h2{font-size:43px;line-height:1.2;text-align:left;margin-bottom:24px;letter-spacing:-.6px}
-#private-coaching h2 em{font-weight:400;font-style:italic}
-#private-coaching .mm-coaching-deck{font-size:16px;line-height:1.85;max-width:620px;margin-bottom:32px}
-#private-coaching .mm-coaching-method{display:grid;grid-template-columns:1fr 1fr;gap:26px;border-top:1px solid #bdaf91;padding-top:24px}
-#private-coaching .mm-coaching-method strong{font:400 52px/1 Georgia,serif;color:#0a1628;display:block;margin-bottom:16px}
-#private-coaching .mm-coaching-method strong span{font:500 12px/1 Poppins,Arial,sans-serif;text-transform:uppercase;letter-spacing:1px;margin-left:7px}
-#private-coaching .mm-coaching-method h3{font-size:22px;line-height:1.3;margin-bottom:10px}
-#private-coaching .mm-coaching-method p{font-size:13px;line-height:1.8}
-#private-coaching .mm-coaching-method-note{font-size:13px;margin-top:22px}
-#private-coaching .mm-coaching-mentor{min-width:0;background:#0a1628;border-bottom:3px solid #c8a84e}
-#private-coaching .mm-coaching-mentor img{display:block;width:100%;height:auto;aspect-ratio:1310/1060;object-fit:cover}
-#private-coaching .mm-coaching-mentor figcaption{padding:23px 25px;color:#fff;font:400 24px/1.3 Georgia,serif}
-#private-coaching .mm-coaching-mentor figcaption span{display:block;font:400 12px/1.8 Poppins,Arial,sans-serif;color:#e5c76e;margin-top:9px}
-#private-coaching .mm-coaching-purchase-intro{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;margin-bottom:28px;scroll-margin-top:28px}
-#private-coaching .mm-coaching-purchase-intro h3{font-size:33px;line-height:1.2}
-#private-coaching .mm-coaching-purchase-intro>p{font-size:13px;line-height:1.9;border-left:2px solid #a9852e;padding-left:24px}
-#private-coaching .mm-coaching-offer{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:28px;row-gap:16px;background:#0a1628;padding:27px 30px;margin-bottom:30px;border-top:3px solid #c8a84e}
-#private-coaching .mm-coaching-offer p{color:#fff;font-size:13px;line-height:1.8}
-#private-coaching .mm-coaching-offer .mm-coaching-offer-title{color:#e5c76e;font:400 24px/1.35 Georgia,serif;margin-bottom:6px}
+#private-coaching a{color:inherit}
+#private-coaching .mm-coaching-cinema{position:relative;isolation:isolate;overflow:hidden;background:#0b1720;padding:0 40px}
+#private-coaching .mm-coaching-scene{position:absolute;z-index:-2;inset:0 0 auto;height:780px;overflow:hidden;background:#17202a}
+#private-coaching .mm-coaching-scene img{position:absolute;inset:-28px 0;width:100%;max-width:none;height:calc(100% + 56px);object-fit:cover;object-position:50% 50%;transform:translate3d(0,var(--mm-coaching-depth,0px),0) scale(1.02)}
+#private-coaching .mm-coaching-cinema::before{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(90deg,#06121cbd 0%,#06121c75 38%,#06121c12 70%),linear-gradient(180deg,#07121a1a 46%,#d8d1c355 68%,#e9e4dc 100%)}
+#private-coaching .mm-coaching-cinema-inner{max-width:1200px;margin:0 auto}
+#private-coaching .mm-coaching-opening{min-height:620px;padding:76px 12px 70px;max-width:670px}
+#private-coaching .mm-alt-kicker{font:600 18px/1.5 Poppins,Arial,sans-serif;letter-spacing:3px;text-transform:uppercase;color:#f0cd74;margin-bottom:18px}
+#private-coaching h2{font:400 72px/1.06 Georgia,serif;letter-spacing:-1.7px;color:#fff;text-align:left;margin:0 0 24px;text-shadow:0 2px 8px #0003}
+#private-coaching .mm-coaching-support{max-width:560px;color:#fff;font-size:24px;line-height:1.45;text-shadow:0 1px 4px #0008}
+#private-coaching .mm-coaching-options{display:grid;grid-template-columns:1fr 1.06fr 1fr;align-items:stretch;gap:10px;scroll-margin-top:30px}
+#private-coaching .mm-coaching-card{position:relative;min-width:0;min-height:500px;display:flex;flex-direction:column;padding:26px 20px 22px;background:#f9f6ef;border:1px solid #ece7dc;border-radius:10px;box-shadow:0 13px 30px #0003}
+#private-coaching .mm-coaching-icon{display:block;color:#a87522;width:40px;height:38px;margin:0 0 16px;flex-shrink:0}
+#private-coaching .mm-coaching-card h3{font:400 32px/1.09 Georgia,serif;letter-spacing:-1px;color:#081422;min-height:70px;margin-bottom:12px}
+#private-coaching .mm-coaching-card-copy{font-size:18px;line-height:1.45;color:#101f2e;margin-bottom:16px;min-height:104px}
+#private-coaching .mm-coaching-price{margin-top:auto;margin-bottom:16px}
+#private-coaching .mm-alt-price{font:400 44px/1.12 Georgia,serif;letter-spacing:-.8px;color:#081422;margin:0 0 6px}
+#private-coaching .mm-coaching-range{font-size:39px;white-space:nowrap}
+#private-coaching .mm-coaching-price-note{font-size:13px;line-height:1.5;color:#081422}
+#private-coaching .mm-coaching-price-note strong{font-weight:600}
+#private-coaching .mm-coaching-card-action{margin-top:0}
+#private-coaching .cl1403c-a-btn{background:linear-gradient(180deg,#f5d37c,#edbd54);color:#081422;border:1px solid #d8aa48;border-radius:5px;min-height:54px;width:100%;max-width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:13px 8px;text-align:center;text-decoration:none;font:600 16px/1.45 Poppins,Arial,sans-serif;text-transform:uppercase;letter-spacing:.15px;white-space:normal}
+#private-coaching .cl1403c-a-btn:hover{background:#f8d988;color:#081422}
+#private-coaching .mm-coaching-featured{background:#061b2a;border:2px solid #ddba63;padding:25px 19px 21px;transform:translateY(-9px)}
+#private-coaching .mm-coaching-featured h3,#private-coaching .mm-coaching-featured .mm-coaching-card-copy,#private-coaching .mm-coaching-featured .mm-alt-price,#private-coaching .mm-coaching-featured .mm-coaching-price-note{color:#fff}
+#private-coaching .mm-coaching-featured .mm-coaching-icon{color:#efc86a}
+#private-coaching .mm-coaching-flexible{position:absolute;left:50%;top:-25px;transform:translateX(-50%);min-width:190px;padding:10px 16px;border-radius:5px;background:linear-gradient(180deg,#f8d98b,#efbf58);color:#071623;text-align:center;white-space:nowrap;font:600 13px/1.3 Poppins,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px}
+#private-coaching .mm-coaching-illustration{color:#26313e;font-size:12px;line-height:1.6;padding:15px 2px 18px;text-align:right}
+#private-coaching .mm-coaching-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+#private-coaching .mm-coaching-after{max-width:1200px;margin:0 auto;padding:30px 40px 56px}
+#private-coaching .mm-coaching-booking{font-size:14px;line-height:1.8;max-width:1050px;margin-bottom:26px}
+#private-coaching .mm-coaching-offer{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;border-top:1px solid #cbbd9e;border-bottom:1px solid #cbbd9e;padding:22px 0;margin-bottom:24px}
+#private-coaching .mm-coaching-offer>div>strong{font:400 23px/1.4 Georgia,serif;color:#0a1628}
+#private-coaching .mm-coaching-offer p{font-size:13px;line-height:1.8;margin-top:6px}
 #private-coaching .mm-coaching-coupon{display:flex;align-items:center;flex-wrap:wrap;gap:10px;max-width:100%}
-#private-coaching .mm-coaching-coupon code{color:#fff;border:1px solid #8d9aaa;padding:12px;font:600 15px/1.4 Poppins,Arial,sans-serif;letter-spacing:1px;overflow-wrap:anywhere}
-#private-coaching .mm-coaching-coupon button{color:#0a1628;background:#e5c76e;border:1px solid #e5c76e;min-height:48px;padding:12px 16px;font:600 13px/1.5 Poppins,Arial,sans-serif;cursor:pointer;border-radius:2px}
-#private-coaching .mm-coaching-copy-status{flex-basis:100%;font-size:12px;color:#fff}
-#private-coaching .mm-coaching-copy-status:empty{display:none}
-#private-coaching .mm-coaching-offer .mm-coaching-offer-note{grid-column:1/-1;border-top:1px solid #4b586b;padding-top:14px;color:#e0e6ee;font-size:12px}
-#private-coaching .mm-coaching-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;align-items:stretch}
-#private-coaching .mm-alt-option.mm-coaching-card{min-width:0;padding:25px 22px;border:1px solid #bcc5cf;background:#fff;border-radius:3px;display:flex;flex-direction:column;align-items:stretch}
-#private-coaching .mm-coaching-card.mm-coaching-recommended{border:2px solid #8b6a20;padding:24px 21px;box-shadow:0 6px 24px #0a16280b}
-#private-coaching .mm-coaching-card-eyebrow{color:#675017;min-height:38px;font:700 12px/1.65 Poppins,Arial,sans-serif;letter-spacing:1.1px;text-transform:uppercase;margin-bottom:15px}
-#private-coaching .mm-coaching-recommended .mm-coaching-card-eyebrow{color:#0a1628;border-bottom:2px solid #c8a84e;width:fit-content;min-height:0;padding-bottom:6px;margin-bottom:21px}
-#private-coaching .mm-coaching-card h3{font-size:27px;line-height:1.18;min-height:64px;margin:0 0 14px}
-#private-coaching .mm-coaching-card-lead{font-size:14px;font-weight:600;line-height:1.65;min-height:46px;margin-bottom:10px}
-#private-coaching .mm-coaching-benefit{font-size:13px;line-height:1.85;min-height:90px;margin-bottom:20px}
-#private-coaching .mm-coaching-price{border-top:1px solid #d7dce2;padding-top:21px;margin-bottom:22px}
-#private-coaching .mm-coaching-price-label{font:600 12px/1.6 Poppins,Arial,sans-serif;letter-spacing:1px;text-transform:uppercase;color:#465366}
-#private-coaching .mm-alt-price{font:400 43px/1.2 Georgia,serif;color:#0a1628;margin:6px 0 4px;letter-spacing:-.5px}
-#private-coaching .mm-coaching-price-note{font-size:12px;line-height:1.7;overflow-wrap:anywhere}
-#private-coaching .mm-coaching-future{font-size:12px;line-height:1.8;margin-top:12px}
-#private-coaching .mm-coaching-future span{display:block;font-size:17px;font-weight:500;color:#172438}
-#private-coaching .mm-coaching-saving{display:inline-block;color:#0a1628;background:#f7efd6;font:600 12px/1.6 Poppins,Arial,sans-serif;padding:5px 10px;margin-top:10px}
-#private-coaching .mm-coaching-inclusions{padding:0;margin:0 0 26px;list-style:none}
-#private-coaching .mm-coaching-inclusions li{position:relative;padding-left:15px;font-size:13px;line-height:1.8;margin:0 0 12px}
-#private-coaching .mm-coaching-inclusions li::before{content:"";width:5px;height:5px;border-radius:50%;position:absolute;left:0;top:9px;background:#8b6a20}
-#private-coaching .mm-coaching-card-action{margin-top:auto}
-#private-coaching .cl1403c-a-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;max-width:100%;width:100%;min-height:48px;padding:13px 10px;border:1px solid #0a1628;border-radius:2px;background:#0a1628;color:#fff;font:600 12px/1.6 Poppins,Arial,sans-serif;text-align:center;text-decoration:none;white-space:normal}
-#private-coaching .cl1403c-a-btn:hover{background:#203851;color:#fff}
-#private-coaching .mm-coaching-recommended .cl1403c-a-btn{background:#e5c76e;border-color:#8b6a20;color:#0a1628}
-#private-coaching .mm-coaching-recommended .cl1403c-a-btn:hover{background:#f1d990}
-#private-coaching .mm-coaching-card-action>p{font-size:12px;line-height:1.8;margin-top:12px}
-#private-coaching .mm-coaching-card.mm-coaching-intensive{border-top:3px solid #0a1628;padding-top:23px}
-#private-coaching .mm-coaching-photo{height:224px;margin:-25px -22px 26px;position:relative;overflow:hidden;background:#0a1628;isolation:isolate;flex-shrink:0}
-#private-coaching .mm-coaching-photo::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 60%,#0a162866);border-bottom:3px solid #c8a84e}
-#private-coaching .mm-coaching-photo img{display:block;position:absolute;inset:-28px 0;width:100%;height:calc(100% + 56px);max-width:none;object-fit:cover;object-position:50% 35%;transform:translate3d(0,var(--mm-coaching-depth,0px),0) scale(1.025);pointer-events:none}
-#private-coaching .mm-coaching-recommended .mm-coaching-photo{margin:-24px -21px 26px}
-#private-coaching .mm-coaching-intensive .mm-coaching-photo{margin-top:-23px}
-#private-coaching [data-coaching-option="five"] .mm-coaching-photo img{object-position:70% 50%}
-#private-coaching [data-coaching-option="three"] .mm-coaching-photo img{object-position:50% 66%;transform:translate3d(0,calc(var(--mm-coaching-depth,0px) - 12px),0) scale(1.18)}
-#private-coaching [data-coaching-option="emergency"] .mm-coaching-photo img{object-position:46% 20%;transform:translate3d(0,var(--mm-coaching-depth,0px),0) scale(1.16)}
-#private-coaching .mm-coaching-mentor{position:relative;overflow:hidden}
-#private-coaching .mm-coaching-mentor img{transform:translate3d(0,var(--mm-coaching-depth,0px),0) scale(1.035)}
-#private-coaching[data-coaching-motion="active"] .mm-coaching-photo img,#private-coaching[data-coaching-motion="active"] .mm-coaching-mentor img{will-change:transform}
-@media(max-width:1099px){#private-coaching .mm-coaching-photo{height:260px}}
-@media(max-width:767px){#private-coaching .mm-coaching-photo{height:246px;margin:-28px -28px 26px}#private-coaching .mm-coaching-recommended .mm-coaching-photo{margin:-27px -27px 26px}#private-coaching .mm-coaching-intensive .mm-coaching-photo{margin-top:-28px}}
-@media(max-width:1024px),(prefers-reduced-motion:reduce){#private-coaching [data-coaching-option] .mm-coaching-photo img,#private-coaching .mm-coaching-mentor img{transform:none;will-change:auto}}
-#private-coaching .mm-coaching-format-note{font-size:13px;line-height:1.85;max-width:950px;margin:24px auto 0;text-align:center}
-#private-coaching .mm-coaching-comparison{margin-top:66px}
-#private-coaching .mm-coaching-comparison table{width:100%;table-layout:fixed;border-collapse:collapse;background:#fff;font-size:12px;line-height:1.75}
-#private-coaching .mm-coaching-comparison caption{text-align:left;font:400 31px/1.3 Georgia,serif;color:#0a1628;margin-bottom:24px}
-#private-coaching .mm-coaching-comparison th,#private-coaching .mm-coaching-comparison td{padding:19px 16px;border-bottom:1px solid #d3dae1;border-right:1px solid #d3dae1;text-align:left;vertical-align:top;overflow-wrap:anywhere}
-#private-coaching .mm-coaching-comparison thead th{background:#0a1628;color:#fff;font:400 21px/1.3 Georgia,serif;border-color:#4b586b}
-#private-coaching .mm-coaching-comparison thead th:first-child{font:600 12px/1.7 Poppins,Arial,sans-serif}
-#private-coaching .mm-coaching-comparison thead .mm-coaching-table-recommended{background:#20354a;border-top:3px solid #e5c76e}
-#private-coaching .mm-coaching-table-recommended span{display:block;color:#e5c76e;font:600 12px/1.6 Poppins,Arial,sans-serif;text-transform:uppercase;letter-spacing:1px;margin-top:10px}
-#private-coaching .mm-coaching-comparison tbody th{font-weight:600;background:#f1f3f5;width:20%}
-#private-coaching .mm-coaching-comparison tr>*:last-child{border-right:0}
-#private-coaching .mm-coaching-comparison .mm-coaching-table-price{font:400 27px/1.3 Georgia,serif;color:#0a1628}
-#private-coaching .mm-coaching-comparison .cl1403c-a-btn{font-size:12px;padding:12px 8px}
-#private-coaching .mm-coaching-bottom{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:70px;margin-top:64px;border-top:1px solid #bdaf91;padding-top:42px}
-#private-coaching .mm-coaching-bottom h3{font-size:26px;line-height:1.3;margin-bottom:16px}
-#private-coaching .mm-coaching-questions p{font-size:13px;margin-bottom:18px}
-#private-coaching .mm-coaching-questions>a{min-height:44px;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
-#private-coaching a:not(.cl1403c-a-btn){color:#172438;text-decoration:underline;text-underline-offset:4px}
-#private-coaching details{border-bottom:1px solid #bcc5cf;padding:5px 0}
-#private-coaching summary{cursor:pointer;color:#172438;min-height:48px;padding:12px 0;font:600 13px/1.8 Poppins,Arial,sans-serif}
-#private-coaching details p{font-size:13px;line-height:1.9;margin:10px 0 18px}
-#private-coaching .mm-coaching-outcome-note{font-size:12px;margin-top:18px}
+#private-coaching .mm-coaching-coupon code{font:600 14px/1.5 Poppins,Arial,sans-serif;color:#0a1628;border:1px solid #a79670;background:#fffdf7;padding:12px;overflow-wrap:anywhere}
+#private-coaching .mm-coaching-coupon button{font:600 13px/1.5 Poppins,Arial,sans-serif;min-height:48px;padding:12px 16px;border:1px solid #a77d2c;border-radius:4px;background:#efc86a;color:#0a1628;cursor:pointer}
+#private-coaching [data-coaching-copy-status]{flex-basis:100%;font-size:13px;max-width:350px}
+#private-coaching [data-coaching-copy-status]:empty{display:none}
+#private-coaching details{border-bottom:1px solid #c4bba8;padding:4px 0;color:#172438;scroll-margin-top:28px}
+#private-coaching summary{font:600 15px/1.7 Poppins,Arial,sans-serif;color:#0a1628;cursor:pointer;min-height:52px;padding:14px 0}
+#private-coaching details p{font-size:14px;line-height:1.85;margin:12px 0 20px}
+#private-coaching .mm-coaching-explicit-choices{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px 0 28px}
+#private-coaching .mm-coaching-explicit-choices article{min-width:0;background:#fffdf7;border:1px solid #cbbd9e;padding:28px;display:flex;flex-direction:column}
+#private-coaching .mm-coaching-explicit-choices h3{font:400 29px/1.3 Georgia,serif;margin:0 0 20px;color:#0a1628}
+#private-coaching .mm-coaching-explicit-choices .mm-coaching-price{margin-top:0}
+#private-coaching .mm-coaching-explicit-choices .mm-coaching-price-note{margin:0;font-size:14px}
+#private-coaching .mm-coaching-explicit-choices ul{font-size:14px;line-height:1.85;padding-left:20px;margin:8px 0 24px}
+#private-coaching .mm-coaching-explicit-choices li{margin-bottom:9px}
+#private-coaching .mm-coaching-explicit-choices .cl1403c-a-btn{margin-top:auto}
+#private-coaching .mm-coaching-price-details{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:20px 0 28px}
+#private-coaching .mm-coaching-price-details>div{padding:22px;background:#fffdf7;border:1px solid #d1c6ae}
+#private-coaching .mm-coaching-price-details dt{font:400 23px/1.35 Georgia,serif;margin-bottom:14px;color:#0a1628}
+#private-coaching .mm-coaching-price-details dd{font-size:14px;line-height:1.8;margin:0 0 10px}
+#private-coaching .mm-coaching-final-note{font-size:13px;line-height:1.8;margin-top:24px}
+#private-coaching a:not(.cl1403c-a-btn){text-decoration:underline;text-underline-offset:4px}
+#private-coaching .mm-coaching-unavailable{font-size:14px;line-height:1.7}
 #private-coaching a:focus-visible,#private-coaching button:focus-visible,#private-coaching summary:focus-visible{outline:3px solid #2265ac;outline-offset:5px}
-#private-coaching .mm-coaching-offer button:focus-visible{outline-color:#fff}
-.mm-staff-coaching-announcement{background:#0a1628;border-bottom:1px solid #5f5636;color:#fff;padding:13px 24px;font:400 12px/1.8 Poppins,Arial,sans-serif}
+#private-coaching .mm-coaching-featured a:focus-visible{outline-color:#fff}
+.mm-staff-coaching-announcement{background:#0a1628;border-bottom:1px solid #5f5636;color:#fff;padding:13px 24px;font:400 13px/1.8 Poppins,Arial,sans-serif}
 .mm-staff-coaching-announcement>div{max-width:1200px;display:flex;align-items:center;justify-content:space-between;gap:24px;margin:0 auto}
 .mm-staff-coaching-announcement p{color:#fff;margin:0;min-width:0}
 .mm-staff-coaching-announcement strong{color:#e5c76e;font-weight:600;margin-right:6px}
 .mm-staff-coaching-announcement a{color:#e5c76e;text-decoration:none;min-height:44px;display:inline-flex;align-items:center;gap:8px;font-weight:600;flex-shrink:0}
 .mm-staff-coaching-announcement a:hover{text-decoration:underline;text-underline-offset:4px}
 .mm-staff-coaching-announcement a:focus-visible{outline:3px solid #fff;outline-offset:4px}
-@media(max-width:1099px){#private-coaching .mm-coaching-editorial{gap:34px}#private-coaching h2{font-size:36px}#private-coaching .mm-coaching-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}#private-coaching .mm-coaching-card h3{min-height:64px}#private-coaching .mm-coaching-benefit{min-height:50px}#private-coaching .mm-coaching-card-lead{min-height:0}#private-coaching .mm-coaching-comparison{display:none}#private-coaching .mm-coaching-purchase-intro{gap:34px}#private-coaching .mm-coaching-offer{grid-template-columns:1fr}#private-coaching .mm-coaching-coupon{margin-top:2px}#private-coaching .mm-coaching-bottom{gap:40px}}
-@media(max-width:767px){#private-coaching.mm-coaching{padding:56px 20px}#private-coaching .mm-coaching-editorial{grid-template-columns:1fr;gap:32px;margin-bottom:46px}#private-coaching h2{font-size:34px;letter-spacing:-.3px}#private-coaching .mm-coaching-deck{font-size:14px}#private-coaching .mm-coaching-method{gap:20px}#private-coaching .mm-coaching-method h3{font-size:20px}#private-coaching .mm-coaching-method strong{font-size:46px}#private-coaching .mm-coaching-mentor{max-width:480px;width:100%;margin:0 auto}#private-coaching .mm-coaching-purchase-intro{grid-template-columns:1fr;gap:22px}#private-coaching .mm-coaching-purchase-intro h3{font-size:30px}#private-coaching .mm-coaching-purchase-intro>p{padding-left:18px}#private-coaching .mm-coaching-offer{padding:22px 20px;gap:18px}#private-coaching .mm-coaching-offer .mm-coaching-offer-title{font-size:23px}#private-coaching .mm-coaching-options{grid-template-columns:1fr;gap:22px}#private-coaching .mm-alt-option.mm-coaching-card{padding:28px}#private-coaching .mm-coaching-card.mm-coaching-recommended{padding:27px}#private-coaching .mm-coaching-card h3{min-height:0;font-size:30px;max-width:300px}#private-coaching .mm-coaching-card-eyebrow{min-height:0}#private-coaching .mm-coaching-recommended .mm-coaching-card-eyebrow{margin-bottom:18px}#private-coaching .mm-coaching-benefit{min-height:0;font-size:13px}#private-coaching .mm-coaching-inclusions li{font-size:13px}#private-coaching .mm-coaching-card-action>p{font-size:12px}#private-coaching .mm-coaching-future span{display:inline;margin-left:5px}#private-coaching .mm-coaching-bottom{grid-template-columns:1fr;gap:30px;margin-top:38px;padding-top:32px}#private-coaching .mm-coaching-format-note{text-align:left}.mm-staff-coaching-announcement{padding:12px 20px}.mm-staff-coaching-announcement>div{display:block}.mm-staff-coaching-announcement a{margin-top:4px}}
-@media(prefers-reduced-motion:reduce){#private-coaching a,#private-coaching button,#private-coaching summary,.mm-staff-coaching-announcement a{transition:none;animation:none;scroll-behavior:auto}}
+@media(min-width:1280px){#private-coaching .mm-coaching-opening{min-height:640px;padding-top:82px}#private-coaching .mm-coaching-scene{height:840px}#private-coaching h2{font-size:80px}#private-coaching .mm-coaching-card{padding-left:34px;padding-right:34px}#private-coaching .mm-coaching-card-copy{font-size:16px}}
+@media(min-width:701px) and (max-width:1000px){#private-coaching .mm-coaching-cinema{padding:0 24px}#private-coaching .mm-coaching-opening{min-height:530px;padding:58px 8px 60px}#private-coaching h2{font-size:62px}#private-coaching .mm-coaching-support{font-size:19px;max-width:475px}#private-coaching .mm-coaching-card{padding:27px 18px 20px}#private-coaching .mm-coaching-card h3{font-size:28px;min-height:65px}#private-coaching .mm-coaching-card-copy{font-size:14px;min-height:126px}#private-coaching .mm-alt-price{font-size:39px}#private-coaching .mm-coaching-range{font-size:31px}#private-coaching .mm-coaching-price-note{font-size:12px}#private-coaching .cl1403c-a-btn{font-size:12px;min-height:50px}#private-coaching .mm-coaching-featured{padding:26px 17px 19px}#private-coaching .mm-coaching-flexible{min-width:160px;font-size:12px}#private-coaching .mm-coaching-after{padding-left:28px;padding-right:28px}}
+@media(max-width:700px){#private-coaching.mm-coaching{font-size:16px}#private-coaching .mm-coaching-cinema{padding:0 20px}#private-coaching .mm-coaching-scene{height:660px}#private-coaching .mm-coaching-scene img{object-position:59% 50%;transform:none}#private-coaching .mm-coaching-cinema::before{background:linear-gradient(90deg,#071420d9,#07142066 85%),linear-gradient(180deg,transparent 300px,#dcd4c4 700px,#e9e4dc 100%)}#private-coaching .mm-coaching-opening{padding:48px 3px 64px;min-height:460px}#private-coaching .mm-alt-kicker{font-size:12px;letter-spacing:2px;margin-bottom:16px}#private-coaching h2{font-size:48px;line-height:1.08;letter-spacing:-.8px;margin-bottom:24px}#private-coaching .mm-coaching-support{font-size:16px;line-height:1.6;max-width:330px}#private-coaching .mm-coaching-options{grid-template-columns:1fr;gap:30px}#private-coaching .mm-coaching-card{padding:30px 28px;min-height:0}#private-coaching .mm-coaching-card h3{font-size:34px;min-height:0}#private-coaching .mm-coaching-card-copy{font-size:16px;line-height:1.65;min-height:0;margin-bottom:24px}#private-coaching .mm-coaching-icon{margin-bottom:20px}#private-coaching .mm-coaching-price{margin-top:0}#private-coaching .mm-alt-price{font-size:44px}#private-coaching .mm-coaching-range{font-size:38px}#private-coaching .mm-coaching-price-note{font-size:13px}#private-coaching .mm-coaching-featured{transform:none;padding:29px 27px}#private-coaching .cl1403c-a-btn{font-size:13px;min-height:54px}#private-coaching .mm-coaching-illustration{text-align:left;font-size:12px;padding-top:16px}#private-coaching .mm-coaching-after{padding:26px 22px 44px}#private-coaching .mm-coaching-booking{font-size:16px;line-height:1.8}#private-coaching .mm-coaching-offer{grid-template-columns:1fr;gap:18px}#private-coaching .mm-coaching-offer p{font-size:14px}#private-coaching .mm-coaching-explicit-choices{grid-template-columns:1fr;gap:20px}#private-coaching .mm-coaching-explicit-choices article{padding:24px}#private-coaching .mm-coaching-explicit-choices ul{font-size:16px}#private-coaching .mm-coaching-explicit-choices .mm-coaching-price-note{font-size:14px}#private-coaching .mm-coaching-price-details{grid-template-columns:1fr;gap:16px}#private-coaching .mm-coaching-price-details dd,#private-coaching details p{font-size:16px}#private-coaching summary{font-size:15px}#private-coaching .mm-coaching-final-note{font-size:14px}.mm-staff-coaching-announcement{padding:12px 20px}.mm-staff-coaching-announcement>div{display:block}.mm-staff-coaching-announcement a{margin-top:4px}}
+@media(max-width:1024px),(prefers-reduced-motion:reduce){#private-coaching .mm-coaching-scene img{transform:none;will-change:auto}}
+@media(prefers-reduced-motion:reduce){#private-coaching a,#private-coaching button,#private-coaching summary,.mm-staff-coaching-announcement a{animation:none;transition:none;scroll-behavior:auto}}
