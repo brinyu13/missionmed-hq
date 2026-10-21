@@ -181,15 +181,34 @@ export class RealAnalyticsEngine extends EventTarget {
     const deviceKind = kind === 'camera' ? 'camera' : kind === 'microphone' ? 'microphone' : null;
     const id = String(deviceId || '').trim();
     if (!deviceKind) throw new TypeError('Device kind must be camera or microphone.');
-    if (!id) throw new TypeError('deviceId is required.');
+    if (!id) throw new TypeError('Choose a camera or microphone in Devices, then reconnect.');
     if (!this.running || !this.bridge.media?.stream) throw new Error('Live analytics must be running before an in-room device switch.');
 
     const clock = this.clock;
     const pipeline = this.pipeline;
+    const video = this.video;
     const media = await this.bridge.switchDevice(deviceKind, id, coordinator);
-    coordinator?.assertCurrent?.();
-    this.video.srcObject = media.stream;
-    await this.video.play();
+    const assertPlaybackOwner = () => {
+      coordinator?.assertCurrent?.();
+      if (!this.running || this.video !== video || this.bridge.media?.stream !== media.stream || clock !== this.clock || pipeline !== this.pipeline) throw new Error('Device preview setup was cancelled.');
+    };
+    assertPlaybackOwner();
+    video.srcObject = media.stream;
+    // The bridge transaction already owns/committed this input. Bound only its
+    // preview startup; never roll back or release a replacement capture owner.
+    await new Promise((resolve, reject) => {
+      let settled = false, timeout, poll;
+      const finish = error => {
+        if (settled) return;
+        settled = true; clearTimeout(timeout); clearInterval(poll);
+        error ? reject(error) : resolve();
+      };
+      const check = () => { try { assertPlaybackOwner(); } catch (error) { finish(error); } };
+      timeout = setTimeout(() => finish(new Error('Camera preview did not resume in time. Choose your camera in Devices, then reconnect.')), 5000);
+      poll = setInterval(check, 100);
+      Promise.resolve().then(() => { assertPlaybackOwner(); return video.play(); }).then(() => { check(); if (!settled) finish(); }, finish);
+      check();
+    });
     coordinator?.assertCurrent?.();
     if (clock !== this.clock || pipeline !== this.pipeline) {
       throw new Error('Active analytics identity changed during device switch.');

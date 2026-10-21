@@ -8,7 +8,8 @@ const policy={schema:'ivoc.interview-policy.v1',version:4,maxFollowUpsPerAnswer:
 function harness(changeAt=null,change=()=>{}){
   const mic=Object.assign(new EventTarget(),{readyState:'live',enabled:true,muted:false});
   const context=Object.assign(new EventTarget(),{state:'running'});
-  const stream={getAudioTracks:()=>[mic]},calls={reads:0,prepares:0,recorders:0,begins:0,providers:0,stops:0,abandons:0,mixes:0};
+  const camera={readyState:'live',enabled:true,muted:false};
+  const stream={getAudioTracks:()=>[mic],getVideoTracks:()=>[camera]},calls={reads:0,prepares:0,recorders:0,begins:0,providers:0,stops:0,abandons:0,mixes:0};
   const mutate=boundary=>{if(changeAt===boundary)change({mic,context,engine});};
   const api={identity:{subject:'wp:1',admin:false},bootstrap:async()=>{mutate('admission'+(++calls.reads));return{entitlement:{admitted:true},identity:api.identity,interviewPolicy:policy};}};
   const durable={ready:true,api,accountSession:null,recorder:null,
@@ -106,4 +107,31 @@ test('preflight ended/mute/context/device events invalidate readiness; never rew
   await new Promise(resolve=>setImmediate(resolve));
   preflight=false;const before=updates.length;f.mic.readyState='ended';f.mic.dispatchEvent(new Event('ended'));assert.equal(updates.length,before);
   preflight=true;dispose();f.mic.dispatchEvent(new Event('ended'));devices.dispatchEvent(new Event('devicechange'));assert.equal(updates.length,before);
+});
+
+
+function cameraWaitHarness(source){
+  const helper=source.slice(source.indexOf('function waitForCameraBoundary('),source.indexOf('export async function awaitVisibleCamera('));
+  let now=0,next=0;const timeouts=new Map(),intervals=new Map();
+  const wait=Function('performance','setTimeout','clearTimeout','setInterval','clearInterval',helper+'return waitForCameraBoundary;')(
+    {now:()=>now},fn=>{timeouts.set(++next,fn);return next;},id=>timeouts.delete(id),fn=>{intervals.set(++next,fn);return next;},id=>intervals.delete(id));
+  return{wait,expire(){now=5000;for(const fn of [...timeouts.values()])fn();},clear(){assert.equal(timeouts.size,0);assert.equal(intervals.size,0);}};
+}
+test('camera wait settles success/rejection/cancellation and clears timers',async()=>{
+  const {readFileSync}=await import('node:fs');const source=readFileSync(new URL('../../public/studio-fable/app/adapters/media-readiness.mjs',import.meta.url),'utf8');
+  for(const kind of ['success','rejection','cancel']){
+    const f=cameraWaitHarness(source),error=new Error('Playback rejected');
+    const promise=kind==='success'?Promise.resolve('playing'):kind==='rejection'?Promise.reject(error):new Promise(()=>{});
+    const pending=f.wait(promise,5000,()=>kind!=='cancel');
+    if(kind==='success')assert.equal(await pending,'playing');else await assert.rejects(pending,kind==='cancel'?/cancelled/:error);
+    f.clear();
+  }
+});
+for(const late of ['resolve','reject'])test('camera deadline observes late '+late+' without resettling or retaining timers',async()=>{
+  const {readFileSync}=await import('node:fs');const source=readFileSync(new URL('../../public/studio-fable/app/adapters/media-readiness.mjs',import.meta.url),'utf8');
+  const f=cameraWaitHarness(source);let resolvePlay,rejectPlay;
+  const play=new Promise((resolve,reject)=>{resolvePlay=resolve;rejectPlay=reject;});
+  const pending=f.wait(play,5000,()=>true);f.expire();await assert.rejects(pending,/did not become ready in time/);f.clear();
+  if(late==='resolve')resolvePlay('late playing');else rejectPlay(new Error('late rejection'));
+  await Promise.resolve();await Promise.resolve();f.clear();await assert.rejects(pending,/did not become ready in time/);
 });

@@ -131,3 +131,67 @@ test('explicit preflight choices retarget reused calibration capture instead of 
   assert.deepEqual(calls,[['camera','facetime'],['microphone','builtin']]);
   assert.equal(c.engine,owner);assert.equal(c.stream,stream);
 });
+
+// Explicit reconnect uses the existing READY capture owner; no provider starts.
+function readyRecoveryFixture(){
+  const camera=new Track('video','selected-camera'),mic=new Track('audio','selected-mic'),stream=new Stream([camera,mic]);
+  const calls={engines:0,providers:0,switches:[],resumes:0};
+  const c=new SessionController({engineFactory:async()=>{calls.engines++;throw new Error('Unexpected second capture owner');},liveFactory:()=>{calls.providers++;throw new Error('Unexpected interviewer');}});
+  const engine={stream,audioContext:{state:'running'},resumeInputAudio(){calls.resumes++;},real:{currentDevices:()=>({cameraDeviceId:'selected-camera',microphoneDeviceId:'selected-mic'})},
+    async switchDevice(kind,id,coordinator){calls.switches.push([kind,id]);coordinator.assertCurrent();
+      const incoming=new Track(kind==='camera'?'video':'audio',id||'default');
+      stream.tracks=stream.tracks.filter(t=>t.kind!==incoming.kind);stream.addTrack(incoming);
+      return{cameraDeviceId:stream.getVideoTracks()[0]?.id,microphoneDeviceId:stream.getAudioTracks()[0]?.id};}};
+  Object.assign(c,{engine,phase:'READY',video:{srcObject:stream},account:{subject:'wp:1'},durable:{ready:true}});
+  return{c,engine,camera,mic,stream,calls};
+}
+for(const failure of ['ended','muted','disabled','missing'])test('explicit READY reconnect recovers '+failure+' camera through the same owner',async()=>{
+  const f=readyRecoveryFixture();
+  if(failure==='ended')f.camera.readyState='ended';else if(failure==='muted')f.camera.muted=true;else if(failure==='disabled')f.camera.enabled=false;else f.stream.removeTrack(f.camera);
+  f.c.video.srcObject=null;
+  assert.equal(await f.c.acquire(),f.engine);assert.deepEqual(f.calls.switches,[['camera','selected-camera']]);
+  assert.equal(f.c.video.srcObject,f.stream);assert.equal(f.stream.getVideoTracks()[0].readyState,'live');assert.equal(f.stream.getAudioTracks()[0],f.mic);
+  assert.equal(f.calls.engines,0);assert.equal(f.calls.providers,0);assert.equal(f.c.phase,'READY');
+});
+test('healthy READY reconnect reattaches detached preview without another capture or switch',async()=>{
+  const f=readyRecoveryFixture();f.c.video.srcObject=null;
+  assert.equal(await f.c.acquire(),f.engine);assert.equal(f.c.video.srcObject,f.stream);assert.deepEqual(f.calls.switches,[]);
+  assert.equal(f.calls.engines,0);assert.equal(f.calls.providers,0);assert.equal(f.calls.resumes,1);
+  assert.equal(await f.c.acquire(),f.engine);assert.deepEqual(f.calls.switches,[]);assert.equal(f.c.video.srcObject,f.stream);
+});
+test('explicit camera selection remains authoritative during READY recovery',async()=>{
+  const f=readyRecoveryFixture();await f.c.acquire({cameraDeviceId:'explicit-camera'});
+  assert.deepEqual(f.calls.switches,[['camera','explicit-camera']]);assert.equal(f.stream.getVideoTracks()[0].id,'explicit-camera');assert.equal(f.calls.providers,0);
+});
+for(const replaced of ['engine','generation','video','account'])test('late READY camera recovery cannot rebind after '+replaced+' replacement',async()=>{
+  const f=readyRecoveryFixture(),wait=deferred();f.camera.readyState='ended';f.c.video.srcObject=null;
+  const oldVideo=f.c.video;f.engine.switchDevice=async(kind,id,coordinator)=>{f.calls.switches.push([kind,id]);await wait.promise;coordinator.assertCurrent();return{};};
+  const pending=f.c.acquire();const rejected=assert.rejects(pending,/cancelled/);await tick();
+  const replacementStream=new Stream([new Track('video','replacement')]);
+  if(replaced==='engine')f.c.engine={stream:replacementStream};
+  if(replaced==='generation')f.c.generation++;
+  if(replaced==='video')f.c.video={srcObject:replacementStream};
+  if(replaced==='account')f.c.account={subject:'wp:2'};
+  wait.resolve();await rejected;assert.equal(oldVideo.srcObject,null);
+  if(replaced==='video')assert.equal(f.c.video.srcObject,replacementStream);
+  assert.equal(f.calls.engines,0);assert.equal(f.calls.providers,0);assert.equal(f.calls.switches.length,1);
+});
+
+for(const replaced of ['account','durable','preview'])test('actual Bridge replacement rejects changed '+replaced+' owner before commit or preference persistence',async()=>{
+  const wait=deferred(),f=await fixture({captureWait:wait});
+  // READY reconnect still delegates its exact transaction to the real Bridge.
+  f.c.phase='READY';f.camera.readyState='ended';let persists=0;
+  f.c.persistDevicePreferences=()=>{persists++;};
+  const priorTracks=f.stream.getTracks(),priorPreview=f.c.video;
+  const pending=f.c.acquire({cameraDeviceId:'new-camera'});const rejected=assert.rejects(pending,/cancelled/);await tick();
+  if(replaced==='account')f.c.account={subject:'wp:2',role:'student'};
+  if(replaced==='durable')f.c.durable={ready:true,accountSession:null};
+  if(replaced==='preview')f.c.video={srcObject:new Stream([new Track('video','replacement-preview')])};
+  const replacementPreview=f.c.video,replacementBinding=replacementPreview.srcObject;
+  wait.resolve();await rejected;
+  assert.deepEqual(f.stream.getTracks(),priorTracks,'incoming hardware must not commit into old stream');
+  assert.equal(f.freshCamera.stops,1,'stale newly acquired camera is released');assert.equal(f.old.stops,0);
+  assert.equal(persists,0,'changed account must never receive old device preferences');
+  assert.equal(f.c.video,replacementPreview);assert.equal(replacementPreview.srcObject,replacementBinding);assert.equal(priorPreview.srcObject,f.stream);
+  assert.equal(f.c.deviceSwitchOperation,null);await f.c.release();
+});

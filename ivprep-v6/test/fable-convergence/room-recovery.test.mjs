@@ -84,3 +84,59 @@ test('room retains capture owner and moves setup into one settings popover',()=>
   assert.match(css,/\.room\[data-cockpit="true"\]\[data-density="interview"\] \.recorder-body[^}]*display: none/);
   assert.match(css,/@media \(min-width: 1101px\) and \(max-height: 759px\)[\s\S]*?body\[data-mode="room"\] \{ height: auto; overflow: auto; \}/);
 });
+
+
+// Execute the actual room functions with device/provider-free dependencies.
+function startupHarness({ready=true,current=true,cameraError=new Error('Camera disconnected. Connect it again before starting.')}={}){
+  const source=readFileSync(new URL('../../public/studio-fable/app/room.mjs',import.meta.url),'utf8');
+  const block=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
+  const presenter=block('  function presentDeviceFailure(','  function captureReadiness()');
+  const connectSource=block('  async function connect(){','  const onFrame=');
+  const startSource=block('  function restoreReadinessPresence(){',"  $('connect-real').addEventListener");
+  const readiness=block('onReadinessChanged:readiness=>{','},onChanged:').replace('onReadinessChanged:readiness=>{','function notifyReadiness(readiness){')+'}';
+  const nodes=new Map();const $=id=>{if(!nodes.has(id))nodes.set(id,{dataset:{},hidden:true,disabled:false,value:'voice',textContent:'',append(){},animate(){}});return nodes.get(id);};
+  const calls={providers:0,begins:0,acquires:0,releases:0,captures:0};
+  const env={ready,current,cameraError,release:()=>Promise.resolve(),camera:null};
+  const engine={audioContext:{state:'running'},events:{addEventListener(){},removeEventListener(){}}};
+  const stream={getVideoTracks:()=>[],getAudioTracks:()=>[]};
+  const controller={engine,stream,video:{},mountVideo:()=>({}),acquire:async()=>{calls.acquires++;return engine;},release:()=>{calls.releases++;return env.release();},startSession:async()=>{calls.providers++;throw new Error('Unexpected provider');}};
+  const run=Function('env','calls','controller','$','initialEngine',`
+    let startupFailure=null,starting=false,started=false,deviceSwitching=false,saving=false,finished=false,engine=initialEngine,disposed=false;
+    let interviewEmbodiment=null,initialPresentationMode=null,entryAbort=null,disposePrimary=null,founderQa=null,avatarDurationSeconds=0;
+    const current=()=>env.current,preInterviewReady=()=>env.ready,avatarBlocked=()=>false,mode='mock',density='interview',settings={},session={},account={},durable={},practiceQ={},room={dataset:{}},main={querySelectorAll:()=>[]};
+    const setDensityControls=()=>{},bindPrimaryRecovery=()=>()=>{},assertMicrophoneReady=()=>{},captureReadiness=()=>{calls.captures++;},startPreviewAnalytics=()=>{calls.begins++;},applyOverlays=()=>{},disposeEnvironment={refresh(){}},disposeDevices={refresh:async()=>{}};
+    const document={createElement:()=>({})};
+    const awaitVisibleCamera=()=>env.camera?env.camera():Promise.reject(env.cameraError);
+    ${presenter}\n${connectSource}\n${startSource}\n${readiness}
+    return {start,connect,notifyReadiness,failure:()=>startupFailure,starting:()=>starting};
+  `)(env,calls,controller,$,engine);
+  return{...run,env,calls,$,controller};
+}
+const flushStartup=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
+test('actual Start preflight fallback reports camera failure with device-only recovery',async()=>{
+  const f=startupHarness({ready:false});await f.start();await flushStartup();
+  assert.equal(f.calls.acquires,1);assert.equal(f.calls.providers,0);assert.equal(f.calls.begins,0);
+  assert.equal(f.$('enter-note').textContent,f.env.cameraError.message);
+  assert.equal(f.$('connect-real').hidden,false);assert.equal(f.$('connect-real').disabled,false);
+  assert.equal(f.$('start-session').disabled,true);assert.equal(f.starting(),false);
+  f.notifyReadiness({message:'Later microphone notice'});assert.equal(f.$('enter-note').textContent,f.env.cameraError.message);
+});
+test('actual Start reports error before cleanup drains and explicit reconnect resets it',async()=>{
+  const f=startupHarness();let finishRelease;f.env.release=()=>new Promise(resolve=>{finishRelease=resolve;});
+  const pending=f.start();await flushStartup();
+  assert.equal(f.calls.releases,1);assert.match(f.$('enter-note').textContent,/Interview did not start.*Camera disconnected/);
+  assert.equal(f.$('connect-real').hidden,false);assert.equal(f.$('connect-real').disabled,true);assert.equal(f.$('start-session').disabled,true);
+  const note=f.$('enter-note').textContent;f.notifyReadiness({message:'Microphone changed'});assert.equal(f.$('enter-note').textContent,note);
+  finishRelease();await pending;assert.equal(f.$('connect-real').disabled,false);
+  let finishCamera;f.env.camera=()=>new Promise(resolve=>{finishCamera=resolve;});
+  const recovery=f.connect();await flushStartup();assert.equal(f.failure(),null);assert.match(f.$('enter-note').textContent,/Connecting your camera/);
+  assert.equal(f.calls.providers,0);assert.equal(f.calls.begins,0);
+  // Cancel the old room during device-only recovery; no replacement capture is touched.
+  f.env.current=false;finishCamera();await recovery;assert.equal(f.calls.releases,1);assert.equal(f.calls.providers,0);
+});
+test('late camera rejection from stale room cannot change UI or release replacement',async()=>{
+  const f=startupHarness();let rejectCamera;f.env.camera=()=>new Promise((_,reject)=>{rejectCamera=reject;});
+  const pending=f.start();await flushStartup();const before=f.$('enter-note').textContent;
+  f.env.current=false;f.controller.engine={replacement:true};rejectCamera(new Error('Late old camera error'));await pending;
+  assert.equal(f.$('enter-note').textContent,before);assert.equal(f.calls.releases,0);assert.equal(f.calls.providers,0);assert.equal(f.calls.begins,0);
+});

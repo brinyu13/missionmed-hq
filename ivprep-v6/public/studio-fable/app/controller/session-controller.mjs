@@ -71,15 +71,24 @@ export class SessionController extends EventTarget {
     if (mode !== 'real') throw new Error('Simulated media is not available in production.');
     if(this.deviceSwitchOperation)throw new Error('Your device change is still finishing. Try again when the preview is ready.');
     if (this.engine && this.phase === 'READY') {
-      const engine=this.engine;
+      const engine=this.engine,ticket=this.generation,account=this.account,durable=this.durable,video=this.video;
+      const assertOwner=()=>{
+        if(this.generation!==ticket||this.engine!==engine||this.phase!=='READY'||this.account!==account||this.durable!==durable||this.video!==video)throw new Error('Device setup was cancelled.');
+      };
       engine.resumeInputAudio?.(); // reuse the capture owner's context in this user gesture
       // Readiness may reuse calibration capture. Honor newly selected hardware
       // through that same owner's transaction rather than silently keeping the
       // previous device or opening another capture pipeline.
       const selected=engine.real?.currentDevices?.()||{};
-      if(cameraDeviceId&&cameraDeviceId!==selected.cameraDeviceId)await this.switchDevice('camera',cameraDeviceId);
+      const camera=engine.stream?.getVideoTracks?.()[0];
+      const cameraReady=camera?.readyState==='live'&&camera.enabled===true&&camera.muted!==true;
+      assertOwner();
+      if(!cameraReady||(cameraDeviceId&&cameraDeviceId!==selected.cameraDeviceId))await this.switchDevice('camera',cameraDeviceId||selected.cameraDeviceId||'');
+      assertOwner();
       if(!hasUsableMicrophone(engine.stream)||(microphoneDeviceId&&microphoneDeviceId!==selected.microphoneDeviceId))await this.switchDevice('microphone',microphoneDeviceId||selected.microphoneDeviceId||'');
-      if(this.engine!==engine||this.phase!=='READY')throw new Error('Device setup was cancelled.');
+      assertOwner();
+      // Reattach only this still-owned preview; normal room checks prove pixels/mic.
+      if(video&&video.srcObject!==engine.stream)video.srcObject=engine.stream;
       return engine;
     }
     if(this.phase==='DEVICES'||this.navigationLocked)throw new Error('Device or interview startup is already in progress.');
@@ -122,8 +131,8 @@ export class SessionController extends EventTarget {
   }
   async switchDevice(kind,id) {
     if(!this.canSwitchDevice(kind)||this.deviceSwitchOperation)throw new Error('This device cannot change now. Check it before recording starts.');
-    const engine=this.engine,ticket=this.generation,phase=this.phase,live=this.live,mix=this.mix,video=this.recordingVideo;
-    const current=()=>ticket===this.generation&&this.engine===engine&&this.phase===phase&&this.live===live&&this.mix===mix&&this.recordingVideo===video;
+    const engine=this.engine,ticket=this.generation,phase=this.phase,live=this.live,mix=this.mix,video=this.recordingVideo,account=this.account,durable=this.durable,previewVideo=this.video;
+    const current=()=>ticket===this.generation&&this.engine===engine&&this.phase===phase&&this.live===live&&this.mix===mix&&this.recordingVideo===video&&this.account===account&&this.durable===durable&&this.video===previewVideo;
     const assertCurrent=()=>{if(!current())throw new Error('The device change was cancelled.');};
     const rollback=async participants=>{
       let failure=null;

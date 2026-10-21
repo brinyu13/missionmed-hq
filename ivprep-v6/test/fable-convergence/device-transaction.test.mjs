@@ -132,3 +132,36 @@ test('a rejected completion rolls back before the old input is irreversibly stop
   assert.equal(f.mix.candidateSource,source);assert.equal(source.targets.size,2);
   f.mix.destroy();f.bridge.destroy();
 });
+
+async function realSwitchHarness(){
+  const {readFileSync}=await import('node:fs');
+  const source=readFileSync(new URL('../../public/ivoc-standalone/app/real-runtime.mjs',import.meta.url),'utf8');
+  const begin=source.indexOf('  async switchDevice('),method=source.slice(begin,source.indexOf('  tick()',begin));
+  const timers=new Map(),polls=new Map();let next=0,resolvePlay,rejectPlay;
+  const play=new Promise((resolve,reject)=>{resolvePlay=resolve;rejectPlay=reject;});
+  const stream=new Stream([new Track('video','new-camera')]),calls={plays:0,changes:0,reselects:0};
+  let active=true;const owner={running:true,clock:{},pipeline:{visionTimer:true,reselectPrimary(){calls.reselects++;}},video:{srcObject:null,play(){calls.plays++;return play;}},
+    bridge:{media:{stream},async switchDevice(){calls.changes++;return{stream};}},cancelFaceBaseline(){},currentDevices:()=>({cameraDeviceId:'new-camera'})};
+  const switchDevice=Function('setTimeout','clearTimeout','setInterval','clearInterval','return {'+method+'}.switchDevice;')(
+    fn=>{timers.set(++next,fn);return next;},id=>timers.delete(id),fn=>{polls.set(++next,fn);return next;},id=>polls.delete(id));
+  const coordinator={assertCurrent(){if(!active)throw new Error('Old device owner cancelled.');}};
+  return{owner,calls,stream,run:(id='new-camera')=>switchDevice.call(owner,'camera',id,coordinator),resolvePlay,rejectPlay,
+    cancel(){active=false;for(const fn of [...polls.values()])fn();},expire(){for(const fn of [...timers.values()])fn();},
+    clear(){assert.equal(timers.size,0);assert.equal(polls.size,0);}};
+}
+const settlePreview=async()=>{for(let i=0;i<6;i++)await Promise.resolve();};
+for(const outcome of ['success','reject','timeout'])test('actual RealAnalyticsEngine switch bounds preview '+outcome+' and clears timers',async()=>{
+  const f=await realSwitchHarness(),pending=f.run();await settlePreview();assert.equal(f.calls.plays,1);
+  if(outcome==='success'){f.resolvePlay();assert.deepEqual(await pending,{cameraDeviceId:'new-camera'});assert.equal(f.calls.reselects,1);}
+  else{const rejected=assert.rejects(pending,outcome==='timeout'?/did not resume in time/:/play rejected/);if(outcome==='timeout')f.expire();else f.rejectPlay(new Error('play rejected'));await rejected;assert.equal(f.calls.reselects,0);}
+  f.clear();assert.equal(f.calls.changes,1);assert.equal(f.owner.video.srcObject,f.stream);
+  if(outcome==='timeout'){f.rejectPlay(new Error('late play rejection'));await settlePreview();f.clear();}
+});
+test('actual preview wait cancels stale owner without overwriting or releasing replacement',async()=>{
+  const f=await realSwitchHarness(),old=f.owner.video,pending=f.run();await settlePreview();
+  const rejected=assert.rejects(pending,/cancelled/);const replacement={srcObject:{replacement:true}};f.owner.video=replacement;f.cancel();await rejected;
+  const retained=replacement.srcObject;f.resolvePlay();await settlePreview();assert.equal(f.owner.video,replacement);assert.equal(replacement.srcObject,retained);assert.equal(old.srcObject,f.stream);assert.equal(f.calls.reselects,0);f.clear();
+});
+test('empty device ID requires explicit device selection without capture or playback',async()=>{
+  const f=await realSwitchHarness();await assert.rejects(f.run(''),/Choose a camera or microphone/);assert.equal(f.calls.changes,0);assert.equal(f.calls.plays,0);f.clear();
+});

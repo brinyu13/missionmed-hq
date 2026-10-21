@@ -45,6 +45,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   let initialPresentationMode=null,entryAbort=null;
   let overlaysVisible=state.preferences?.overlaysVisible===true;
   let layers=overlayLayers(state.preferences?.overlayLayers);
+  let startupFailure=null;
   let disposed=false,starting=false,started=false,saving=false,finished=false,engine=null,interviewer=null,saveRecord=null,deviceSwitching=false;
   main.innerHTML = `
   <div class="room" id="room" data-cockpit="true" data-phase="readiness" data-density="${density}" data-mode="${mode}">
@@ -240,6 +241,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
   }
   disposeDevices=await mountDeviceControls(main.querySelector('[data-device-controls]'),{getEngine:()=>engine,getVideo:()=>controller.video,getStream:()=>controller.stream,isCurrent:current,canSwitch:kind=>!starting&&!saving&&!finished&&(!engine||controller.phase==='READY'||(controller.phase==='LIVE'&&controller.canSwitchDevice(kind))),switchDevice:(kind,id)=>controller.switchDevice(kind,id),onSwitching:(value,ready)=>{
         if(!current())return;
+        if(value)startupFailure=null;
         if(started){deviceSwitching=value;$('room-preference-note').hidden=false;$('room-preference-note').textContent=value?'Changing your device. Finish & save remains available.':ready?'Device changed. This recording continues; recalibrate before your next attempt.':'Device change was not confirmed. Check the message in Devices.';if(!value&&ready){mark('gap','Device changed; personal calibration reset');applyOverlays();}return;}
         deviceSwitching=value;$('start-session').disabled=value||!ready||avatarBlocked();$('connect-real').disabled=value;
         $('stage').dataset.previewReady=String(!value&&ready);
@@ -247,16 +249,27 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
         if(!value&&ready){captureReadiness();applyOverlays();}
         if(avatarBlocked())updateAvatarAdmissionPresentation();
       },onReadinessChanged:readiness=>{
-        if(!current()||starting||saving||finished)return;
+        if(!current()||starting||saving||finished||startupFailure)return;
         if(started){$('room-preference-note').hidden=false;$('room-preference-note').textContent=readiness.message;return;}
         $('start-session').disabled=true;$('stage').dataset.previewReady='false';
         $('enter-note').textContent=readiness.message;$('connect-real').disabled=false;
       },onChanged:()=>{state.calibration=null;commit();}});
+  function presentDeviceFailure(error,{interview=false}={}){
+    startupFailure=error;
+    const detail=error?.diagnostics?.category==='CLIENT_NETWORK'
+      ?'Your connection changed before the interviewer was ready. The interview did not start.'
+      :(error?.message||'Check your camera and microphone before trying again.');
+    $('stage').dataset.previewReady='false';
+    $('enter-note').textContent=(interview?'Interview did not start. ':'')+detail;
+    $('start-session').disabled=true;
+    $('connect-real').hidden=false;
+    $('connect-real').disabled=starting;
+  }
   function captureReadiness(){
     session.preflight={account,durable,subject:account.subject,engine,stream:controller.stream,camera:controller.stream?.getVideoTracks?.()[0],microphone:controller.stream?.getAudioTracks?.()[0],previewVerified:true};
   }
   async function connect(){
-    if(!current()||starting||started||deviceSwitching)return;starting=true;$('connect-real').disabled=true;
+    if(!current()||starting||started||deviceSwitching)return;startupFailure=null;starting=true;$('connect-real').disabled=true;
     $('stage').dataset.previewReady='false';$('start-session').disabled=true;
     setDensityControls(true);
     $('enter-note').textContent='Connecting your camera and microphone…';
@@ -277,7 +290,7 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       $('start-session').disabled=avatarBlocked();$('enter-note').textContent=avatarBlocked()?AVATAR_UNAVAILABLE:'Preview visible · microphone connected. Nothing is recorded until you start.';
       captureReadiness();
       startPreviewAnalytics();applyOverlays();
-    }catch(error){if(current()){$('enter-note').textContent=error.message;$('start-session').disabled=true;}}
+    }catch(error){if(current())presentDeviceFailure(error);}
     finally{starting=false;if(current()){setDensityControls(false);$('connect-real').disabled=false;await disposeDevices?.refresh?.().catch(()=>{});if(avatarBlocked())updateAvatarAdmissionPresentation();}}
   }
   const onFrame=e=>{
@@ -371,13 +384,13 @@ export async function mountRoom(main,{session,isCurrent=()=>true}) {
       mark('recording','Recording started');mark('question','Q1 planned');recordDensity();renderPlan();
       timer=setInterval(()=>{if(!current())return;$('clock').textContent=fmt(at());recorder.setData(history.samples,events);recorder.tick(at());},500);resetIdle();
     }catch(error){if(current()){restoreReadinessPresence();
+      presentDeviceFailure(error,{interview:true});
       // Never let a late rejection release a replacement room's capture owner.
       // A failed cleanup keeps this room's mode pinned until it is safe to leave.
       let safelyReleased=false;
       if(controller.engine===engine){try{await controller.release('room_start_failed');safelyReleased=true;}catch{}}
       if(!current())return;
       if(safelyReleased)interviewEmbodiment=null;
-      $('stage').dataset.previewReady='false';$('enter-note').textContent=error?.diagnostics?.category==='CLIENT_NETWORK'?'Your connection changed before the interviewer was ready. The interview did not start.':error.message;
       if(error.code==='ivoc_interview_policy_changed'){const back=document.createElement('a');back.href=session.setupReturnHash||'#/mock';back.textContent=' Return to interview setup';$('enter-note').append(back);}
       if(selectedAvatar&&founderQa&&error.message===AVATAR_UNAVAILABLE){founderQa.available=false;updateAvatarAdmissionPresentation();}
       $('start-session').disabled=true;$('connect-real').disabled=false;
