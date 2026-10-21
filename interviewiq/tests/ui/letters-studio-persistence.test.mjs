@@ -342,3 +342,21 @@ test('a bound target is revoked on registry identity, choice, capability or sign
   }finally{x.close();}
  }
 });
+
+
+test('saved program targets keep distinct canonical names in status and cards with an empty interview catalog',async()=>{
+ const ws=workspace({targets:true});ws.catalog.programs=[];ws.state.interviews=[];const x=setup(ws);try{
+  for(const [targetId,name] of [[id,'Example Program'],[id2,'Second Program']]){
+   await click(x,'[data-act="studio-use"][data-template="initial"]');type(x,'studio-program-pick','program:'+targetId);await settle();
+   await click(x,'[data-act="studio-continue"]');type(x,'studio-text','Private unsent draft for '+name+'.');await click(x,'[data-act="studio-save"]');
+   assert.match(status(x),new RegExp(name));assert.doesNotMatch(status(x),/Program identity pending/);
+   await click(x,'[data-act="studio-gallery"]');
+  }
+  assert.deepEqual([...x.doc.querySelectorAll('.studioSavedCard h3')].map(e=>e.textContent),['Example Program','Second Program']);
+  const y=setup(JSON.parse(JSON.stringify(x.srv.ws)));try{
+   assert.deepEqual([...y.doc.querySelectorAll('.studioSavedCard h3')].map(e=>e.textContent),['Example Program','Second Program']);
+   await click(y,'[data-act="studio-reopen"][data-id="program:'+id2+'"]');await settle();
+   assert.match(status(y),/Second Program/);assert.equal(y.doc.getElementById('studio-text').value,'Private unsent draft for Second Program.');assert.equal(saves(y).length,0);
+  }finally{y.close();}
+ }finally{x.close();}
+});
