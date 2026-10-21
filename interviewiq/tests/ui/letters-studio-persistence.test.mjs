@@ -11,10 +11,10 @@ const root=new URL('../../',import.meta.url),html=fs.readFileSync(new URL('publi
 const names=['runtime','model','views','shell','roles','actions','letters-studio','opening'];
 const code=names.map(n=>fs.readFileSync(new URL('public/source/'+n+'.js',root),'utf8')).join('\n');
 const owner='11111111-1111-4111-8111-111111111111',id='22222222-2222-4222-8222-222222222222',id2='44444444-4444-4444-8444-444444444444',claim='rise-claim:'+'a'.repeat(64);
-function workspace({loi=true}={}){
-  return {actor:{id:owner,role:'student',tier:'360',zone:'UTC',firstName:'Amara',displayName:'Amara Okafor'},version:1,capabilities:{coreOnly:true,loi},
+function workspace({loi=true,targets=false}={}){
+  return {actor:{id:owner,role:'student',tier:'360',zone:'UTC',firstName:'Amara',displayName:'Amara Okafor'},version:1,capabilities:{coreOnly:true,loi,loiTargets:targets},
     catalog:{programs:[{id:'program-one',name:'Example Program',specialty:'Internal Medicine',track:'Categorical',fact_ids:[]},{id:'program-two',name:'Second Program',specialty:'Pediatrics',track:'Categorical',fact_ids:[]}],student_zone:'UTC'},
-    state:{interviews:[{id,owner,program:'program-one',saved:true,state:'scheduled',programName:'Example Program',zone:'UTC',related:[],history:[]},{id:id2,owner,program:'program-two',saved:true,state:'invited',programName:'Second Program',zone:'UTC',related:[],history:[]},{id:'33333333-3333-4333-8333-333333333333',owner,program:null,saved:true,state:'invited',programName:'Typed Program Name',intake:{specialty:'Family Medicine'},zone:'UTC',related:[],history:[]}],loi:{}}};
+    state:{interviews:[{id,owner,program:'program-one',saved:true,state:'scheduled',programName:'Example Program',zone:'UTC',related:[],history:[]},{id:id2,owner,program:'program-two',saved:true,state:'invited',programName:'Second Program',zone:'UTC',related:[],history:[]},{id:'33333333-3333-4333-8333-333333333333',owner,program:null,saved:true,state:'invited',programName:'Typed Program Name',intake:{specialty:'Family Medicine'},zone:'UTC',related:[],history:[]}],loi:{},loiTargets:{targets:targets?[{targetKind:'program',targetId:id,program:{id:'program-one',name:'Example Program',track:'Categorical',registryReleaseId:'r1'},resolutionState:'MATCHED',choice:'CREATE_LETTER',version:1,loi:{history:[],outreach:[],current:null,currentBindingValid:false}},{targetKind:'program',targetId:id2,program:{id:'program-two',name:'Second Program',track:'Categorical',registryReleaseId:'r1'},resolutionState:'MATCHED',choice:'CREATE_LETTER',version:1,loi:{history:[],outreach:[],current:null,currentBindingValid:false}}]:[],savedPrograms:null,savedStatus:'unavailable'}}};
 }
 const evidenceBody=()=>({type:'loi_evidence',program:{id:'program-one',name:'Example Program',track:'Categorical'},research:{coverage:{programId:'program-one',registryReleaseId:'r1',observedAt:'2026-10-01T00:00:00.000Z',fields:[{field:'research.curriculum',area:'training',state:'SUPPORTED'},{field:'research.call_schedule',area:'training',state:'UNKNOWN',reason:'not published'}]},facts:[{area:'training',field:'research.curriculum',state:'SUPPORTED',claimRef:claim,value:'residents complete a dedicated ambulatory block in the second year',retrievedAt:'2026-09-30T00:00:00.000Z',asOf:null,sources:[{claimRef:claim,reviewRef:null,urls:['https://example.org/curriculum'],retrievedAt:'2026-09-30T00:00:00.000Z',reviewedAt:null}]}]}});
 function server(ws){
@@ -27,16 +27,18 @@ function server(ws){
     if(path.includes('/commands')){
       if(body.command==='loi.evidence'){if(s.delayEvidence)await s.delayEvidence;if(s.evidenceMode==='503')return err(503,'rise_unavailable','RISE is unavailable right now.');if(s.evidenceMode==='none'){const e=evidenceBody();e.research.facts=[];e.research.coverage.fields[0].state='UNKNOWN';return ok(e);}return ok(evidenceBody());}
       if(body.command==='loi.save'){if(s.evidenceMode==='503'&&body.data.selectedEvidence.length)return err(503,'rise_unavailable','RISE is unavailable right now.');if(s.delaySave)await s.delaySave;if(s.failNext){s.failNext=false;return err(503,'storage','Database unavailable.');}
-        const d=body.data,cur=s.ws.state.loi[body.interviewId]?.current||null;if((d.expectedHead||null)!==(cur?.revisionId||null)||d.expectedLetterVersion!==(cur?.letterVersion||0))return err(409,'loi_head_conflict','Review the latest saved letter.');
+        const target=body.targetKind==='program'?s.ws.state.loiTargets?.targets.find(t=>t.targetId===body.targetId):null;if(body.targetKind==='program'){assert.ok(target,'known program target');assert.equal(body.interviewId,undefined,'program save never manufactures an interview');assert.equal(target.choice,'CREATE_LETTER');assert.equal(target.resolutionState,'MATCHED');}
+        const d=body.data,cur=(target?target.loi:s.ws.state.loi[body.interviewId])?.current||null;if((d.expectedHead||null)!==(cur?.revisionId||null)||d.expectedLetterVersion!==(cur?.letterVersion||0))return err(409,'loi_head_conflict','Review the latest saved letter.');
         for(const x of [...d.motivations,...d.facts])assert.match(x.id,/^[0-9a-f-]{36}$/);assert.ok(d.text.trim().length>0);
         const rev={type:'iiq.loi.revision',schemaVersion:1,revisionId:randomUUID(),letterId:d.letterId||randomUUID(),parentRevisionId:cur?.revisionId||null,letterVersion:(cur?.letterVersion||0)+1,createdAt:new Date().toISOString(),interviewId:body.interviewId,state:'draft',text:d.text,context:d.context,motivations:d.motivations,facts:d.facts,selectedEvidence:d.selectedEvidence,program:{id:'program-one',name:'Example Program',track:'Categorical'},contentHash:randomUUID()};
-        const prev=s.ws.state.loi[body.interviewId]||{history:[],outreach:[]};s.ws.state.loi[body.interviewId]={current:rev,history:[...prev.history,rev],outreach:[],currentBindingValid:true};return ok({bootstrap:snapshot()});}
+        if(target){delete rev.interviewId;rev.targetKind='program';rev.targetId=body.targetId;rev.program=target.program;}
+        const prev=(target?target.loi:s.ws.state.loi[body.interviewId])||{history:[],outreach:[]},next={current:rev,history:[...prev.history,rev],outreach:[],currentBindingValid:true};if(target)target.loi=next;else s.ws.state.loi[body.interviewId]=next;return ok({bootstrap:snapshot()});}
     }
     return err(404,'unknown','Unknown request.');};
   return s;
 }
-function setup(ws=workspace()){
-  const srv=server(ws),dom=new JSDOM(html,{url:'https://missionmed.test/interviewiq/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window,clip=[];
+function setup(ws=workspace(),sharedServer=null){
+  const srv=sharedServer||server(ws),dom=new JSDOM(html,{url:'https://missionmed.test/interviewiq/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window,clip=[];
   Object.defineProperty(w,'crypto',{value:webcrypto});w.Headers=Headers;w.matchMedia=()=>({matches:true,addEventListener(){}});
   w.HTMLElement.prototype.scrollIntoView=()=>{};w.HTMLElement.prototype.scrollTo=()=>{};w.scrollTo=()=>{};
   w.navigator.clipboard={writeText:async t=>{clip.push(t);}};w.URL.createObjectURL=()=>'blob:test';w.URL.revokeObjectURL=()=>{};w.HTMLAnchorElement.prototype.click=function(){};
@@ -274,4 +276,69 @@ test('fresh session restores student-entered program name and specialty with no 
       assert.equal(y.doc.getElementById('studio-f-programName').value,'Example Program — categorical');assert.equal(y.doc.getElementById('studio-f-specialty').value,'Internal Medicine');
     }finally{y.close();}
   }finally{x.close();}
+});
+
+
+const targetState=(x,targetId=id)=>x.srv.ws.state.loiTargets.targets.find(t=>t.targetId===targetId).loi;
+
+test('pre-interview program target saves, autosaves and reopens exact text and repaired metadata with no interview',async()=>{
+ mock.timers.enable({apis:['setTimeout']});const ws=workspace({targets:true});ws.state.interviews=[];const x=setup(ws);try{
+  await click(x,'[data-act="studio-use"][data-template="short"]');assert.doesNotMatch(x.doc.body.textContent,/Add the interview first/);
+  type(x,'studio-program-pick','program:'+id);await settle();assert.equal(x.h.loiStudioBound().targetKind,'program');
+  const ev=x.srv.calls.find(c=>c.body?.command==='loi.evidence').body;assert.equal(ev.targetKind,'program');assert.equal(ev.targetId,id);assert.equal(ev.interviewId,undefined);
+  assert.match(x.doc.getElementById('studio-evidence').textContent,/1 published fact/);
+  type(x,'studio-f-programName','Example Program — student correction');type(x,'studio-f-specialty','Anesthesiology');type(x,'studio-f-yourName','QA Student');type(x,'studio-f-reason','My program-specific reason.');
+  await click(x,'[data-act="studio-continue"]');type(x,'studio-text',x.doc.getElementById('studio-text').value+'\nMy exact personal edit.');
+  mock.timers.tick(2600);await settle();assert.equal(saves(x).length,1);assert.match(status(x),/SAVED TO YOUR ACCOUNT/);
+  const d=saves(x)[0].body;assert.equal(d.targetKind,'program');assert.equal(d.targetId,id);assert.equal(d.interviewId,undefined);assert.deepEqual(x.srv.ws.state.interviews,[]);
+  const text=targetState(x).current.text;assert.match(text,/My exact personal edit/);assert.doesNotMatch(text,/intend to rank|rank.*first/);
+  const y=setup(JSON.parse(JSON.stringify(x.srv.ws)));try{
+   await click(y,'[data-act="studio-reopen"][data-id="program:'+id+'"]');await settle();assert.equal(y.doc.getElementById('studio-text').value,text);assert.equal(y.h.loiStudioDirty(),false);
+   assert.match(y.doc.getElementById('studio-subject').textContent,/Anesthesiology Applicant/);await click(y,'[data-act="studio-copy"]');assert.equal(y.clip.at(-1),text);
+   await click(y,'[data-act="studio-personalize"]');assert.equal(y.doc.getElementById('studio-f-programName').value,'Example Program — student correction');assert.equal(y.doc.getElementById('studio-f-specialty').value,'Anesthesiology');
+   mock.timers.tick(5000);await settle();assert.equal(saves(y).length,0,'reopen never overwrites the persisted draft');
+  }finally{y.close();}
+ }finally{x.close();mock.timers.reset();}
+});
+
+test('typed targets with the same display name and IDs as interviews remain isolated and switching flushes the original',async()=>{
+ const ws=workspace({targets:true});ws.state.loiTargets.targets[1].program.name='Example Program';const x=setup(ws);try{
+  await click(x,'[data-act="studio-use"][data-template="initial"]');const opts=[...x.doc.getElementById('studio-program-pick').options];for(const key of [id,'program:'+id,'program:'+id2])assert.ok(opts.some(o=>o.value===key),key);
+  type(x,'studio-program-pick','program:'+id);await settle();type(x,'studio-f-yourName','QA');type(x,'studio-f-reasons','Only target one.');
+  type(x,'studio-program-pick','program:'+id2);await settle();assert.equal(saves(x)[0].body.targetId,id);assert.doesNotMatch(x.doc.getElementById('studio-preview').textContent,/Only target one/);
+  type(x,'studio-f-reasons','Only target two.');type(x,'studio-program-pick',id);await settle();assert.equal(saves(x)[1].body.targetId,id2);
+  type(x,'studio-f-reasons','Only the interview.');await click(x,'[data-act="studio-continue"]');await click(x,'[data-act="studio-save"]');
+  assert.match(targetState(x,id).current.text,/Only target one/);assert.doesNotMatch(targetState(x,id).current.text,/Only target two|Only the interview/);
+  assert.match(targetState(x,id2).current.text,/Only target two/);assert.match(x.srv.ws.state.loi[id].current.text,/Only the interview/);
+  await click(x,'[data-act="studio-gallery"]');assert.equal(x.doc.querySelectorAll('[data-act="studio-reopen"]').length,3);
+ }finally{x.close();}
+});
+
+test('two actual Studio instances sharing the target head receive 409 without overwriting and safely use latest',async()=>{
+ const ws=workspace({targets:true});ws.state.interviews=[];const x=setup(ws);let y;try{
+  await click(x,'[data-act="studio-use"][data-template="initial"]');type(x,'studio-program-pick','program:'+id);await settle();type(x,'studio-f-yourName','QA');await click(x,'[data-act="studio-continue"]');await click(x,'[data-act="studio-save"]');
+  y=setup(JSON.parse(JSON.stringify(x.srv.ws)),x.srv);await click(y,'[data-act="studio-reopen"][data-id="program:'+id+'"]');await settle();
+  type(x,'studio-text','Newer text from tab A.');await click(x,'[data-act="studio-save"]');type(y,'studio-text','Unsaved text in tab B.');
+  await assert.rejects(click(y,'[data-act="studio-save"]'),e=>e.status===409);assert.equal(targetState(x).current.text,'Newer text from tab A.');assert.equal(y.doc.getElementById('studio-text').value,'Unsaved text in tab B.');assert.match(status(y),/NEEDS YOUR REVIEW/);
+  await click(y,'[data-act="studio-use-saved"]');assert.equal(y.doc.getElementById('studio-text').value,'Newer text from tab A.');assert.equal(y.h.loiStudioDirty(),false);
+ }finally{y?.close();x.close();}
+});
+
+test('program target admission requires CREATE_LETTER, MATCHED canonical identity and actual capability',async()=>{
+ for(const mutation of [ws=>{ws.capabilities.loiTargets=false;},ws=>{ws.state.loiTargets.targets[0].choice='DO_NOT_CONTACT';},ws=>{ws.state.loiTargets.targets[0].resolutionState='NOT_FOUND';},ws=>{ws.state.loiTargets.targets[0].program=null;}]){
+  const ws=workspace({targets:true});ws.state.interviews=[];mutation(ws);const x=setup(ws);try{
+   await click(x,'[data-act="studio-use"][data-template="initial"]');const option=x.doc.querySelector('option[value="program:'+id+'"]');if(option)type(x,'studio-program-pick','program:'+id);
+   assert.equal(x.h.loiStudioBound(),null);assert.equal(x.srv.calls.filter(c=>c.path.includes('/commands')).length,0);
+  }finally{x.close();}
+ }
+});
+
+test('a bound target is revoked on registry identity, choice, capability or signed actor changes; edited text is never posted elsewhere',async()=>{
+ for(const mutation of [ws=>{ws.state.loiTargets.targets[0].program.registryReleaseId='r2';},ws=>{ws.state.loiTargets.targets[0].choice='DO_NOT_CONTACT';},ws=>{ws.state.loiTargets.targets[0].resolutionState='NOT_FOUND';},ws=>{ws.capabilities.loiTargets=false;},ws=>{ws.actor.id='99999999-9999-4999-8999-999999999999';}]){
+  const x=setup(workspace({targets:true}));try{
+   await click(x,'[data-act="studio-use"][data-template="initial"]');type(x,'studio-program-pick','program:'+id);await settle();await click(x,'[data-act="studio-continue"]');type(x,'studio-text','Keep my private edit in this tab.');
+   const next=JSON.parse(JSON.stringify(x.srv.ws));mutation(next);x.h.applyBootstrap(next);x.h.setRoute('letters');x.h.render();assert.equal(x.h.loiStudioBound(),null);assert.equal(saves(x).length,0);
+   if(next.actor.id===owner){assert.equal(x.h.loiStudioState().text,'Keep my private edit in this tab.');await assert.rejects(x.h.A['studio-save'](),/confirmed program/);}
+  }finally{x.close();}
+ }
 });
