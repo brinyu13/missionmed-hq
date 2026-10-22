@@ -179,6 +179,10 @@ function mmiiqg_calendar_timing_header($result) {
 
 /** Server-only, fresh one-use owner exchange for ordinary Calendar GETs only. */
 function mmiiqg_owner_challenge_headers($origin, $headers, $target, $actor) {
+    // Only this core-cache-qualified admin path may execute an in-request proof.
+    if (($actor['role']??null)!=='admin' || ($actor['tier']??null)!=='admin'
+        || !function_exists('has_filter') || has_filter('missionmed_storyforge_user_id')!==false
+        || !function_exists('clean_user_cache') || !function_exists('wp_cache_delete')) { return array(); }
     $options=array('method'=>'POST','headers'=>array_merge($headers,array('Content-Type'=>'application/json')),
         'body'=>wp_json_encode(array('target'=>$target)), 'timeout'=>5, 'redirection'=>0, 'sslverify'=>true,
         'reject_unsafe_urls'=>true, 'limit_response_size'=>8193, 'cookies'=>array());
@@ -221,6 +225,12 @@ function mmiiqg_owner_challenge_headers($origin, $headers, $target, $actor) {
     $request=new WP_REST_Request('POST','/missionmed-interviewiq/v1/introspect');
     $request->set_body($challenge['payload']);
     $request->set_header('X-MMED-IIQ-Proof',$challenge['signature']);
+    // Initial browser identity primed core caches before the challenge round trip.
+    clean_user_cache($actor['wp_user_id']);
+    wp_cache_delete($actor['wp_user_id'],'user_meta');
+    $fresh_user=get_user_by('id',$actor['wp_user_id']);
+    // Never enter student enrollment/expiration helpers after an admin downgrade.
+    if (!($fresh_user instanceof WP_User) || !$fresh_user->exists() || !user_can($fresh_user,'manage_options')) { mmiiqg_error(401,'owner_access_changed'); }
     // Existing canonical callback invokes its unchanged permission function.
     $current=mmiiq_introspection($request);
     if (is_wp_error($current)) { mmiiqg_error((int)($current->get_error_data()['status']??403),$current->get_error_code()); }

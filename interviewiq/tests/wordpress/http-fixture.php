@@ -8,6 +8,11 @@ require __DIR__ . '/auth-gateway.test.php';
 $server = $_SERVER;
 reset_state();
 $_SERVER = $server;
+$GLOBALS['core_cache_enabled'] = ($_SERVER['HTTP_X_FIXTURE_CORE_CACHE'] ?? '') === '1';
+$GLOBALS['mapping_filter'] = ($_SERVER['HTTP_X_FIXTURE_MAPPING_FILTER'] ?? '') === '1';
+$fixture_role = $_SERVER['HTTP_X_FIXTURE_ROLE'] ?? 'student';
+if ($fixture_role === 'admin') { $GLOBALS['current_user'] = $GLOBALS['users'][42] = new WP_User(42, array('administrator'), 'Synthetic Admin', true); }
+if ($fixture_role === 'mentor') { $GLOBALS['current_user'] = $GLOBALS['users'][42] = new WP_User(42, array('mentor')); $GLOBALS['assignments'][42] = array('22222222-2222-4222-8222-222222222222'); }
 if (isset($_SERVER['HTTP_X_FIXTURE_ANONYMOUS'])) { $GLOBALS['current_user'] = new WP_User(0); }
 if (isset($_SERVER['HTTP_X_FIXTURE_LOGOUT'])) { $GLOBALS['meta'][42]['session_tokens'] = array(); }
 if (isset($_SERVER['HTTP_X_FIXTURE_DISABLED'])) { putenv('INTERVIEWIQ_ENABLED=false'); }
@@ -60,7 +65,13 @@ function wp_remote_request($url, $options) {
         $received=$http_response_header??array();$status=0;$out=array();
         foreach($received as $line){if(preg_match('#^HTTP/\\S+ ([0-9]{3})#',$line,$match))$status=(int)$match[1];elseif(str_contains($line,':')){list($key,$value)=explode(':',$line,2);$out[strtolower($key)]=trim($value);}}
         if($challenge && $mode==='signature'){$value=json_decode($raw,true);$value['signature']=str_repeat('0',64);$raw=wp_json_encode($value);}
-        if($challenge && $mode==='revoked')$GLOBALS['meta'][42]['session_tokens']=array();
+        if ($challenge && in_array($mode, array('revoked','role','mapping','duplicate'), true)) {
+            if ($GLOBALS['core_cache_enabled'] && (!isset($GLOBALS['core_meta_cache'][42], $GLOBALS['core_users_cache'][42]) || !$GLOBALS['core_query_cache'])) { throw new Exception('Expected initial browser identity to prime all core caches'); }
+            if ($mode === 'revoked') { $GLOBALS['meta'][42]['session_tokens'] = array(); }
+            if ($mode === 'role') { $GLOBALS['users'][42] = new WP_User(42); $GLOBALS['courses'][42] = array(); $GLOBALS['forbid_student_helpers'] = true; }
+            if ($mode === 'mapping') { $GLOBALS['meta'][42]['_missionmed_storyforge_user_id'] = '44444444-4444-4444-8444-444444444444'; }
+            if ($mode === 'duplicate') { $GLOBALS['meta'][43]['_missionmed_storyforge_user_id'] = $GLOBALS['meta'][42]['_missionmed_storyforge_user_id']; }
+        }
         return array('response'=>array('code'=>$status),'headers'=>$out,'body'=>$raw);
     }
 

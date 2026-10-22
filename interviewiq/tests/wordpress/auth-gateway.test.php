@@ -41,27 +41,55 @@ function wp_generate_uuid4() { return '77777777-7777-4777-8777-777777777777'; }
 function wp_create_nonce($action) { return $action === 'missionmed_interviewiq' ? 'synthetic-wp-nonce' : ''; }
 function wp_verify_nonce($nonce, $action) { return $nonce === wp_create_nonce($action); }
 function wp_get_session_token() { return $GLOBALS['raw_session']; }
-function wp_get_current_user() { return $GLOBALS['current_user']; }
-function get_user_by($field, $id) { return $GLOBALS['users'][$id] ?? false; }
+function wp_get_current_user() { return $GLOBALS['core_cache_enabled'] ? get_user_by('id', $GLOBALS['current_user']->ID) : $GLOBALS['current_user']; }
+function get_user_by($field, $id) {
+    if (!$GLOBALS['core_cache_enabled']) { return $GLOBALS['users'][$id] ?? false; }
+    if (!array_key_exists($id, $GLOBALS['core_users_cache'])) { $GLOBALS['core_users_cache'][$id] = isset($GLOBALS['users'][$id]) ? clone $GLOBALS['users'][$id] : false; }
+    return $GLOBALS['core_users_cache'][$id];
+}
+// Opt-in model of core users/user_meta and users_last_changed query caching.
+function wp_cache_delete($id, $group) {
+    if ($group === 'user_meta') { unset($GLOBALS['core_meta_cache'][$id]); }
+    if ($group === 'users') { unset($GLOBALS['core_users_cache'][$id]); }
+    return true;
+}
+function clean_user_cache($id) {
+    wp_cache_delete($id, 'users');
+    // Deliberately model pre-6.2 cleanup: production must explicitly evict user_meta.
+    $GLOBALS['core_users_generation']++;
+}
+function has_filter($hook) { return $hook === 'missionmed_storyforge_user_id' && $GLOBALS['mapping_filter'] ? 10 : false; }
+function fixture_student_helper() {
+    $GLOBALS['student_helper_calls']++;
+    if ($GLOBALS['forbid_student_helpers']) { throw new Exception('Unexpected student eligibility helper after admin revocation'); }
+}
 function get_users($args) {
+    $cache_key = $GLOBALS['core_users_generation'] . ':' . serialize($args);
+    if ($GLOBALS['core_cache_enabled'] && isset($GLOBALS['core_query_cache'][$cache_key])) { return $GLOBALS['core_query_cache'][$cache_key]; }
     $uuid = $args['meta_query'][0]['value']; $owners = array();
     foreach ($GLOBALS['meta'] as $id => $meta) {
         if (($meta['_missionmed_storyforge_user_id'] ?? '') === $uuid || ($meta['_missionmed_interviewiq_user_id'] ?? '') === $uuid) { $owners[] = $id; }
     }
-    return array_slice($owners, 0, 2);
+    $result = array_slice($owners, 0, 2);
+    if ($GLOBALS['core_cache_enabled']) { $GLOBALS['core_query_cache'][$cache_key] = $result; }
+    return $result;
 }
 function user_can($user, $cap) { return $user->admin && $cap === 'manage_options'; }
-function get_user_meta($id, $key, $single) { return $GLOBALS['meta'][$id][$key] ?? ''; }
+function get_user_meta($id, $key, $single) {
+    if (!$GLOBALS['core_cache_enabled']) { return $GLOBALS['meta'][$id][$key] ?? ''; }
+    if (!array_key_exists($id, $GLOBALS['core_meta_cache'])) { $GLOBALS['core_meta_cache'][$id] = $GLOBALS['meta'][$id] ?? array(); }
+    return $GLOBALS['core_meta_cache'][$id][$key] ?? '';
+}
 function add_user_meta($id, $key, $value, $unique) {
     $GLOBALS['meta_writes'][] = $key;
-    if (!isset($GLOBALS['meta'][$id][$key])) { $GLOBALS['meta'][$id][$key] = $GLOBALS['race_uuid'] ?? $value; return true; }
+    if (!isset($GLOBALS['meta'][$id][$key])) { $GLOBALS['meta'][$id][$key] = $GLOBALS['race_uuid'] ?? $value; wp_cache_delete($id, 'user_meta'); return true; }
     return false;
 }
 function get_option($key, $default = null) { return array('mmed_course_360elite' => 3893, 'mmed_course_complete' => 5227)[$key] ?? $default; }
-function sfwd_lms_has_access($course, $id) { return in_array($course, $GLOBALS['courses'][$id] ?? array(), true); }
-function ld_course_access_expired($course, $id) { return in_array($course, $GLOBALS['expired'][$id] ?? array(), true); }
-function mmhq_cam_restricted($id) { return in_array($id, $GLOBALS['restricted'], true); }
-function mmhq_cam_build_entitlement($id) { return $GLOBALS['grants'][$id] ?? array(); }
+function sfwd_lms_has_access($course, $id) { fixture_student_helper(); return in_array($course, $GLOBALS['courses'][$id] ?? array(), true); }
+function ld_course_access_expired($course, $id) { fixture_student_helper(); return in_array($course, $GLOBALS['expired'][$id] ?? array(), true); }
+function mmhq_cam_restricted($id) { fixture_student_helper(); return in_array($id, $GLOBALS['restricted'], true); }
+function mmhq_cam_build_entitlement($id) { fixture_student_helper(); return $GLOBALS['grants'][$id] ?? array(); }
 function mmsf_assignment_student_ids($id) { return $GLOBALS['assignments'][$id] ?? array(); }
 function mmsf_storyforge_user_id($id) { return get_user_meta($id, '_missionmed_storyforge_user_id', true); }
 
@@ -74,6 +102,9 @@ function ok($value, $message = 'assertion failed') { if (!$value) { throw new Ex
 function eq($actual, $expected) { ok($actual === $expected, 'values differ'); }
 function error_code($result, $code) { ok(is_wp_error($result)); eq($result->get_error_code(), $code); }
 function reset_state() {
+    $GLOBALS['core_cache_enabled'] = $GLOBALS['mapping_filter'] = $GLOBALS['forbid_student_helpers'] = false;
+    $GLOBALS['core_users_cache'] = $GLOBALS['core_meta_cache'] = $GLOBALS['core_query_cache'] = array();
+    $GLOBALS['core_users_generation'] = $GLOBALS['student_helper_calls'] = 0;
     $GLOBALS['wp_origin'] = 'https://missionmedinstitute.com';
     $GLOBALS['raw_session'] = 'synthetic-session-token-no-production-value';
     $GLOBALS['unknown_backend'] = false;
@@ -234,6 +265,17 @@ check('asset traversal and symlink escapes are refused', function () { with_rele
 check('invalid manifest cannot execute a fallback release', function () { with_release(function ($root, $id, $dir) { file_put_contents($dir . '/release.php', '<?php return null;'); eq(mmiiqg_read_release($root), null); }); });
 check('malformed manifest fails closed without uncaught parse error', function () { with_release(function ($root, $id, $dir) { file_put_contents($dir . '/release.php', '<?php return [;'); eq(mmiiqg_read_release($root), null); }); });
 
+check('core cache model retains primed session until explicit targeted metadata eviction', function () {
+    $GLOBALS['core_cache_enabled'] = true;
+    $actor = mmiiq_browser_identity(false);
+    $GLOBALS['meta'][42]['session_tokens'] = array();
+    eq(proof_payload(signed_request(proof_input()))['allowed'], true);
+    clean_user_cache(42);
+    eq(proof_payload(signed_request(proof_input()))['allowed'], true);
+    wp_cache_delete(42, 'user_meta');
+    eq(proof_payload(signed_request(proof_input()))['allowed'], false);
+    eq($GLOBALS['meta_writes'], array());
+});
 if (defined('IIQ_TEST_FIXTURE_ONLY') && IIQ_TEST_FIXTURE_ONLY) { return; }
 
 check('Calendar bootstrap bundle has strict bounded date query', function () {
