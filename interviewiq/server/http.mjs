@@ -72,6 +72,18 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       if([RESEARCH_PROOF_PATH,MRX_PROOF_PATH].includes(path)){if(!researchProof||req.method!=='POST'||req.url!==path)return send(503,{error:'research_authority_unavailable'});const result=await researchProof.handle(req);return send(result.status,result.body);}
       requireValue(secretEquals(req.headers['x-mmed-iiq-gateway'],config.gatewaySecret),'gateway_required','Use the MissionMed InterviewIQ entry.',403);
       requireValue(req.headers.origin===config.publicOrigin && !req.headers.cookie,'origin_denied','This request did not come through the authorized entry.',403);
+      if(req.method==='POST' && path==='/api/owner-challenge') {
+        requireValue(!url.search && typeof authorize.issueChallenge==='function','not_found','This endpoint is not available.',404);
+        const input=await jsonBody(req,4096);
+        requireValue(Object.keys(input).join(',')==='target' && typeof input.target==='string' && input.target.length<=2048 &&
+          /^\/api\/calendar\/(overview|cohort)\?/.test(input.target) && !/[%\\#]/.test(input.target.split('?')[0]) && !/[#\\]/.test(input.target),
+          'invalid_query','Choose a bounded Calendar range.',400);
+        const target=new URL(input.target,'http://localhost'),kind=resolveRoute('GET',target.pathname,target);
+        requireValue(['calendar-overview','calendar-cohort'].includes(kind),'invalid_query','Choose a bounded Calendar range.',400);
+        cohortRange({start:target.searchParams.get('start'),end:target.searchParams.get('end')});
+        const result=await authorize.issueChallenge(req,input.target);
+        return send(result.status,result.body);
+      }
       const route=resolveRoute(req.method,path,url);
       if(route==='bootstrap'&&url.searchParams.has('start')||route==='calendar-overview'||route==='calendar-cohort')calendarTimings=Object.fromEntries(['owner','cohort','own','admission','directory'].map(stage=>[stage,{count:0,ms:0}]));
       const actor=await measure('owner',()=>authorize(req,`${req.method} ${path}`));

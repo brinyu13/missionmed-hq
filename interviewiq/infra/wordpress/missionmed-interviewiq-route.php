@@ -177,8 +177,66 @@ function mmiiqg_calendar_timing_header($result) {
     if (preg_match('/^'.implode(', ',$parts).'$/D',$value)) { header('Server-Timing: '.$value); }
 }
 
+/** Server-only, fresh one-use owner exchange for ordinary Calendar GETs only. */
+function mmiiqg_owner_challenge_headers($origin, $headers, $target, $actor) {
+    $options=array('method'=>'POST','headers'=>array_merge($headers,array('Content-Type'=>'application/json')),
+        'body'=>wp_json_encode(array('target'=>$target)), 'timeout'=>5, 'redirection'=>0, 'sslverify'=>true,
+        'reject_unsafe_urls'=>true, 'limit_response_size'=>8193, 'cookies'=>array());
+    $response=wp_remote_request($origin.'/api/owner-challenge',$options);
+    if (is_wp_error($response)) { mmiiqg_error(502,'owner_challenge_unavailable'); }
+    $status=(int)wp_remote_retrieve_response_code($response);
+    $raw=wp_remote_retrieve_body($response);
+    $type=strtolower(trim(explode(';',(string)wp_remote_retrieve_header($response,'content-type'))[0]));
+    if (!is_string($raw) || strlen($raw)>8192 || $type!=='application/json') { mmiiqg_error(502,'owner_challenge_invalid'); }
+    $challenge=json_decode($raw,true);
+    $keys=static function($value) { if(!is_array($value))return ''; $keys=array_keys($value);sort($keys);return implode(',',$keys); };
+    // This exact legacy resolver result is trusted TLS, before any domain GET.
+    if ($status===404 && $keys($challenge)==='error,requestId'
+        && $keys($challenge['error'])==='code,message' && $challenge['error']['code']==='not_found'
+        && $challenge['error']['message']==='This endpoint is not available.' && mmiiq_uuid($challenge['requestId'])
+        && wp_remote_retrieve_header($response,'x-request-id')===$challenge['requestId']) { return array(); }
+    $secret=mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET');
+    if ($status===503 && $keys($challenge)==='payload,signature' && is_string($challenge['payload'])
+        && is_string($challenge['signature']) && preg_match('/^[a-f0-9]{64}$/D',$challenge['signature'])
+        && hash_equals(hash_hmac('sha256',"mmiiq-owner-challenge-unavailable-v1\n".$challenge['payload'],$secret),$challenge['signature'])) {
+        $unavailable=json_decode($challenge['payload'],true);
+        if ($keys($unavailable)==='audience,code,exp,iat,jwt_sha256,session_verifier,target'
+            && $unavailable['audience']==='interviewiq-owner-challenge' && $unavailable['code']==='owner_challenge_unavailable'
+            && $unavailable['target']===$target && $unavailable['jwt_sha256']===hash('sha256',substr($headers['Authorization'],7))
+            && $unavailable['session_verifier']===$actor['session_verifier'] && is_int($unavailable['iat']) && is_int($unavailable['exp'])
+            && $unavailable['iat']>=time()-3 && $unavailable['iat']<=time()+3 && $unavailable['exp']>time()
+            && $unavailable['exp']>$unavailable['iat'] && $unavailable['exp']-$unavailable['iat']<=10) { return array(); }
+    }
+    if ($status!==200 || $keys($challenge)!=='expires_at,id,payload,signature,version'
+        || $challenge['version']!==1 || !mmiiq_uuid($challenge['id']) || !is_int($challenge['expires_at'])
+        || $challenge['expires_at']<=time() || $challenge['expires_at']>time()+10
+        || !is_string($challenge['payload']) || strlen($challenge['payload'])>4096
+        || !is_string($challenge['signature']) || !preg_match('/^[a-f0-9]{64}$/D',$challenge['signature'])) { mmiiqg_error(502,'owner_challenge_invalid'); }
+    $input=json_decode($challenge['payload'],true);
+    if ($keys($input)!=='action,audience,iat,nonce,session_verifier,subject,wp_user_id'
+        || $input['action']!=='GET '.explode('?',$target)[0] || $input['audience']!=='interviewiq-owner-introspection'
+        || $input['subject']!==$actor['id'] || $input['wp_user_id']!==$actor['wp_user_id']
+        || $input['session_verifier']!==$actor['session_verifier'] || !mmiiq_uuid($input['nonce'])
+        || !is_int($input['iat']) || $input['iat']<time()-3 || $input['iat']>time()+3) { mmiiqg_error(502,'owner_challenge_invalid'); }
+    $request=new WP_REST_Request('POST','/missionmed-interviewiq/v1/introspect');
+    $request->set_body($challenge['payload']);
+    $request->set_header('X-MMED-IIQ-Proof',$challenge['signature']);
+    // Existing canonical callback invokes its unchanged permission function.
+    $current=mmiiq_introspection($request);
+    if (is_wp_error($current)) { mmiiqg_error((int)($current->get_error_data()['status']??403),$current->get_error_code()); }
+    if (!($current instanceof WP_REST_Response) || $current->get_status()!==200) { mmiiqg_error(502,'owner_challenge_invalid'); }
+    $envelope=$current->get_data();
+    if ($keys($envelope)!=='payload,signature' || !is_string($envelope['payload']) || strlen($envelope['payload'])>5500
+        || !is_string($envelope['signature']) || !preg_match('/^[a-f0-9]{64}$/D',$envelope['signature'])) { mmiiqg_error(502,'owner_challenge_invalid'); }
+    $encoded=base64_encode(wp_json_encode($envelope));
+    if (strlen($encoded)>8192) { mmiiqg_error(502,'owner_challenge_invalid'); }
+    return array('X-MMED-IIQ-Owner-Challenge'=>$challenge['id'],'X-MMED-IIQ-Owner-Proof'=>$encoded);
+}
+
 function mmiiqg_proxy($route, $method) {
-    if (isset($_SERVER['HTTP_X_MMED_IIQ_GATEWAY'])) { mmiiqg_error(400, 'reserved_header'); }
+    foreach (array('HTTP_X_MMED_IIQ_GATEWAY','HTTP_X_MMED_IIQ_PROOF','HTTP_X_MMED_IIQ_OWNER_PROOF','HTTP_X_MMED_IIQ_OWNER_CHALLENGE') as $key) {
+        if (isset($_SERVER[$key])) { mmiiqg_error(400,'reserved_header'); }
+    }
     $actor = mmiiq_browser_identity(false);
     if (is_wp_error($actor)) { mmiiqg_error((int) ($actor->get_error_data()['status'] ?? 403), $actor->get_error_code()); }
     if ($method !== 'GET') {
@@ -213,6 +271,10 @@ function mmiiqg_proxy($route, $method) {
         if ($value !== '' && is_string($value) && preg_match('/^[A-Za-z0-9_.:-]{1,120}$/D', $value)) { $headers[$name] = $value; }
     }
     foreach(array('X-IIQ-Request-ID'=>'HTTP_X_IIQ_REQUEST_ID','X-IIQ-Expected-Version'=>'HTTP_X_IIQ_EXPECTED_VERSION','X-IIQ-SHA256'=>'HTTP_X_IIQ_SHA256','X-IIQ-Extension'=>'HTTP_X_IIQ_EXTENSION','X-IIQ-Calendar-Target'=>'HTTP_X_IIQ_CALENDAR_TARGET','X-IIQ-Student-Preview'=>'HTTP_X_IIQ_STUDENT_PREVIEW') as $name=>$key){$v=$_SERVER[$key]??'';if($v!==''&&is_string($v)&&strlen($v)<=80&&preg_match('/^[A-Za-z0-9_-]+$/D',$v)){$headers[$name]=$v;}}
+    if ($method==='GET' && in_array($route['target'],array('/api/calendar/overview','/api/calendar/cohort'),true)) {
+        if ((isset($_SERVER['CONTENT_LENGTH']) && (string)$_SERVER['CONTENT_LENGTH']!=='0') || isset($_SERVER['HTTP_TRANSFER_ENCODING'])) { mmiiqg_error(400,'request_body_not_supported'); }
+        $headers=array_merge($headers,mmiiqg_owner_challenge_headers($origin,$headers,$route['target'].$query,$actor));
+    }
     $maximum_response=($route['binary_download']??false)?5242880:4194304;
     $result = wp_remote_request($origin . $route['target'] . $query, array('method' => $method, 'headers' => $headers,
         'body' => $body, 'timeout' => 45, 'redirection' => 0, 'sslverify' => true,
@@ -328,6 +390,9 @@ function mmiiqg_immutable_assets() {
 }
 /** Optional nonce-POST startup: reuse full browser/token and remote API authorization. */
 function mmiiqg_calendar_startup_token() {
+    foreach (array('HTTP_X_MMED_IIQ_GATEWAY','HTTP_X_MMED_IIQ_PROOF','HTTP_X_MMED_IIQ_OWNER_PROOF','HTTP_X_MMED_IIQ_OWNER_CHALLENGE') as $key) {
+        if (isset($_SERVER[$key])) { mmiiqg_error(400,'reserved_header'); }
+    }
     if (!array_key_exists('iiq_calendar', $_GET)) { return; } // Legacy token-only contract.
     $raw = $_SERVER['QUERY_STRING'] ?? '';
     $input = array(); parse_str($raw, $input); $keys = array_keys($input); sort($keys);

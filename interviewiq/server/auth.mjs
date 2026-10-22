@@ -32,7 +32,16 @@ async function boundedText(response, maximum = 65536) {
 // No positive authorization cache: WordPress logout, role, enrollment and
 // assignment changes are consulted on every protected request.
 export function createAuthorizer(config, {fetchImpl = fetch, now = () => Date.now()} = {}) {
-  return async function authorize(request, action) {
+  // Volatile, bounded outstanding requests only; never an authorization cache.
+  const pending=new Map(), emptyDigest=createHash('sha256').update('').digest('hex');
+  const hash=value=>createHash('sha256').update(value).digest('hex');
+  const targetAllowed=target=>typeof target==='string' && target.length<=2048 &&
+    /^\/api\/calendar\/(overview|cohort)\?/.test(target) && !/[#\\]/.test(target);
+  const localHeaders=request=>request.headers['x-mmed-iiq-owner-challenge']!==undefined || request.headers['x-mmed-iiq-owner-proof']!==undefined;
+  const empty=request=>(request.headers['content-length']===undefined || request.headers['content-length']==='0') && request.headers['transfer-encoding']===undefined;
+  const binding=(token,c,target)=>hash(JSON.stringify([hash(token),c.session_verifier,'GET',target,emptyDigest]));
+  const prune=()=>{for(const [id,entry] of pending)if(entry.expiresAt<=Math.floor(now()/1000))pending.delete(id);};
+  async function claimsFor(request) {
     const raw = String(request.headers.authorization || '');
     const match = /^Bearer ([A-Za-z0-9_.-]+)$/.exec(raw);
     if (!match || raw.length > 12000) throw denial();
@@ -50,17 +59,37 @@ export function createAuthorizer(config, {fetchImpl = fetch, now = () => Date.no
           !Number.isSafeInteger(c.iat) || !Number.isSafeInteger(c.exp) || c.exp-c.iat>90 || c.exp<=c.iat || c.iat>seconds+3)
         throw new Error('Invalid claims');
     } catch { throw denial(); }
-    const payload=JSON.stringify({audience,subject:c.sub,wp_user_id:c.wp_user_id,session_verifier:c.session_verifier,nonce:randomUUID(),iat:seconds,action:String(action).slice(0,160)});
-    const sent=JSON.parse(payload);
-    let current;
+    return {c,seconds,token:match[1]};
+  }
+  const ownerPayload=(c,seconds,action)=>JSON.stringify({audience,subject:c.sub,wp_user_id:c.wp_user_id,session_verifier:c.session_verifier,nonce:randomUUID(),iat:seconds,action:String(action).slice(0,160)});
+  async function authorize(request, action) {
+    const {c,seconds,token}=await claimsFor(request);
+    let payload=ownerPayload(c,seconds,action),current;
     try {
+      let envelope;
+      if(localHeaders(request)) {
+        const id=request.headers['x-mmed-iiq-owner-challenge'],encoded=request.headers['x-mmed-iiq-owner-proof'];
+        const entry=typeof id==='string'?pending.get(id):null;
+        // Synchronous take/delete before parsing/acceptance; no await can race it.
+        if(typeof id==='string')pending.delete(id);
+        if(!entry || entry.expiresAt<=seconds || request.method!=='GET' || !targetAllowed(request.url) ||
+            !empty(request) || entry.binding!==binding(token,c,request.url) || action!==`GET ${request.url.split('?')[0]}` ||
+            typeof encoded!=='string' || encoded.length>8192 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))throw new Error('Invalid owner challenge');
+        const decoded=Buffer.from(encoded,'base64');
+        if(decoded.toString('base64')!==encoded)throw new Error('Invalid proof encoding');
+        envelope=JSON.parse(decoded.toString('utf8'));
+        if(!envelope || Object.keys(envelope).sort().join(',')!=='payload,signature')throw new Error('Invalid proof envelope');
+        payload=entry.payload;
+      } else {
       const response=await fetchImpl(config.ownerIntrospectionUrl, {
         method:'POST', redirect:'error', signal:AbortSignal.timeout(config.ownerTimeoutMs),
         headers:{'Content-Type':'application/json','Accept':'application/json','X-MMED-IIQ-Proof':proof(config.ownerProofSecret,'mmiiq-introspection-request-v1',payload)},
         body:payload,
       });
       if (!response.ok) throw new Error('Owner unavailable');
-      const envelope=JSON.parse(await boundedText(response));
+      envelope=JSON.parse(await boundedText(response));
+      }
+      const sent=JSON.parse(payload);
       if (typeof envelope.payload !== 'string' || !equalHex(envelope.signature,proof(config.ownerProofSecret,'mmiiq-introspection-response-v1',envelope.payload)))
         throw new Error('Invalid owner proof');
       current=JSON.parse(envelope.payload);
@@ -83,5 +112,25 @@ export function createAuthorizer(config, {fetchImpl = fetch, now = () => Date.no
       zone:typeof c.zone==='string' ? c.zone : 'America/New_York',
     });
     return bindOwnerSession(actor,{verifier:c.session_verifier,expiresAt:Math.min(c.exp,current.exp)*1000});
+  }
+  // Called only after the HTTP gateway gate and exact existing GET route/range validation.
+  authorize.issueChallenge=async(request,target)=>{
+    const {c,seconds,token}=await claimsFor(request);
+    if(!targetAllowed(target) || localHeaders(request) || c.exp<=seconds)throw denial();
+    prune();
+    const jwt=hash(token),requester=hash(String(request.socket?.remoteAddress||'unknown'));
+    const unavailable=()=>{
+      const payload=JSON.stringify({audience:'interviewiq-owner-challenge',code:'owner_challenge_unavailable',
+        target,jwt_sha256:jwt,session_verifier:c.session_verifier,iat:seconds,exp:seconds+10});
+      return {status:503,body:{payload,signature:proof(config.ownerProofSecret,'mmiiq-owner-challenge-unavailable-v1',payload)}};
+    };
+    const entries=[...pending.values()];
+    if(!['student','admin'].includes(c.app_role) || pending.size>=256 || entries.filter(x=>x.jwt===jwt).length>=4 ||
+        entries.filter(x=>x.requester===requester).length>=64)return unavailable();
+    const id=randomUUID(),expiresAt=Math.min(c.exp,seconds+10),payload=ownerPayload(c,seconds,`GET ${target.split('?')[0]}`);
+    pending.set(id,{jwt,requester,expiresAt,payload,binding:binding(token,c,target)});
+    return {status:200,body:{version:1,id,expires_at:expiresAt,payload,
+      signature:proof(config.ownerProofSecret,'mmiiq-introspection-request-v1',payload)}};
   };
+  return authorize;
 }

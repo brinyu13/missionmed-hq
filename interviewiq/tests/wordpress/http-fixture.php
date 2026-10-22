@@ -23,7 +23,47 @@ function fixture_calendar_timing() {
         'oversized'=>str_repeat($valid,3),'crlf'=>$valid."\r\nX-Injected: forbidden");
     return $values[$_SERVER['HTTP_X_FIXTURE_TIMING']??'']??'';
 }
+class WP_REST_Request extends Request {
+    public function __construct($method, $path) { parent::__construct('',array(),$method); }
+    public function set_body($body) { $this->body=$body; }
+    public function set_header($name,$value) { $this->headers[strtolower($name)]=$value; }
+}
+function fixture_owner_response($status,$body,$headers=array()) {
+    return array('response'=>array('code'=>$status),'headers'=>array_merge(array('content-type'=>'application/json'),$headers),'body'=>wp_json_encode($body));
+}
 function wp_remote_request($url, $options) {
+    $challenge=parse_url($url,PHP_URL_PATH)==='/api/owner-challenge';
+    $mode=$_SERVER['HTTP_X_FIXTURE_OWNER_MODE']??'';
+    if ($challenge && (!isset($_SERVER['HTTP_X_FIXTURE_OWNER_API']) || in_array($mode,array('legacy','legacy-header','generic503','timeout','capacity','bad-capacity'),true))) {
+        if($mode==='timeout')return new WP_Error('http_request_failed','Synthetic challenge timeout');
+        if($mode==='generic503')return fixture_owner_response(503,array('error'=>array('code'=>'service_unavailable')));
+        if(in_array($mode,array('capacity','bad-capacity'),true)) {
+            $input=json_decode($options['body'],true);$actor=mmiiq_browser_identity(false);$now=time();
+            $payload=wp_json_encode(array('audience'=>'interviewiq-owner-challenge','code'=>'owner_challenge_unavailable',
+                'target'=>$input['target'],'jwt_sha256'=>hash('sha256',substr($options['headers']['Authorization'],7)),
+                'session_verifier'=>$actor['session_verifier'],'iat'=>$now,'exp'=>$now+10));
+            return fixture_owner_response(503,array('payload'=>$payload,'signature'=>$mode==='bad-capacity'?str_repeat('0',64):hash_hmac('sha256',"mmiiq-owner-challenge-unavailable-v1\n".$payload,mmiiq_setting('INTERVIEWIQ_OWNER_PROOF_SECRET'))));
+        }
+        $id='77777777-7777-4777-8777-777777777777';
+        return fixture_owner_response(404,array('error'=>array('code'=>'not_found','message'=>'This endpoint is not available.'),'requestId'=>$id),
+            array('x-request-id'=>$mode==='legacy-header'?'mismatch':$id));
+    }
+    // Explicit loopback-only bridge exercises real Node auth/HTTP with synthetic WP.
+    $port=$_SERVER['HTTP_X_FIXTURE_OWNER_API']??'';
+    if(is_string($port)&&preg_match('/^[1-9][0-9]{3,4}$/D',$port)&&(int)$port<=65535) {
+        $parts=parse_url($url);$path=$parts['path'].(isset($parts['query'])?'?'.$parts['query']:'');
+        $lines=array();foreach($options['headers'] as $key=>$value)$lines[]=$key.': '.$value;
+        $context=stream_context_create(array('http'=>array('method'=>$options['method'],'header'=>implode("\r\n",$lines),
+            'content'=>$options['body'],'ignore_errors'=>true,'timeout'=>3,'follow_location'=>0)));
+        $raw=@file_get_contents('http://127.0.0.1:'.$port.$path,false,$context,0,($options['limit_response_size']??4194305));
+        if(!is_string($raw))return new WP_Error('http_request_failed','Synthetic API unavailable');
+        $received=$http_response_header??array();$status=0;$out=array();
+        foreach($received as $line){if(preg_match('#^HTTP/\\S+ ([0-9]{3})#',$line,$match))$status=(int)$match[1];elseif(str_contains($line,':')){list($key,$value)=explode(':',$line,2);$out[strtolower($key)]=trim($value);}}
+        if($challenge && $mode==='signature'){$value=json_decode($raw,true);$value['signature']=str_repeat('0',64);$raw=wp_json_encode($value);}
+        if($challenge && $mode==='revoked')$GLOBALS['meta'][42]['session_tokens']=array();
+        return array('response'=>array('code'=>$status),'headers'=>$out,'body'=>$raw);
+    }
+
     if (isset($_SERVER['HTTP_X_FIXTURE_STARTUP'])) {
         $mode=$_SERVER['HTTP_X_FIXTURE_UPSTREAM']??'';
         if($mode==='timeout')return new WP_Error('http_request_failed','Synthetic timeout');

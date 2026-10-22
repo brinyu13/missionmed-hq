@@ -12,6 +12,8 @@ class WP_REST_Response {
     public $headers = array();
     public function __construct(public $data, public $status = 200) {}
     public function header($name, $value) { $this->headers[$name] = $value; }
+    public function get_data() { return $this->data; }
+    public function get_status() { return $this->status; }
 }
 class WP_User {
     public function __construct(public $ID, public $roles = array('student'), public $display_name = 'Synthetic Student', public $admin = false) {}
