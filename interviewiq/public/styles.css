@@ -1270,3 +1270,13 @@ body:has(.calendar-first) .route-hint{display:none}
 .studioGuidanceFold summary{cursor:pointer;font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
 .studioGuidanceFold[open] summary{margin-bottom:8px;color:var(--em)}
 .studioGuidanceBody p{margin-bottom:6px}
+
+/* Keep Calendar row details readable when the month-only time column is hidden. */
+@media(max-width:860px){
+ .calendar-first .mcv2-event.is-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"time badge" "copy copy";align-items:start}
+ .calendar-first .mcv2-event.is-row .mcv2-event-time{display:block;grid-area:time}
+ .calendar-first .mcv2-event.is-row .mcv2-chip{grid-area:badge;justify-self:end}
+ .calendar-first .mcv2-event.is-row .mcv2-event-copy{grid-area:copy;min-width:0}
+ .calendar-first .mcv2-event.is-row .mcv2-event-copy strong{font-size:14px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+ .calendar-first .mcv2-event.is-row .mcv2-event-copy small{font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+}
