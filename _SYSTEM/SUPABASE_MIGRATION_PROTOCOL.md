@@ -1,8 +1,8 @@
 # SUPABASE MIGRATION PROTOCOL -- PERMANENT HARDENING
 
 **Authority:** MR-078A
-**Version:** 1.3
-**Date:** 2026-10-18
+**Version:** 1.4
+**Date:** 2026-10-22
 **Risk Level:** HIGH
 **Status:** LOCKED -- NON-NEGOTIABLE
 
@@ -490,3 +490,41 @@ Before ONE production application attempt, bind the exact final source commit/fi
 Success requires independent readback of every unchanged predecessor row/statement, exactly ONE new provider-version/name/body mapping to this final source, and the exact expected catalog/ACL/RLS with no armed grant/reservation introduced by migration. The provider's actual remote version may differ from source timestamp; use the same deterministic nonlossy body mapping as section7.1 and never reapply the source timestamp. Preserve all existing ledger consumption, attempts, reservations, quarantine, admin QA OFF accounting and historical UNKNOWNs. No accounting reset, broader role grant, public INSERT, secret publication or unrelated data mutation.
 
 A lost/timeout/malformed response, mismatch, partial catalog/history or uncertain body outcome stops downstream mutations. Absence, cancellation and closed local transport do not establish rollback. Preserve UNKNOWN; use only the dedicated decision's finite exact read-only reconciliation, without replay, compensating SQL, automatic retry or deployment. A confirmed rollback does not restore the single production attempt. MR079's exact companion and MR078B/privacy/identity invariants remain mandatory. All other safeguards remain unchanged; expiry/revocation of the fixed approval closes unused execution.
+
+## Exact RewindIQ coordination migration API adapter - MR-REWINDIQ-MAPPING-API-20261022
+
+This exact adapter applies only to mission MX-REWINDIQ-PHASE1-20261022, coordination project brxqytrfdisrgakrxkhd and immutable source commit023236f155bc9cba5ef3ea7fb693698d430358d9 file supabase/migrations/20261022194317_mx_rewindiq_product_lease_mapping.sql, SHA2565ef4734f9e89530ed284ec9bf0463dcf945a16f1927eb1bda04955b9ac76fa92. This policy adapter is not an execution grant; Brian's exact approval, canonical companion publication/dependency closure and a separate independently reviewed current actual-artifact execution seal are mandatory before one application.
+
+### Root cause and narrow selection
+
+Authoritative read-only history reconciliation found six existing coordination history rows and five preexisting source/provider version differences. Standard whole-directory db push therefore cannot be represented as one pending reviewed artifact. Preserve both histories and every statement; no repair, rename, reset, copied-history placeholder, include-all or bulk push. The supported exact-file API route avoids changing unrelated history. This is new RewindIQ-specific authority, not reuse of another mission's executor grant.
+
+The connected apply_migration metadata accepts project_id/name/query. Official Supabase MCP source4a619c13f6dd054bac4ee7fbd3757dd27509ac63, database-operation-tools.ts and platform/api-platform.ts, maps that operation to POST /v1/projects/{ref}/database/migrations with only name/query in the body. The current official Supabase for Platforms guide describes provider-managed history and schema-failure rollback. These are primary-source contract observations, not proof that the deployed connector/backend is byte-identical or tested for history-insert-error atomicity. Complete pinned evidence and digests are retained in the independently reviewed execution package.
+
+Use only mcp__codex_apps__supabase_apply_migration(project_id=brxqytrfdisrgakrxkhd, name=mx_rewindiq_product_lease_mapping, query=complete unchanged published source bytes). Source query digest and complete canonical request/provider-body digests are fixed in the companion MR079 adapter and immutable execution manifest. Keep the source BEGIN/COMMIT and all SQL guards unchanged; no extra wrapper, transaction rewriting, alternate body, SQL Editor/execute_sql body or separate history registration. No new credentials or configuration are authorized to obtain this executor.
+
+The provider selects the actual history version. It may differ from source timestamp20261022194317. Preserve filename/source bytes; independently map exactly one new actual version/name/statements record to this source commit/file/hash and exact request. Do not force equality by renaming or rewriting history. A deterministic nonlossy representation must prove history statements correspond to the submitted source; naive whitespace/comment stripping or a name-only match is insufficient. If no such verified representation is available, outcome stays UNKNOWN. Future CLI work must respect the source-to-provider provenance map and never reapply the original timestamp.
+
+### Explicit limits
+
+The public contract does not establish provider history-insert-error/body atomicity, exactly-once transport, cancellation as remote termination, or post-commit restoration. The unchanged source explicitly commits its SQL body; the wrapper source does not expose the backend's history transaction. Do not call this tested CLI-equivalent atomicity. Brian's exact reviewed exception must accept this bounded residual uncertainty, with all once/UNKNOWN controls below. The endpoint's exposure in the connected tool and public implementation is not an independent guarantee of backend eligibility or success; unexpected permission/read-only/confirmation behavior consumes the one invocation and stops without bypass or fallback.
+
+### Before the one invocation
+
+Require all of the following in a separate exact canonical execution seal:
+
+1. Independently published source/security/local-test proof and immutable source/query/request digests, exact named executor/custodian and actual invocation manifest. Complete prior migration versions/names/statements, mapping function definitions/catalog/ACLs and expected postimages must be pinned and freshly revalidated; six rows are historical evidence, not an assumed future count. No candidate-history record or partially applied RewindIQ mapping may preexist. Preserve existing leases, owners, keepers, fencing epochs, lease history and other mappings.
+2. Companion MR079/MR078A amendments independently reviewed, canonically published under their separately admitted protected-path custody; exact OS dependency hashes closed and universal/RewindIQ BOOT PASS. Current authority/readback, ordinary REGISTRY release and provider-clear precede execution. No broader core-policy edit is permitted.
+3. A fresh current native exact PATH claim using unchanged native scope PATH:0f26e8325277d4afd80baffaff77389c66f8e5267ce909132f051f9de40a6145 and the exact four admitted source paths, with a manifest additionally binding target/request/executor. Its control-plane execution sufficiency and competing-writer proof require distinct independent approval; do not assume a source lease confers arbitrary provider authority. Preserve in-SQL transaction advisory fence1296916307,2s lock timeout,5s statement timeout, complete preimage/ACL/postimage guards. If safe exact custody cannot be established, stop. No GLOBAL, SHARED or other-product substitute.
+4. Durable once-only record created exclusively and persisted BEFORE invocation, binding final authority/source/request/custody/phase-GO digests. Its consumed state cannot be reset after any call, timeout, apparent rollback or local crash. No client, orchestration or transport automatic replay. A missing/ambiguous marker or invocation outcome stops the phase. A confirmation-only result is not permission for another call.
+5. Fresh independent HIGH MR078A/security invocation review and root phase GO. Exact read-only acceptance queries/counts and finite UNKNOWN schedule must be sealed; no ad hoc SQL or synthetic live lease mutation is authorized by this adapter. Credentials remain only in existing authorized connector/native process custody, never output or provisioned.
+
+### Acceptance and UNKNOWN
+
+After at most one invocation, independently read complete history and the exact two function definitions/catalog/ACLs plus mapping truth vectors. Accept only unchanged complete predecessors, exactly one correctly proven new provider-history entry mapping to this source/request, exact expected helper postimages/attributes/ACLs and preserved other mappings. Reads may observe unrelated native keeper heartbeats; do not demand globally frozen lease timestamps or modify another owner's lease. Exact owned custody/keeper health and no unauthorized row/epoch changes require scope-aware evidence.
+
+A lost/timeout/error/malformed result, unmatched statements, partial/missing/extra history or catalog, conflicting preimage, or unclear remote execution is UNKNOWN. Tool success alone is not PASS. Immediate absence, local process cancellation, closed transport or a documented schema error does not prove terminal remote rollback. Stop all downstream mutations, preserve the once record/evidence and continue only the presealed finite READ-ONLY reconciliation: proposed schedule is one immediate read set and at most three further read sets at30,120,300 seconds after outcome observation, never extended without new authority. The execution seal may narrow that schedule; no replay, keepalive apply, compensating SQL, history DML, retry or deploy. A confirmed rollback does not restore the consumed attempt. Remaining uncertainty at the bound is escalated as UNKNOWN.
+
+Recovery is a separately reviewed forward correction with fresh source/provenance/authority/custody, only if safe with current leases/mappings. The prepared rollback SQL is evidence, not automatically executable. Never remove a mapping while writers depend on it without separately admitted safe disposition. Preserve all historical rows/counters/source filenames. This exception expires at one confirmed terminal application outcome, the bounded UNKNOWN stop, relevant authority/custody drift or Brian revocation; unused continuation is not transferable.
+
+All other MR078A rules, MR078B/privacy controls, runtime locks and separate provider/resource/application-release gates remain unchanged. No other project, migration, history reconciliation, credentials, shared setting, resource provisioning or student activation is authorized.

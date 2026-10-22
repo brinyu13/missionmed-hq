@@ -1,8 +1,8 @@
 # CODEX EXECUTION GUARDRAILS -- HARD SAFETY SYSTEM
 
 **Authority:** MR-079
-**Version:** 1.2
-**Date:** 2026-10-18
+**Version:** 1.3
+**Date:** 2026-10-22
 **Risk Level:** HIGH
 **Status:** LOCKED -- NON-NEGOTIABLE
 **Depends On:** MR-078A (Migration Protocol), MR-078B (Data Flow Contract), MM-AUTH-ARCH-001
@@ -680,3 +680,17 @@ This exact exception permits only automatic provider-managed schema_migrations r
 Justification and impact: a new truthful risk mode and approval-specific service-only controls require a forward SQL change; the old exact-file adapter does not cover it. MR078A section7.2 supplies final immutable source/request provenance, tested local SQL/ACL/race safeguards, authoritative history/catalog checks, once-only execution, current native fencing and finite read-only UNKNOWN reconciliation through the unchanged supported API. MR078B identity/ownership, data-flow, RLS and student privacy remain unchanged. Risk acceptance does not assert a provider-guaranteed monetary ceiling or permit unlimited spend; hard_ceiling_verified remains false and maximum exposure/hard-proof fields remain NULL in this mode. Native first-use session binding, immutable consumption and exact one-test limits require the dedicated canonical decision and independent artifact/phase review.
 
 The exact same final source-commit/digest substitutions must appear in both amendments and the immutable execution manifest. Independent resolved two-document review, supported fenced publication, exact two dependency-hash closure and both BOOT PASS are required before application. MR-G8 preservation/custody rules remain in force. This amendment alone grants no production SQL, arm/disarm RPC, settings, credentials, provider call, paid Start, retry or release; each such admitted phase requires its separately exact reviewed artifact/invocation, fresh custody and root GO, with human Start retained for the one paid CREATE.
+
+## Exact RewindIQ coordination mapping migration API adapter - MR-REWINDIQ-MAPPING-API-20261022
+
+This exact adapter applies only to mission MX-REWINDIQ-PHASE1-20261022, coordination project brxqytrfdisrgakrxkhd, source commit023236f155bc9cba5ef3ea7fb693698d430358d9 and unchanged file supabase/migrations/20261022194317_mx_rewindiq_product_lease_mapping.sql, SHA2565ef4734f9e89530ed284ec9bf0463dcf945a16f1927eb1bda04955b9ac76fa92. It is operative only after Brian's exact approval, independent review, canonical publication of this companion and the matching MR078A adapter, exact canonical dependency closure/BOOT PASS, and a separate current actual-artifact execution seal. This document alone grants no production invocation.
+
+For this exact file only, the supported Supabase apply_migration route may perform automatic provider-managed migration recording. This narrowly supersedes G8/section8.2's CLI-only history-manager wording solely for that automatic recording; it never permits agent-authored history INSERT/UPDATE/DELETE, repair, source rename, copied history, include-all/bulk push, a raw execute_sql/SQL Editor migration body, a second registration call or a CLI fallback. No other project's exception is inherited.
+
+Select only connected mcp__codex_apps__supabase_apply_migration with project_id brxqytrfdisrgakrxkhd, name mx_rewindiq_product_lease_mapping and the complete unchanged published file as query, including its original transaction and advisory-lock/preimage/postimage checks. Canonical complete tool-arguments digest is d489b8b2ec7758c6a6e63640568b67e86ba1f4e71cfe50a088bb830007739172; canonical provider-body digest is a483606f92d7e92c9074939facf63721ed5a5b8ad52b59bfdf66d7ec8ba32690. Both use UTF8 sorted-key compact JSON without trailing newline; tool arguments include project_id, provider body only name/query. No body or wrapper substitution.
+
+MR078A's exact companion defines supported endpoint evidence and its limits: documented schema-failure rollback does not prove body/history-insertion-error atomicity, exactly-once transport, remote termination or post-commit restoration. Brian's reviewed exception must explicitly accept those bounded residual limits. The committed file contains BEGIN/COMMIT; do not claim a tested encompassing provider history transaction or edit the source to manufacture it.
+
+Require current native exact PATH custody/continuous keeper and competing-writer controls, the original in-SQL transaction advisory fence1296916307, complete predecessor history/statements and function/ACL preimages, independently tested source/security/rollback evidence, durable consumed-before-call once marker, exact executor/request and bounded read-only acceptance/UNKNOWN reconciliation in the separate canonical execution seal. At most ONE apply_migration invocation; no automatic retry, including after apparent rollback or confirmation-only/unexpected response. Success is established by independent exact catalog/ACL/mapping/history readback, not tool success alone. Unknown outcome forbids further mutations.
+
+All other MR079/MR078A/privacy/data constraints remain unchanged. No provider resource/credential/settings, application deployment, media import, audience activation or unrelated product grant is created. Any future forward correction needs fresh reviewed artifact authority; never alter applied history or active lease ownership/counters.
