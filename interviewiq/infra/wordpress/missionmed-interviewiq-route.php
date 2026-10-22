@@ -166,6 +166,17 @@ function mmiiqg_private_html($html) {
     return str_replace('</head>',$meta.'</head>',$html);
 }
 
+/** Forward only the fixed aggregate Calendar timing grammar from the trusted API. */
+function mmiiqg_calendar_timing_header($result) {
+    $value=wp_remote_retrieve_header($result,'server-timing');
+    if (!is_string($value) || strlen($value)>256) { return; }
+    $parts=array();
+    foreach (array('owner','cohort','own','admission','directory','total') as $stage) {
+        $parts[]='iiq_'.$stage.';dur=(?:0|[1-9][0-9]{0,4})\.[0-9]';
+    }
+    if (preg_match('/^'.implode(', ',$parts).'$/D',$value)) { header('Server-Timing: '.$value); }
+}
+
 function mmiiqg_proxy($route, $method) {
     if (isset($_SERVER['HTTP_X_MMED_IIQ_GATEWAY'])) { mmiiqg_error(400, 'reserved_header'); }
     $actor = mmiiq_browser_identity(false);
@@ -221,6 +232,10 @@ function mmiiqg_proxy($route, $method) {
     mmiiqg_security_headers();
     status_header($status);
     header('Content-Type: application/json; charset=utf-8');
+    if ($method==='GET' && $status===200 && (in_array($route['target'],array('/api/calendar/overview','/api/calendar/cohort'),true)
+        || $route['target']==='/api/bootstrap' && strpos($query,'start=')!==false && strpos($query,'end=')!==false)) {
+        mmiiqg_calendar_timing_header($result);
+    }
     echo $response_body;
     exit;
 }
@@ -358,6 +373,7 @@ function mmiiqg_calendar_startup_token() {
         || $signed['expires_at']<=time()) { mmiiqg_error(502,'calendar_startup_invalid'); }
     $signed['calendarStartupAttempted']=true;
     $signed['calendarStartup']=array('path'=>'/bootstrap'.$query,'bootstrap'=>$bootstrap);
+    mmiiqg_calendar_timing_header($result);
     mmiiq_ajax_response($signed);
 }
 add_action('wp_ajax_missionmed_interviewiq_token','mmiiqg_calendar_startup_token',0);

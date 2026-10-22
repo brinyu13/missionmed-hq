@@ -41,15 +41,21 @@ export function createHandler({config,database,authorize,commands,owners,recordi
     const send=(status,value)=>{
       if(res.destroyed || res.writableEnded)return;
       const body=JSON.stringify(value);
-      res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Content-Length':Buffer.byteLength(body),
+      const stages=calendarTimings?Object.fromEntries(Object.entries(calendarTimings).map(([stage,value])=>[stage,{count:value.count,ms:Math.round(value.ms*10)/10}])):null;
+      const totalMs=stages?Math.round((performance.now()-requestStarted)*10)/10:null;
+      const headers={'Content-Type':'application/json; charset=utf-8','Content-Length':Buffer.byteLength(body),
         'Cache-Control':'private, no-store','Pragma':'no-cache','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
-        'Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'",'X-Request-ID':requestId});
+        'Content-Security-Policy':"default-src 'none'; frame-ancestors 'none'",'X-Request-ID':requestId};
+      // Fixed aggregate spans only. Nested spans overlap; they are not additive.
+      if(status===200&&stages&&[totalMs,...Object.values(stages).map(x=>x.ms)].every(ms=>Number.isFinite(ms)&&ms>=0&&ms<=99999.9)){
+        headers['Server-Timing']=[...Object.entries(stages).map(([stage,value])=>`iiq_${stage};dur=${value.ms.toFixed(1)}`),`iiq_total;dur=${totalMs.toFixed(1)}`].join(', ');
+      }
+      res.writeHead(status,headers);
       res.end(body);
       if(calendarTimings){
-        const stages=Object.fromEntries(Object.entries(calendarTimings).map(([stage,value])=>[stage,{count:value.count,ms:Math.round(value.ms*10)/10}]));
         calendarTimings=null;
         // Fixed names/durations only; no identity, range, payload, headers or SQL.
-        try{logger({event:'calendar_bootstrap_timing',requestId,method:'GET',path:'/api/bootstrap',status,totalMs:Math.round((performance.now()-requestStarted)*10)/10,stages});}catch{}
+        try{logger({event:path==='/api/bootstrap'?'calendar_bootstrap_timing':'calendar_read_timing',requestId,method:'GET',path,status,totalMs,stages});}catch{}
       }
     };
     let path='unparsed';
@@ -67,7 +73,7 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       requireValue(secretEquals(req.headers['x-mmed-iiq-gateway'],config.gatewaySecret),'gateway_required','Use the MissionMed InterviewIQ entry.',403);
       requireValue(req.headers.origin===config.publicOrigin && !req.headers.cookie,'origin_denied','This request did not come through the authorized entry.',403);
       const route=resolveRoute(req.method,path,url);
-      if(route==='bootstrap'&&url.searchParams.has('start'))calendarTimings=Object.fromEntries(['owner','cohort','own','admission','directory'].map(stage=>[stage,{count:0,ms:0}]));
+      if(route==='bootstrap'&&url.searchParams.has('start')||route==='calendar-overview'||route==='calendar-cohort')calendarTimings=Object.fromEntries(['owner','cohort','own','admission','directory'].map(stage=>[stage,{count:0,ms:0}]));
       const actor=await measure('owner',()=>authorize(req,`${req.method} ${path}`));
       if(config.coreOnly) {
         requireValue(actor.role==='admin' || (actor.role==='student' && ['360','ivprep_complete'].includes(actor.tier)), 'core_access_required','InterviewIQ is not available for your current access.',403);
@@ -78,8 +84,8 @@ export function createHandler({config,database,authorize,commands,owners,recordi
       const calendarContext={database,actor,config,owners,admit:(...args)=>measure('admission',()=>admit(...args)),directory:(...args)=>measure('directory',()=>directory(...args)),eventRef:path.split('/')[4],interviewId:path.split('/')[3],attachmentId:path.split('/')[5],targetRef:req.headers['x-iiq-calendar-target']};
       if(route==='calendar-roster')return send(200,await readCalendarRoster(calendarContext,Object.fromEntries(url.searchParams)));
       if(route==='calendar-student')return send(200,await readCalendarStudent(calendarContext,path.split('/')[4]));
-      if(route==='calendar-overview')return send(200,await readCalendarOverview(calendarContext,Object.fromEntries(url.searchParams)));
-      if(route==='calendar-cohort')return send(200,await readCohort({...calendarContext,input:Object.fromEntries(url.searchParams)}));
+      if(route==='calendar-overview')return send(200,await measure('cohort',()=>readCalendarOverview(calendarContext,Object.fromEntries(url.searchParams))));
+      if(route==='calendar-cohort')return send(200,await measure('cohort',()=>readCohort({...calendarContext,input:Object.fromEntries(url.searchParams)})));
       if(route==='calendar-admin-read')return send(200,await readAdminLogistics(calendarContext));
       if(route==='calendar-admin-write')return send(200,await writeAdminLogistics(calendarContext,await jsonBody(req,config.maxBodyBytes)));
       if(route==='itinerary-upload')return send(200,await uploadItinerary(calendarContext,req));

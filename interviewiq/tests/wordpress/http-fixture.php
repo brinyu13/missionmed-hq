@@ -11,11 +11,18 @@ $_SERVER = $server;
 if (isset($_SERVER['HTTP_X_FIXTURE_ANONYMOUS'])) { $GLOBALS['current_user'] = new WP_User(0); }
 if (isset($_SERVER['HTTP_X_FIXTURE_LOGOUT'])) { $GLOBALS['meta'][42]['session_tokens'] = array(); }
 if (isset($_SERVER['HTTP_X_FIXTURE_DISABLED'])) { putenv('INTERVIEWIQ_ENABLED=false'); }
+putenv('INTERVIEWIQ_CALENDAR_V2_ENABLED='.((($_SERVER['HTTP_X_FIXTURE_CALENDAR']??'')==='1')?'true':'false'));
 
 function status_header($code) { http_response_code($code); }
 function wp_send_json($value, $status) { http_response_code($status); header('Content-Type: application/json'); echo json_encode($value); exit; }
 function wp_safe_redirect($url, $status) { http_response_code($status); header('Location: ' . $url); }
 function wp_login_url($url) { return 'https://missionmedinstitute.com/my-account/?redirect_to=' . rawurlencode($url); }
+function fixture_calendar_timing() {
+    $valid='iiq_owner;dur=1.0, iiq_cohort;dur=2.0, iiq_own;dur=3.0, iiq_admission;dur=4.0, iiq_directory;dur=5.0, iiq_total;dur=6.0';
+    $values=array('valid'=>$valid,'unknown'=>str_replace('iiq_owner','private_identity',$valid),'nonfinite'=>str_replace('1.0','NaN',$valid),
+        'oversized'=>str_repeat($valid,3),'crlf'=>$valid."\r\nX-Injected: forbidden");
+    return $values[$_SERVER['HTTP_X_FIXTURE_TIMING']??'']??'';
+}
 function wp_remote_request($url, $options) {
     if (isset($_SERVER['HTTP_X_FIXTURE_STARTUP'])) {
         $mode=$_SERVER['HTTP_X_FIXTURE_UPSTREAM']??'';
@@ -28,7 +35,7 @@ function wp_remote_request($url, $options) {
                 'gatewayMatched'=>hash_equals(mmiiq_setting('INTERVIEWIQ_GATEWAY_SECRET'),$options['headers']['X-MMED-IIQ-Gateway']??''),'body'=>$options['body']));
         if($mode==='actor')$b['actor']['id']='other';if($mode==='range')$b['calendarBundle']['end']='2026-12-31';
         return array('response'=>array('code'=>$mode==='denied'?403:($mode==='redirect'?302:($mode==='failure'?503:200))),
-            'headers'=>array('content-type'=>$mode==='html'?'text/html':'application/json'),
+            'headers'=>array('content-type'=>$mode==='html'?'text/html':'application/json','server-timing'=>fixture_calendar_timing()),
             'body'=>$mode==='invalid'?'{':json_encode($b));
     }
     $body = json_encode(array('ok' => true, 'forwarded' => array('url' => $url, 'method' => $options['method'],
@@ -39,7 +46,7 @@ function wp_remote_request($url, $options) {
         'body' => json_decode($options['body'], true))));
     $mode = $_SERVER['HTTP_X_FIXTURE_UPSTREAM'] ?? '';
     return array('response' => array('code' => $mode === 'redirect' ? 302 : 200),
-        'headers' => array('content-type' => $mode === 'html' ? 'text/html' : 'application/json'),
+        'headers' => array('content-type' => $mode === 'html' ? 'text/html' : 'application/json','server-timing'=>fixture_calendar_timing()),
         'body' => $body);
 }
 function wp_remote_retrieve_response_code($v) { return $v['response']['code']; }
