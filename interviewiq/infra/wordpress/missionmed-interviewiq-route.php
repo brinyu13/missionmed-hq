@@ -282,7 +282,11 @@ function mmiiqg_proxy($route, $method) {
     }
     foreach(array('X-IIQ-Request-ID'=>'HTTP_X_IIQ_REQUEST_ID','X-IIQ-Expected-Version'=>'HTTP_X_IIQ_EXPECTED_VERSION','X-IIQ-SHA256'=>'HTTP_X_IIQ_SHA256','X-IIQ-Extension'=>'HTTP_X_IIQ_EXTENSION','X-IIQ-Calendar-Target'=>'HTTP_X_IIQ_CALENDAR_TARGET','X-IIQ-Student-Preview'=>'HTTP_X_IIQ_STUDENT_PREVIEW') as $name=>$key){$v=$_SERVER[$key]??'';if($v!==''&&is_string($v)&&strlen($v)<=80&&preg_match('/^[A-Za-z0-9_-]+$/D',$v)){$headers[$name]=$v;}}
     if ($method==='GET' && in_array($route['target'],array('/api/calendar/overview','/api/calendar/cohort'),true)) {
-        if ((isset($_SERVER['CONTENT_LENGTH']) && (string)$_SERVER['CONTENT_LENGTH']!=='0') || isset($_SERVER['HTTP_TRANSFER_ENCODING'])) { mmiiqg_error(400,'request_body_not_supported'); }
+        if (!in_array((string)($_SERVER['CONTENT_LENGTH']??''),array('','0'),true) || (string)($_SERVER['HTTP_TRANSFER_ENCODING']??'')!=='') { mmiiqg_error(400,'request_body_not_supported'); }
+        $input = fopen('php://input', 'rb');
+        $empty_body = $input && fread($input, 1) === '' && feof($input);
+        if ($input) { fclose($input); }
+        if (!$empty_body) { mmiiqg_error(400,'request_body_not_supported'); }
         $headers=array_merge($headers,mmiiqg_owner_challenge_headers($origin,$headers,$route['target'].$query,$actor));
     }
     $maximum_response=($route['binary_download']??false)?5242880:4194304;

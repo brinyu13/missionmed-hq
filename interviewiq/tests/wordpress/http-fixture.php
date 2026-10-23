@@ -8,6 +8,15 @@ require __DIR__ . '/auth-gateway.test.php';
 $server = $_SERVER;
 reset_state();
 $_SERVER = $server;
+// Model CGI framing independently of the actual wire bytes in php://input.
+$fixture_framing = $_SERVER['HTTP_X_FIXTURE_CGI_FRAMING'] ?? '';
+if ($fixture_framing !== '') {
+    unset($_SERVER['CONTENT_LENGTH'], $_SERVER['HTTP_TRANSFER_ENCODING']);
+    $fixture_lengths = array('empty'=>'', 'zero'=>'0', 'positive'=>'1', 'junk'=>'invalid', 'padded'=>' 0', 'leadingzero'=>'00', 'comma'=>'0,0');
+    if (array_key_exists($fixture_framing, $fixture_lengths)) { $_SERVER['CONTENT_LENGTH'] = $fixture_lengths[$fixture_framing]; }
+    if ($fixture_framing === 'empty-framing') { $_SERVER['CONTENT_LENGTH'] = ''; $_SERVER['HTTP_TRANSFER_ENCODING'] = ''; }
+    if ($fixture_framing === 'transfer') { $_SERVER['CONTENT_LENGTH'] = '0'; $_SERVER['HTTP_TRANSFER_ENCODING'] = 'chunked'; }
+}
 $GLOBALS['core_cache_enabled'] = ($_SERVER['HTTP_X_FIXTURE_CORE_CACHE'] ?? '') === '1';
 $GLOBALS['mapping_filter'] = ($_SERVER['HTTP_X_FIXTURE_MAPPING_FILTER'] ?? '') === '1';
 $fixture_role = $_SERVER['HTTP_X_FIXTURE_ROLE'] ?? 'student';

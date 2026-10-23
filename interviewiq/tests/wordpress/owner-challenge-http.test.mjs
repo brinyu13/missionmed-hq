@@ -75,6 +75,17 @@ test('server-only challenge endpoint rejects gateway/origin/JWT/target/range/que
   reset();const r=await fetch(apiBase+'/api/owner-challenge',{method:'POST',headers,body:JSON.stringify({target})});assert.notEqual(r.status,200);assert.equal(counts.db,0);assert.equal(counts.remote,0);
  }
 });
+for(const mode of ['absent','empty','zero','empty-framing'])test('CGI framing bodyless GET accepts '+mode+' representation with fresh proof',async()=>{
+ reset();const r=await call(undefined,'',{headers:browserHeaders('',{'X-Fixture-CGI-Framing':mode})});assert.equal(r.status,200,mode);assert.equal(r.body.events.length,1);assert.equal(counts.remote,0);assert.equal(counts.admission,2);
+ assert.deepEqual(counts.requests.map(x=>[x.method,x.proof]),[['POST',false],['GET',true]]);assert.equal(counts.mutations,0);
+});
+test('CGI framing nonzero, malformed or nonempty transfer metadata denies before issuance',async()=>{
+ for(const mode of ['positive','junk','padded','leadingzero','comma','transfer']){reset();const r=await call(undefined,'',{headers:browserHeaders('',{'X-Fixture-CGI-Framing':mode})});assert.equal(r.status,400,mode);assert.equal(counts.requests.length,0);assert.equal(counts.db,0);assert.equal(counts.mutations,0);}
+});
+for(const mode of ['absent','empty','zero','empty-framing'])test('CGI framing actual nonempty body is rejected despite '+mode+' representation',async()=>{
+ reset();const status=await new Promise((resolve,reject)=>{const req=httpRequest(base+'/interviewiq/api/calendar/cohort'+range,{method:'GET',headers:browserHeaders('',{'Content-Length':'1','X-Fixture-CGI-Framing':mode})},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});req.on('error',reject);req.end('x');});
+ assert.equal(status,400,mode);assert.equal(counts.requests.length,0);assert.equal(counts.db,0);assert.equal(counts.mutations,0);
+});
 test('GET with actual nonempty body is denied by gateway before issuance',async()=>{
  reset();const result=await new Promise((resolve,reject)=>{const req=httpRequest(base+'/interviewiq/api/calendar/cohort'+range,{method:'GET',headers:browserHeaders('',{'Content-Length':'1'})},res=>{res.resume();res.on('end',()=>resolve(res.statusCode));});req.on('error',reject);req.end('x');});assert.equal(result,400);assert.equal(counts.requests.length,0);
 });
