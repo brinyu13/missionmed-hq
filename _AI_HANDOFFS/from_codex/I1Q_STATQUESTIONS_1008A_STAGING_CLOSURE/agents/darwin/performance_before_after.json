@@ -1,0 +1,170 @@
+{
+  "schema_version": "i1q.darwin.performance.v1",
+  "ticket": "I1Q-1008A",
+  "measured_at_utc": "2026-07-15T23:52:31Z",
+  "candidate": {
+    "branch": "i1q-statquestions-1008a",
+    "head": "81273add2c0fe350d330902d229683662896a1b1",
+    "candidate_code_fingerprint_sha256": "cd41853a8dfd5d4dd034cbfeb45098e83d4aee63f6697d1d8a72d6b57270fc26",
+    "working_tree_note": "Integrated uncommitted I1Q-1008A candidate. Darwin made no product edits. Another authorized worker changed preview integration artifacts during this lane."
+  },
+  "environment": {
+    "evidence_class": "LOCAL_SYNTHETIC_ONLY",
+    "operating_system": "macOS 26.4.1",
+    "architecture": "arm64",
+    "node": "v24.14.0",
+    "npm": "11.9.0",
+    "network": "single-process loopback",
+    "datastore": "MemoryRepository synthetic fixture",
+    "staging_or_production_claim": false
+  },
+  "change": {
+    "refactor_applied": false,
+    "product_files_changed_by_darwin": 0,
+    "concurrent_candidate_update_detected": true,
+    "reason": "Write scope excluded product code and the useful changes require preview or ingress evidence."
+  },
+  "before": {
+    "test_suite": {
+      "command": "/usr/bin/time -lp node --test --test-reporter=dot tests/*.test.mjs",
+      "tests": 277,
+      "passed": 275,
+      "failed": 0,
+      "skipped": 2,
+      "wall_seconds": 0.83,
+      "maximum_resident_set_bytes": 171835392
+    },
+    "evidence_validator": {
+      "command": "/usr/bin/time -lp npm run validate",
+      "measurement_phase": "LANE_START_BEFORE_CONCURRENT_UPDATE",
+      "files_parsed": 20,
+      "files_expected": 20,
+      "error_count": 0,
+      "claimed_state": "BLOCKED",
+      "status": "pass",
+      "wall_seconds": 0.19,
+      "maximum_resident_set_bytes": 71254016
+    },
+    "static_assets": {
+      "command": "for f in public/*; do wc -c < $f; gzip -c -9 $f | wc -c; done",
+      "files": 3,
+      "raw_bytes": 139559,
+      "offline_gzip_level_9_bytes": 30711,
+      "app_js_raw_bytes": 118612,
+      "app_js_gzip_level_9_bytes": 25610,
+      "styles_css_raw_bytes": 16190,
+      "styles_css_gzip_level_9_bytes": 3690,
+      "index_html_raw_bytes": 4757,
+      "index_html_gzip_level_9_bytes": 1411,
+      "local_response_headers": {
+        "cache_control": "no-store",
+        "content_encoding": null,
+        "etag": null,
+        "last_modified": null
+      }
+    },
+    "http_loopback": {
+      "method": "20 warmups followed by sequential fetch samples with full body consumption",
+      "results": [
+        {
+          "path": "/api/health",
+          "samples": 300,
+          "response_bytes": 98,
+          "mean_ms": 0.18,
+          "p50_ms": 0.163,
+          "p95_ms": 0.276,
+          "p99_ms": 0.512,
+          "max_ms": 1.089
+        },
+        {
+          "path": "/api/v1/dashboard",
+          "samples": 300,
+          "response_bytes": 393,
+          "mean_ms": 0.153,
+          "p50_ms": 0.137,
+          "p95_ms": 0.23,
+          "p99_ms": 0.614,
+          "max_ms": 1.35
+        },
+        {
+          "path": "/api/v1/resources/inventory_sources?limit=50",
+          "samples": 300,
+          "response_bytes": 437,
+          "mean_ms": 0.104,
+          "p50_ms": 0.095,
+          "p95_ms": 0.135,
+          "p99_ms": 0.173,
+          "max_ms": 0.88
+        },
+        {
+          "path": "/app.js",
+          "samples": 100,
+          "response_bytes": 118612,
+          "mean_ms": 0.328,
+          "p50_ms": 0.302,
+          "p95_ms": 0.463,
+          "p99_ms": 0.564,
+          "max_ms": 1.444
+        }
+      ]
+    },
+    "memory_repository": {
+      "method": "40 measured list calls after deterministic candidate creation with audit events",
+      "results": [
+        {
+          "rows": 5000,
+          "create_with_audit_ms": 54.527,
+          "first_page_p50_ms": 0.209,
+          "first_page_p95_ms": 0.248,
+          "filtered_page_p95_ms": 0.166,
+          "eighty_percent_cursor_page_p95_ms": 0.353
+        },
+        {
+          "rows": 20000,
+          "create_with_audit_ms": 200.977,
+          "first_page_p50_ms": 0.778,
+          "first_page_p95_ms": 1.132,
+          "filtered_page_p95_ms": 0.541,
+          "eighty_percent_cursor_page_p95_ms": 0.96
+        }
+      ]
+    },
+    "static_analysis": {
+      "source_and_public_files_scanned_for_duplication": 18,
+      "normalized_window_lines": 7,
+      "overlapping_repeated_windows": 21,
+      "meaningful_refactor_clusters_after_manual_review": 4,
+      "browser_templates_inspected": 18,
+      "maximum_parallel_generic_list_requests_per_template": 5,
+      "generic_list_default_limit": 200,
+      "browser_consumes_next_cursor": false
+    }
+  },
+  "after": {
+    "status": "NOT_RUN_NO_REFACTOR_APPLIED",
+    "candidate_code_fingerprint_sha256": "cd41853a8dfd5d4dd034cbfeb45098e83d4aee63f6697d1d8a72d6b57270fc26",
+    "expected_delta": 0,
+    "final_test_recheck": {
+      "tests": 277,
+      "passed": 275,
+      "failed": 0,
+      "skipped": 2
+    },
+    "final_evidence_recheck": {
+      "status": "pass",
+      "files_expected": 20,
+      "files_parsed": 20,
+      "error_count": 0,
+      "claimed_state": "BLOCKED",
+      "root_evidence_regenerated_after_concurrent_update": true
+    },
+    "explanation": "No Darwin optimization comparison is claimed. Concurrent integration edits changed the worktree, so the final executable and evidence checks are recorded separately."
+  },
+  "blockers": [
+    "No authorized preview datastore target",
+    "No deployed canonical identity integration",
+    "No staging ingress or URL",
+    "No representative preview corpus for query plans",
+    "Security release veto remains active"
+  ]
+}

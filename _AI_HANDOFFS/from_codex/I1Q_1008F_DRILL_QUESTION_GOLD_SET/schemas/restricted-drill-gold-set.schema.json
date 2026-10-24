@@ -1,0 +1,877 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.i1q.1008f.restricted-drill-gold-set.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "shard_id",
+    "run_contract_hash",
+    "drill_id",
+    "drill_order",
+    "predecessor_roster_position",
+    "source_alias",
+    "transcript_sha256",
+    "nodes_sha256",
+    "drill_start_us",
+    "drill_end_us",
+    "processing_status",
+    "jumping_in_exclusion",
+    "student_call_sequences",
+    "questions",
+    "student_answer_spans",
+    "excluded_candidate_decisions",
+    "unresolved_trailing_span",
+    "counts",
+    "ordered_sequence_root",
+    "ordered_question_root",
+    "ordered_answer_span_root",
+    "excluded_candidate_root",
+    "provenance_root",
+    "validation_status",
+    "validation_receipt_bindings",
+    "blocker",
+    "safe_projection_hash",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "missionmed.i1q.1008f.restricted-drill-gold-set.v1"
+    },
+    "shard_id": {
+      "$ref": "#/$defs/id"
+    },
+    "run_contract_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "drill_id": {
+      "$ref": "#/$defs/id"
+    },
+    "drill_order": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 97
+    },
+    "predecessor_roster_position": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 97
+    },
+    "source_alias": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transcript_sha256": {
+      "$ref": "#/$defs/hash"
+    },
+    "nodes_sha256": {
+      "$ref": "#/$defs/hash"
+    },
+    "drill_start_us": {
+      "$ref": "#/$defs/us"
+    },
+    "drill_end_us": {
+      "$ref": "#/$defs/us"
+    },
+    "processing_status": {
+      "enum": [
+        "COMPLETE",
+        "COMPLETE_WITH_AMBIGUITY",
+        "PARTIAL_WITH_PROVEN_BLOCKER",
+        "FAILED_WITH_PROVEN_BLOCKER"
+      ]
+    },
+    "jumping_in_exclusion": {
+      "$ref": "#/$defs/jumping"
+    },
+    "student_call_sequences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sequence"
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/question"
+      }
+    },
+    "student_answer_spans": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/answer"
+      }
+    },
+    "excluded_candidate_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision_order",
+          "category",
+          "binding_root"
+        ],
+        "properties": {
+          "decision_order": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "category": {
+            "enum": [
+              "ADMINISTRATION",
+              "ATTENDANCE",
+              "BANTER",
+              "GREETING",
+              "JUMPING_IN",
+              "LEARNER_QUESTION",
+              "LEARNER_STATEMENT",
+              "NONMEDICAL_INSTRUCTION",
+              "TEACHING_STATEMENT"
+            ]
+          },
+          "binding_root": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    },
+    "unresolved_trailing_span": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "counts": {
+      "$ref": "#/$defs/counts"
+    },
+    "ordered_sequence_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "ordered_question_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "ordered_answer_span_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "excluded_candidate_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "provenance_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "validation_status": {
+      "enum": [
+        "PENDING",
+        "ENGINEERING_VERIFIED",
+        "ENGINEERING_VERIFIED_WITH_AMBIGUITY",
+        "FAILED"
+      ]
+    },
+    "validation_receipt_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "blocker": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "safe_projection_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "content_hash": {
+      "$ref": "#/$defs/hash"
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*_sha256_[a-f0-9]{64}$"
+    },
+    "us": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score_ppm",
+        "basis_codes"
+      ],
+      "properties": {
+        "score_ppm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "basis_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_ordinal",
+        "segment_start_us",
+        "segment_end_us",
+        "text_codepoint_start",
+        "text_codepoint_end",
+        "raw_record_hash",
+        "text_hash",
+        "selected_text_hash"
+      ],
+      "properties": {
+        "record_ordinal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "segment_start_us": {
+          "$ref": "#/$defs/us"
+        },
+        "segment_end_us": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "text_codepoint_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "text_codepoint_end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "raw_record_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "text_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "selected_text_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "sequence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "sequence_id",
+        "drill_id",
+        "sequence_order",
+        "called_student_alias",
+        "roster_match_status",
+        "student_call_timestamp_us",
+        "student_call_transcript_bindings",
+        "student_call_binding_root",
+        "sequence_start_us",
+        "sequence_end_us",
+        "primary_question_id",
+        "follow_up_question_ids",
+        "question_ids",
+        "confidence",
+        "ambiguity_flags",
+        "validation_status",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q.1008f.student-call-sequence.v1"
+        },
+        "sequence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "drill_id": {
+          "$ref": "#/$defs/id"
+        },
+        "sequence_order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "called_student_alias": {
+          "type": "string",
+          "minLength": 1
+        },
+        "roster_match_status": {
+          "enum": [
+            "EXACT_ACCEPTED_NAME",
+            "ACCEPTED_ALIAS",
+            "AMBIGUOUS_NAME"
+          ]
+        },
+        "student_call_timestamp_us": {
+          "$ref": "#/$defs/us"
+        },
+        "student_call_transcript_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "student_call_binding_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "sequence_start_us": {
+          "$ref": "#/$defs/us"
+        },
+        "sequence_end_us": {
+          "$ref": "#/$defs/us"
+        },
+        "primary_question_id": {
+          "$ref": "#/$defs/id"
+        },
+        "follow_up_question_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "question_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "ambiguity_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "validation_status": {
+          "enum": [
+            "PENDING",
+            "ENGINEERING_VERIFIED",
+            "ENGINEERING_VERIFIED_WITH_AMBIGUITY",
+            "FAILED"
+          ]
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "question_id",
+        "drill_id",
+        "sequence_id",
+        "question_order_in_drill",
+        "question_order_in_sequence",
+        "question_role",
+        "origin_class",
+        "question_form",
+        "verbatim_oral_question",
+        "eligibility_clause_codepoint_start",
+        "eligibility_clause_codepoint_end",
+        "eligibility_basis",
+        "minimally_normalized_question",
+        "wording_status",
+        "normalization_operations",
+        "start_timestamp_us",
+        "end_timestamp_us",
+        "speaker_class",
+        "speaker_authority_class",
+        "inclusion_basis_codes",
+        "answer_binding_status",
+        "student_answer_span_ids",
+        "transcript_segment_bindings",
+        "transcript_binding_root",
+        "nodes_bindings",
+        "nodes_binding_root",
+        "confidence",
+        "medical_question_status",
+        "ambiguity_flags",
+        "provenance_hash",
+        "review_status",
+        "release_status",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q.1008f.question.v1"
+        },
+        "question_id": {
+          "$ref": "#/$defs/id"
+        },
+        "drill_id": {
+          "$ref": "#/$defs/id"
+        },
+        "sequence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "question_order_in_drill": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "question_order_in_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "question_role": {
+          "enum": [
+            "PRIMARY",
+            "FOLLOW_UP"
+          ]
+        },
+        "origin_class": {
+          "const": "DR_J_ASKED_MEDICAL_PROMPT"
+        },
+        "question_form": {
+          "enum": [
+            "DIRECT_INTERROGATIVE",
+            "RAPID_FIRE_PROMPT",
+            "IMPERATIVE_MEDICAL_PROMPT",
+            "FRAGMENTED_UNAMBIGUOUS_PROMPT"
+          ]
+        },
+        "verbatim_oral_question": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eligibility_clause_codepoint_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "eligibility_clause_codepoint_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "eligibility_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimally_normalized_question": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "wording_status": {
+          "enum": [
+            "VERBATIM_ONLY",
+            "MINIMALLY_NORMALIZED",
+            "AMBIGUOUS_NO_NORMALIZATION"
+          ]
+        },
+        "normalization_operations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "REMOVE_FILLER",
+              "REPAIR_PUNCTUATION",
+              "JOIN_ADJACENT_FRAGMENT",
+              "EXPAND_UNAMBIGUOUS_PRONOUN",
+              "CORRECT_TRANSCRIPTION_PUNCTUATION"
+            ]
+          }
+        },
+        "start_timestamp_us": {
+          "$ref": "#/$defs/us"
+        },
+        "end_timestamp_us": {
+          "$ref": "#/$defs/us"
+        },
+          "speaker_class": {
+            "enum": ["DR_J", "PROBABLE_DR_J"]
+          },
+          "speaker_authority_class": {
+            "enum": ["INSTRUCTOR", "INFERRED_INSTRUCTOR_AMBIGUOUS"]
+          },
+        "inclusion_basis_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "answer_binding_status": {
+          "enum": [
+            "BOUND",
+            "NO_ANSWER_OBSERVED",
+            "AMBIGUOUS",
+            "DR_J_SELF_ANSWER",
+            "INTERRUPTED_BY_NEXT_STUDENT",
+            "TRUNCATED"
+          ]
+        },
+        "student_answer_span_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "transcript_segment_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "transcript_binding_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "nodes_bindings": {
+          "type": "array"
+        },
+        "nodes_binding_root": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "medical_question_status": {
+          "enum": [
+            "RETAINED",
+            "AMBIGUOUS_RETAINED_QUARANTINED"
+          ]
+        },
+        "ambiguity_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "review_status": {
+          "enum": [
+            "UNREVIEWED",
+            "REVIEW_REQUIRED",
+            "REVIEWED"
+          ]
+        },
+        "release_status": {
+          "const": "RESTRICTED_ONLY"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "student_answer_span_id",
+        "drill_id",
+        "sequence_id",
+        "responding_to_question_id",
+        "answer_order_for_question",
+        "speaker_alias",
+        "speaker_relation",
+        "start_timestamp_us",
+        "end_timestamp_us",
+        "transcript_segment_bindings",
+        "transcript_binding_root",
+        "boundary_status",
+        "confidence",
+        "ambiguity_flags",
+        "provenance_hash",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q.1008f.student-answer-span.v1"
+        },
+        "student_answer_span_id": {
+          "$ref": "#/$defs/id"
+        },
+        "drill_id": {
+          "$ref": "#/$defs/id"
+        },
+        "sequence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "responding_to_question_id": {
+          "$ref": "#/$defs/id"
+        },
+        "answer_order_for_question": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "speaker_alias": {
+          "type": "string",
+          "minLength": 1
+        },
+        "speaker_relation": {
+          "enum": [
+            "CALLED_STUDENT",
+            "OTHER_STUDENT",
+            "MULTI_SPEAKER_UNRESOLVED",
+            "UNKNOWN"
+          ]
+        },
+        "start_timestamp_us": {
+          "$ref": "#/$defs/us"
+        },
+        "end_timestamp_us": {
+          "$ref": "#/$defs/us"
+        },
+        "transcript_segment_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "transcript_binding_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "boundary_status": {
+          "enum": [
+            "EXACT_TURN_BOUNDARY",
+            "INFERRED_BOUNDARY",
+            "INTERRUPTED",
+            "OVERLAPPING",
+            "TRUNCATED"
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "ambiguity_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "jumping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "jumping_in_exclusion_id",
+        "drill_id",
+        "decision",
+        "jumping_in_detected",
+        "jumping_in_excluded",
+        "start_timestamp_us",
+        "end_timestamp_us",
+        "exchange_spans",
+        "excluded_prompt_count",
+        "excluded_answer_exchange_count",
+        "exclusion_basis_codes",
+        "transition_record_ordinal",
+        "transcript_binding_root",
+        "confidence",
+        "ambiguity_flags",
+        "provenance_hash",
+        "review_status",
+        "content_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "missionmed.i1q.1008f.jumping-in-exclusion.v1"
+        },
+        "jumping_in_exclusion_id": {
+          "$ref": "#/$defs/id"
+        },
+        "drill_id": {
+          "$ref": "#/$defs/id"
+        },
+        "decision": {
+          "enum": [
+            "EXCLUDED",
+            "NOT_DETECTED",
+            "AMBIGUOUS_QUARANTINED"
+          ]
+        },
+        "jumping_in_detected": {
+          "type": "boolean"
+        },
+        "jumping_in_excluded": {
+          "type": "boolean"
+        },
+        "start_timestamp_us": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "end_timestamp_us": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "exchange_spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "excluded_prompt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded_answer_exchange_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exclusion_basis_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "transition_record_ordinal": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "transcript_binding_root": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "ambiguity_flags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "provenance_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "review_status": {
+          "enum": [
+            "UNREVIEWED",
+            "REVIEW_REQUIRED",
+            "REVIEWED"
+          ]
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequences",
+        "primary_questions",
+        "follow_up_questions",
+        "total_questions",
+        "ambiguous_questions",
+        "rejection_classes",
+        "runtime_comparison"
+      ],
+      "properties": {
+        "sequences": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "primary_questions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "follow_up_questions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_questions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_questions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rejection_classes": {
+          "type": "object"
+        },
+        "runtime_comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transcript_questions",
+            "nodes_confirmed_questions",
+            "nodes_unmatched_questions",
+            "agreement_ppm",
+            "authority"
+          ],
+          "properties": {
+            "transcript_questions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nodes_confirmed_questions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nodes_unmatched_questions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "agreement_ppm": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "authority": {
+              "const": "COMPARISON_ONLY"
+            }
+          }
+        }
+      }
+    }
+  }
+}

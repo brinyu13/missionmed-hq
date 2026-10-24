@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-07-15T16:39:34.024Z",
+  "status": "NO_RELEVANT_I1Q_RECORD_FOUND",
+  "read_only_queries": [
+    {
+      "query": "I1Q Question Platform",
+      "relevant_results": 0
+    },
+    {
+      "query": "STAT Questions",
+      "relevant_results": 0,
+      "unrelated_results_not_opened": true
+    }
+  ],
+  "files_opened": 0,
+  "files_modified": 0,
+  "classification": "DISCOVERY_ONLY"
+}

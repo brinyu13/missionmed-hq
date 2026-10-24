@@ -1,0 +1,932 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmed.internal/contracts/i1q-1008e/artifact-processing-ledger/v1",
+  "title": "I1Q-1008E Full-Corpus Artifact Processing Ledger v1",
+  "description": "Git-safe processing ledger for the 97 predecessor-validated transcript artifacts. Cohort constants are input/accounting invariants, not completion claims; the two Nodes-only artifacts belong to the separate Lane B reconciliation roster.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "extraction_run_id",
+    "extraction_complete",
+    "predecessor_commit",
+    "roster_receipt_binding",
+    "observed_cohort_invariants",
+    "processing_summary",
+    "finalization_summary",
+    "artifact_set_root",
+    "artifacts",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "missionmed.i1q-1008e.artifact-processing-ledger.v1"
+    },
+    "extraction_run_id": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "extraction_complete": {
+      "type": "boolean"
+    },
+    "predecessor_commit": {
+      "const": "9af94d976572b20540d006084ef2c34eb3b3b9a5"
+    },
+    "roster_receipt_binding": {
+      "$ref": "#/$defs/opaqueId"
+    },
+    "observed_cohort_invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invariant_basis",
+        "transcript_artifact_count",
+        "nodes_artifact_count",
+        "transcript_and_nodes_count",
+        "nodes_only_artifact_count",
+        "required_passes_per_transcript",
+        "required_pass_cell_count"
+      ],
+      "properties": {
+        "invariant_basis": {
+          "const": "I1Q-1008D_VERIFIED_OBSERVED_COHORT"
+        },
+        "transcript_artifact_count": {
+          "const": 97
+        },
+        "nodes_artifact_count": {
+          "const": 99
+        },
+        "transcript_and_nodes_count": {
+          "const": 97
+        },
+        "nodes_only_artifact_count": {
+          "const": 2,
+          "description": "Observed Lane B reconciliation count; these artifacts are not members of this transcript-processing ledger."
+        },
+        "required_passes_per_transcript": {
+          "const": 9
+        },
+        "required_pass_cell_count": {
+          "const": 873,
+          "description": "97 observed transcript artifacts multiplied by nine required passes."
+        }
+      }
+    },
+    "processing_summary": {
+      "$ref": "#/$defs/processingSummary"
+    },
+    "finalization_summary": {
+      "$ref": "#/$defs/finalizationSummary"
+    },
+    "artifact_set_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 97,
+      "maxItems": 97,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/artifactEntry"
+      }
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "extraction_complete": {
+            "const": true
+          }
+        },
+        "required": ["extraction_complete"]
+      },
+      "then": {
+        "properties": {
+          "finalization_summary": {
+            "properties": {
+              "automated_pass_cell_count": { "const": 873 },
+              "completed_specialist_verification_cell_count": { "const": 194 },
+              "completed_specialist_role_review_count": { "const": 388 },
+              "verified_specialist_receipt_set_root": { "$ref": "#/$defs/sha256" },
+              "status": { "const": "VERIFIED" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "opaqueId": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "opaqueAlias": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^(sha256:)?[a-f0-9]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retrievalStatus": {
+      "type": "string",
+      "enum": [
+        "RETRIEVED",
+        "NOT_AVAILABLE",
+        "PENDING",
+        "QUARANTINED",
+        "FAILED_WITH_PROVEN_BLOCKER"
+      ]
+    },
+    "hashStatus": {
+      "type": "string",
+      "enum": [
+        "VERIFIED",
+        "NOT_AVAILABLE",
+        "PENDING",
+        "MISMATCH_QUARANTINED",
+        "FAILED_WITH_PROVEN_BLOCKER"
+      ]
+    },
+    "classificationStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_STARTED",
+        "IN_PROGRESS",
+        "COMPLETE",
+        "COMPLETE_WITH_QUARANTINE",
+        "PARTIAL_WITH_PROVEN_BLOCKER",
+        "FAILED_WITH_PROVEN_BLOCKER"
+      ]
+    },
+    "independentVerificationStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_STARTED",
+        "PENDING",
+        "VERIFIED",
+        "VERIFIED_WITH_QUARANTINE",
+        "FAILED_WITH_PROVEN_BLOCKER"
+      ]
+    },
+    "artifactFinalState": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "COMPLETE_WITH_QUARANTINE",
+        "PARTIAL_WITH_PROVEN_BLOCKER",
+        "FAILED_WITH_PROVEN_BLOCKER"
+      ]
+    },
+    "passStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_STARTED",
+        "IN_PROGRESS",
+        "COMPLETE",
+        "COMPLETE_WITH_FINDINGS",
+        "PARTIAL_WITH_PROVEN_BLOCKER",
+        "FAILED_WITH_PROVEN_BLOCKER"
+      ]
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root_cause",
+        "attempted_recovery_methods",
+        "alternate_safe_methods_exhausted",
+        "evidence_receipt_bindings",
+        "resumable_next_step"
+      ],
+      "properties": {
+        "root_cause": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "attempted_recovery_methods": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "alternate_safe_methods_exhausted": {
+          "const": true
+        },
+        "evidence_receipt_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/opaqueId"
+          }
+        },
+        "resumable_next_step": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "nullableBlocker": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/blocker"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "passDefinition": {
+      "oneOf": [
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_1"
+            },
+            "pass_name": {
+              "const": "DIRECT_QUESTIONS"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_2"
+            },
+            "pass_name": {
+              "const": "RAPID_FIRE_AND_IMPERATIVE_PROMPTS"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_3"
+            },
+            "pass_name": {
+              "const": "IMPLIED_CLINICAL_QUESTIONS"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_4"
+            },
+            "pass_name": {
+              "const": "LEARNER_QUESTIONS_WITH_DR_J_TEACHING"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_5"
+            },
+            "pass_name": {
+              "const": "TESTABLE_TEACHING_STATEMENTS"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_6"
+            },
+            "pass_name": {
+              "const": "NODES_ASSISTED_RECOVERY"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_7"
+            },
+            "pass_name": {
+              "const": "MEDICAL_AND_ASSESSMENT_REVIEW"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_8"
+            },
+            "pass_name": {
+              "const": "ADVERSARIAL_MISSED_OCCURRENCE_SEARCH"
+            }
+          }
+        },
+        {
+          "properties": {
+            "pass_id": {
+              "const": "PASS_9"
+            },
+            "pass_name": {
+              "const": "CROSS_PASS_MERGE"
+            }
+          }
+        }
+      ]
+    },
+    "passReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pass_id",
+        "pass_name",
+        "status",
+        "completion_scope",
+        "independent_verification_status",
+        "attempt_count",
+        "records_inspected",
+        "candidate_count",
+        "quarantine_count",
+        "rejection_count",
+        "error_count",
+        "safe_receipt_binding",
+        "proposal_root",
+        "specialist_verification_cell_root",
+        "specialist_verification_receipt_root",
+        "finalization_input_root",
+        "blocker"
+      ],
+      "properties": {
+        "pass_id": {
+          "type": "string"
+        },
+        "pass_name": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/passStatus"
+        },
+        "completion_scope": {
+          "const": "AUTOMATED_PASS_EXECUTION_COMPLETE"
+        },
+        "independent_verification_status": {
+          "type": "string",
+          "enum": [
+            "PENDING_SPECIALIST_REVIEW",
+            "PENDING_INDEPENDENT_AUDIT",
+            "VERIFIED"
+          ]
+        },
+        "attempt_count": {
+          "$ref": "#/$defs/count"
+        },
+        "records_inspected": {
+          "$ref": "#/$defs/count"
+        },
+        "candidate_count": {
+          "$ref": "#/$defs/count"
+        },
+        "quarantine_count": {
+          "$ref": "#/$defs/count"
+        },
+        "rejection_count": {
+          "$ref": "#/$defs/count"
+        },
+        "error_count": {
+          "$ref": "#/$defs/count"
+        },
+        "safe_receipt_binding": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/opaqueId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposal_root": {
+          "$ref": "#/$defs/sha256"
+        },
+        "specialist_verification_cell_root": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "specialist_verification_receipt_root": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "finalization_input_root": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "blocker": {
+          "$ref": "#/$defs/nullableBlocker"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/passDefinition"
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "PARTIAL_WITH_PROVEN_BLOCKER",
+                  "FAILED_WITH_PROVEN_BLOCKER"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "blocker": {
+                "$ref": "#/$defs/blocker"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "blocker": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ninePassReceipts": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/passReceipt"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_1"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_2"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_3"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_4"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_5"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_6"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_7"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_8"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "pass_id": {
+                "const": "PASS_9"
+              }
+            },
+            "required": [
+              "pass_id"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "artifactEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "roster_position",
+        "source_alias",
+        "artifact_alias",
+        "transcript_retrieval_status",
+        "transcript_hash_status",
+        "transcript_hash_binding",
+        "nodes_retrieval_status",
+        "nodes_hash_status",
+        "nodes_hash_binding",
+        "parser_selected",
+        "parser_version",
+        "segment_count",
+        "nodes_record_count",
+        "extraction_passes",
+        "speaker_classification_status",
+        "medical_classification_status",
+        "privacy_classification_status",
+        "candidate_count",
+        "quarantine_count",
+        "rejection_count",
+        "parser_error_count",
+        "retry_count",
+        "final_artifact_status",
+        "independent_verification_status",
+        "specialist_verification_cell_count",
+        "specialist_role_review_count",
+        "specialist_review_receipt_root",
+        "pass_9_finalization_root",
+        "blocker",
+        "content_hash"
+      ],
+      "properties": {
+        "roster_position": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 97
+        },
+        "source_alias": {
+          "$ref": "#/$defs/opaqueAlias"
+        },
+        "artifact_alias": {
+          "$ref": "#/$defs/opaqueAlias"
+        },
+        "transcript_retrieval_status": {
+          "$ref": "#/$defs/retrievalStatus"
+        },
+        "transcript_hash_status": {
+          "$ref": "#/$defs/hashStatus"
+        },
+        "transcript_hash_binding": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "nodes_retrieval_status": {
+          "$ref": "#/$defs/retrievalStatus"
+        },
+        "nodes_hash_status": {
+          "$ref": "#/$defs/hashStatus"
+        },
+        "nodes_hash_binding": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "parser_selected": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "parser_version": {
+          "const": "missionmed.i1q-1008e.restricted-parser.v1"
+        },
+        "segment_count": {
+          "$ref": "#/$defs/count"
+        },
+        "nodes_record_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "extraction_passes": {
+          "$ref": "#/$defs/ninePassReceipts"
+        },
+        "speaker_classification_status": {
+          "$ref": "#/$defs/classificationStatus"
+        },
+        "medical_classification_status": {
+          "$ref": "#/$defs/classificationStatus"
+        },
+        "privacy_classification_status": {
+          "$ref": "#/$defs/classificationStatus"
+        },
+        "candidate_count": {
+          "$ref": "#/$defs/count"
+        },
+        "quarantine_count": {
+          "$ref": "#/$defs/count"
+        },
+        "rejection_count": {
+          "$ref": "#/$defs/count"
+        },
+        "parser_error_count": {
+          "$ref": "#/$defs/count"
+        },
+        "retry_count": {
+          "$ref": "#/$defs/count"
+        },
+        "final_artifact_status": {
+          "$ref": "#/$defs/artifactFinalState"
+        },
+        "independent_verification_status": {
+          "$ref": "#/$defs/independentVerificationStatus"
+        },
+        "specialist_verification_cell_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "specialist_role_review_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "specialist_review_receipt_root": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "pass_9_finalization_root": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "blocker": {
+          "$ref": "#/$defs/nullableBlocker"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "final_artifact_status": {
+                "enum": [
+                  "PARTIAL_WITH_PROVEN_BLOCKER",
+                  "FAILED_WITH_PROVEN_BLOCKER"
+                ]
+              }
+            },
+            "required": [
+              "final_artifact_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "blocker": {
+                "$ref": "#/$defs/blocker"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "blocker": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "final_artifact_status": {
+                "const": "COMPLETE_WITH_QUARANTINE"
+              }
+            },
+            "required": [
+              "final_artifact_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "quarantine_count": {
+                "minimum": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "finalizationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "automated_pass_cell_count",
+        "required_specialist_verification_cell_count",
+        "completed_specialist_verification_cell_count",
+        "required_specialist_role_review_count",
+        "completed_specialist_role_review_count",
+        "verified_specialist_receipt_set_root",
+        "status"
+      ],
+      "properties": {
+        "automated_pass_cell_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 873
+        },
+        "required_specialist_verification_cell_count": {
+          "const": 194
+        },
+        "completed_specialist_verification_cell_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 194
+        },
+        "required_specialist_role_review_count": {
+          "const": 388
+        },
+        "completed_specialist_role_review_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 388
+        },
+        "verified_specialist_receipt_set_root": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING_SPECIALIST_REVIEW", "VERIFIED"]
+        }
+      }
+    },
+    "processingSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_entry_count",
+        "required_pass_cell_count",
+        "pass_cells_accounted_count",
+        "pass_cells_complete_count",
+        "pass_cells_with_proven_blocker_count",
+        "unaccounted_pass_cell_count",
+        "artifact_final_state_counts",
+        "coverage_state"
+      ],
+      "properties": {
+        "artifact_entry_count": {
+          "const": 97
+        },
+        "required_pass_cell_count": {
+          "const": 873
+        },
+        "pass_cells_accounted_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 873
+        },
+        "pass_cells_complete_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 873
+        },
+        "pass_cells_with_proven_blocker_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 873
+        },
+        "unaccounted_pass_cell_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 873
+        },
+        "artifact_final_state_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "COMPLETE",
+            "COMPLETE_WITH_QUARANTINE",
+            "PARTIAL_WITH_PROVEN_BLOCKER",
+            "FAILED_WITH_PROVEN_BLOCKER"
+          ],
+          "properties": {
+            "COMPLETE": {
+              "$ref": "#/$defs/count"
+            },
+            "COMPLETE_WITH_QUARANTINE": {
+              "$ref": "#/$defs/count"
+            },
+            "PARTIAL_WITH_PROVEN_BLOCKER": {
+              "$ref": "#/$defs/count"
+            },
+            "FAILED_WITH_PROVEN_BLOCKER": {
+              "$ref": "#/$defs/count"
+            }
+          }
+        },
+        "coverage_state": {
+          "type": "string",
+          "enum": [
+            "NOT_STARTED",
+            "IN_PROGRESS",
+            "COMPLETE",
+            "COMPLETE_WITH_QUARANTINE",
+            "PARTIAL_WITH_PROVEN_BLOCKER",
+            "FAILED_WITH_PROVEN_BLOCKER"
+          ]
+        }
+      }
+    }
+  }
+}

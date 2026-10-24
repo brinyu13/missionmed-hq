@@ -1,0 +1,505 @@
+{
+  "schema_version": "1.0",
+  "ticket": "I1Q-1008A",
+  "agent": "security",
+  "generated_at": "2026-07-15T23:57:00Z",
+  "evaluated_commit": "81273add2c0fe350d330902d229683662896a1b1",
+  "in_flight_snapshot": {
+    "status": "UNCOMMITTED_UNRATIFIED",
+    "identity_adapter_sha256": "b1e0dd4c0c7f3961328a58809b5d4e7405d9e8c3a07599a5fac5d5823f06b039",
+    "identity_adapter_tests_sha256": "9939a80ad14d18672be2764607097540c8c411936af11680a05ebd4d98bdc6f3",
+    "server_sha256": "0588425c48cb7aba0a93d1e6431adbfe22d5675885d6672be529a5958a29cf5f",
+    "openapi_sha256": "d4bc001d796335060649d9efa2929d38a259c1f6b3abaf133cbec0ed5e601c71",
+    "api_tests_sha256": "62d7c60c29bd7b2c98bf88d9f6dfbc452b0026957faf115633f8ccdf7d2432c5",
+    "security_regression_tests_sha256": "6b8d754572aa2fe82d24d859e1d03450de6c7c5112985a24f540f67c9a15412b",
+    "identity_capability_migration_sha256": "e78e0e08cc84da54ef87af5c5ef8e958a2f93b813a06472a797f3842583f36a0",
+    "identity_capability_compensation_sha256": "6368c122615d9ca394e2ff2f150cf23a1e1ab28fedf9e10f5a297ddfd4d85b9f",
+    "identity_capability_reapply_sha256": "668a7bf9ad1d1a438d16e688e515f35a5c6aad88125a1cc75522087584dedf2f",
+    "identity_capability_postgresql_test_sha256": "4d6ff436d52c6be09fc15facbac26ddd3f70a476121fd3844af52deedecfdd96",
+    "preview_workflow_sha256": "630a8c6d37474c208e6f82e709adb6a67c2fd604925b8d013d89720548d9a0e0",
+    "preview_workflow_tests_sha256": "72d2701efb45b8d25ec2a08dc43d6d096981e798d7febb2f268a545b9d56d2f0",
+    "preview_target_sha256": "ecf82e7caacbd31a1941fafee63fdc1a65ee8475940374e49acde98a1d850e2a"
+  },
+  "scope": {
+    "source_review": true,
+    "local_static_analysis": true,
+    "local_synthetic_tests": true,
+    "preview_database": false,
+    "authenticated_staging": false,
+    "production": false,
+    "secret_values_read": false,
+    "raw_transcripts_read": false,
+    "student_data_read": false,
+    "remote_writes": false,
+    "production_read_by_security_agent": false,
+    "external_runtime_observation_consumed": true
+  },
+  "verdict": {
+    "decision": "VETO",
+    "highest_1008a_state": "NONE",
+    "cleared_states": [],
+    "blocked_states": [
+      "STATE_A",
+      "STATE_B",
+      "STATE_C",
+      "STATE_D"
+    ],
+    "release_clearance": "DENIED",
+    "reason": "In-flight identity and database candidates pass local tests but are uncommitted, unratified, unwired, and unapplied. The frozen local evidence estate validates with claimed state BLOCKED. Canonical identity integration, actual backup restoration, preview RLS evidence, and authenticated non-localhost staging evidence do not exist."
+  },
+  "environment_evidence": {
+    "staging_url": null,
+    "staging_deploy_commit": null,
+    "preview_database_apply_record": null,
+    "canonical_i1q_identity_adapter_present": false,
+    "in_flight_i1q_identity_adapter_present": true,
+    "canonical_i1q_runtime_database_role_present": false,
+    "in_flight_identity_capability_role_present": true,
+    "in_flight_app_runtime_role_present": true,
+    "local_role_name_conflation_closed": true,
+    "in_flight_preview_workflow_present": true,
+    "in_flight_preview_target_status": "UNASSIGNED",
+    "preview_workflow_static_contract_pass": true,
+    "provider_backup_restore_executed": false,
+    "preview_operation_executed": false,
+    "post_operation_role_rls_flag_checks_executed": false,
+    "evidence_redaction_inventory_gate_executed": false,
+    "student_content_flags_expected_state": "OFF",
+    "student_content_flags_verified_in_staging": false
+  },
+  "test_runs": [
+    {
+      "id": "full_node_suite",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS_WITH_SKIP",
+      "discovered": 277,
+      "passed": 275,
+      "failed": 0,
+      "skipped": 2,
+      "note": "Both skipped PostgreSQL targets were separately exercised in disposable local instances. One earlier run had a transient UI timeout that passed in isolation and on later full reruns."
+    },
+    {
+      "id": "focused_security_suite",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS_WITH_SKIP",
+      "discovered": 161,
+      "passed": 159,
+      "failed": 0,
+      "skipped": 2,
+      "note": "Covered the in-flight identity adapter, adapters, security regressions, readiness, preview workflow, base and identity migration source, and repository tests. Both database targets were separately exercised."
+    },
+    {
+      "id": "in_flight_identity_adapter_suite",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "discovered": 26,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "note": "Synthetic callbacks, loopback API, and injected logout revocation. This is not canonical identity, provider, or staging evidence."
+    },
+    {
+      "id": "root_fix_targeted_suite",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "discovered": 64,
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0,
+      "note": "API, security regression, and identity adapter tests, including exact identity-contract enforcement, two-writer optimistic locking, readiness, static access denial, and logout revocation."
+    },
+    {
+      "id": "preview_workflow_static_contract_suite",
+      "environment": "LOCAL_STATIC",
+      "status": "PASS_WITH_ENVIRONMENT_NOT_RUN",
+      "discovered": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "controls": [
+        "secret_free_validation_job",
+        "step_scoped_migration_secrets",
+        "closed_approval_record_digest_and_payload",
+        "exact_operation_commit_and_artifact_hashes",
+        "expected_full_remote_history_hash",
+        "phase_safe_target_and_operation_tests",
+        "separate_apply_compensate_reapply_history_gates",
+        "post_operation_role_rls_grant_and_flag_checks",
+        "redaction_success_required_before_upload"
+      ],
+      "note": "Fail-closed workflow source only. Target assignment, provider backup restoration, preview operations, hosted attacks, and schema-diff approval were not run."
+    },
+    {
+      "id": "identity_contract_version_adversarial_probe",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "expected": "REJECT_WRONG_CONTRACT_VERSION",
+      "observed": "REJECTED_WITH_AUTHENTICATION_REQUIRED",
+      "note": "The server boundary now also requires identity presence, canonical actor equality, active identity, and non-revoked identity."
+    },
+    {
+      "id": "role_profile_contract_version_adversarial_probe",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "expected": "REJECT_WRONG_ROLE_PROFILE_CONTRACT_VERSION",
+      "observed": "IDENTITY_CONTRACT_VERSION_MISMATCH",
+      "note": "Independent synthetic RPC-response probe; preview RPC remains not run."
+    },
+    {
+      "id": "draft_two_writer_optimistic_lock",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "expected": "STALE_WRITER_RETURNS_409_AND_FIRST_WRITE_PERSISTS",
+      "observed": "STALE_WRITER_RETURNED_409_AND_FIRST_WRITE_PERSISTED",
+      "note": "Draft PATCH requires the exact client-observed SHA-256 through If-Match."
+    },
+    {
+      "id": "browser_session_minimal_projection_probe",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "expected": "ONLY_ACTOR_ID_ROLES_AND_SESSION_EXPIRY_CSRF",
+      "observed": "EXACT_CLOSED_PROJECTION_WITH_NO_STORE",
+      "excluded_fields_verified": [
+        "identity",
+        "wordpress_user_id",
+        "email",
+        "credential_status",
+        "credential_verified",
+        "issued_at",
+        "transport"
+      ],
+      "note": "Independent loopback probe supplied internal trace fields to the resolver and verified that none reached the browser response."
+    },
+    {
+      "id": "static_access_fail_closed",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "anonymous_root_status": 401,
+      "anonymous_app_js_status": 401,
+      "explicit_synthetic_gate_status": 200,
+      "note": "Non-demo static access requires an explicit static-access resolver alongside the identity resolver. Deployed edge and cookie composition remain untested."
+    },
+    {
+      "id": "deployment_readiness_fail_closed",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "missing_or_false_gate_status": 503,
+      "all_explicit_gates_true_status": 200,
+      "required_gates": [
+        "identity_adapter",
+        "static_access_adapter",
+        "logout_adapter",
+        "readiness_adapter",
+        "datastore",
+        "migration",
+        "audit",
+        "feature_flags_off"
+      ],
+      "note": "Local composition contract only; no staging deployment promotion was run."
+    },
+    {
+      "id": "logout_composition_and_old_bearer",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS_WITH_EXTERNAL_LIFECYCLE_GATES",
+      "missing_revocation_adapter_status": 503,
+      "injected_revocation_status": 200,
+      "old_bearer_next_session_status": 401,
+      "ui_signed_out_state": "PASS",
+      "ui_in_memory_clear": "PASS",
+      "note": "Exact write integrity, fail-closed adapter composition, and local signed-out UI behavior pass. Canonical provider, cookie, and real old-tab behavior remain untested."
+    },
+    {
+      "id": "base_disposable_postgresql_16_13",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS",
+      "discovered": 13,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "note": "Loopback-only disposable instance. This is not preview or staging RLS evidence."
+    },
+    {
+      "id": "identity_capability_disposable_postgresql_16_13",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS_WITH_ENVIRONMENT_GATES",
+      "discovered": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "apply": "PASS",
+      "reapply": "PASS",
+      "compensation": "PASS",
+      "reapply_after_compensation": "PASS",
+      "enabled_feature_flags": 0,
+      "identity_profile_role_login": false,
+      "identity_profile_role_inherit": false,
+      "identity_profile_role_bypass_rls": false,
+      "app_runtime_role_login": false,
+      "app_runtime_role_inherit": false,
+      "app_runtime_role_bypass_rls": false,
+      "authenticated_identity_profile_membership": true,
+      "authenticated_app_runtime_membership": false,
+      "authenticated_identity_rpc_execute": true,
+      "app_runtime_grants": "NONE",
+      "unexpected_direct_privilege_rejected": true,
+      "role_contract_assertion": "PASS",
+      "note": "Local role separation and collision checks pass. Target authority, actor binding, workflow grants, and preview catalog evidence remain open."
+    },
+    {
+      "id": "evidence_validator",
+      "environment": "LOCAL_REPOSITORY",
+      "status": "PASS_BLOCKED_CLAIM",
+      "artifacts_expected": 20,
+      "artifacts_present_and_parsed": 20,
+      "errors": 0,
+      "stale_artifact_records": 0,
+      "artifact_inventory_stale": false,
+      "test_inventory_stale": false,
+      "claimed_state": "BLOCKED",
+      "note": "Frozen local repository evidence only. No environment state is inferred."
+    },
+    {
+      "id": "local_anonymous_route_probe",
+      "environment": "LOCAL_SYNTHETIC",
+      "status": "PASS_LOCAL_ONLY",
+      "observations": [
+        {
+          "route": "/",
+          "status_code": 401,
+          "expected_for_fully_authenticated_internal_host": "DENY_OR_REDIRECT",
+          "result": "PASS"
+        },
+        {
+          "route": "/app.js",
+          "status_code": 401,
+          "expected_for_fully_authenticated_internal_host": "DENY_OR_REDIRECT",
+          "result": "PASS"
+        },
+        {
+          "route": "/api/health",
+          "status_code": 200,
+          "expected": "PUBLIC_HEALTH_IF_MINIMAL",
+          "result": "PASS"
+        },
+        {
+          "route": "/api/v1/dashboard",
+          "status_code": 401,
+          "expected": "UNAUTHORIZED",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "id": "high_confidence_secret_literal_scan",
+      "environment": "LOCAL_REPOSITORY",
+      "status": "PASS",
+      "matching_files": 0,
+      "note": "Scanned the I1Q application and 1008A handoff for high-confidence credential literal patterns without reading environment files."
+    },
+    {
+      "id": "public_bundle_protected_token_scan",
+      "environment": "LOCAL_REPOSITORY",
+      "status": "PASS",
+      "matching_files": 0,
+      "note": "No answer-map, restricted-source, privileged-key label, or raw-source label was found in public bundle files."
+    }
+  ],
+  "staging_tests": [
+    {
+      "id": "canonical_valid_login",
+      "status": "NOT_RUN",
+      "reason": "The in-flight adapter is not ratified, wired, or deployed, and no staging host exists."
+    },
+    {
+      "id": "browser_session_closed_projection",
+      "status": "NOT_RUN",
+      "reason": "The local exact-shape probe passes, but no deployed staging route, proxy, or browser session exists."
+    },
+    {
+      "id": "invalid_login_and_direct_url",
+      "status": "NOT_RUN",
+      "reason": "No staging host."
+    },
+    {
+      "id": "issuer_audience_expiry_revocation",
+      "status": "NOT_RUN",
+      "reason": "Synthetic vectors pass, but no canonical identities or environment exist."
+    },
+    {
+      "id": "handoff_replay_and_session_fixation",
+      "status": "NOT_RUN",
+      "reason": "Protected authentication runtime was not modified or exercised."
+    },
+    {
+      "id": "logout_and_old_tab_rejection",
+      "status": "NOT_RUN",
+      "reason": "The local composition point, signed-out UI, and synthetic old-bearer check pass, but no canonical provider, cookie journey, separate old-tab browser run, or staging host exists."
+    },
+    {
+      "id": "csrf_origin_and_credentialed_cors",
+      "status": "NOT_RUN",
+      "reason": "Requires the deployed proxy and browser origin."
+    },
+    {
+      "id": "preview_rls_and_runtime_grants",
+      "status": "NOT_RUN",
+      "reason": "The in-flight capability migration passed locally but has no preview apply or approved application runtime role."
+    },
+    {
+      "id": "connection_pool_actor_isolation",
+      "status": "NOT_RUN",
+      "reason": "Production repository and pool wiring are absent."
+    },
+    {
+      "id": "staging_answer_and_source_isolation",
+      "status": "NOT_RUN",
+      "reason": "No deployed staging data path."
+    },
+    {
+      "id": "security_headers_tls_and_cache",
+      "status": "NOT_RUN",
+      "reason": "No non-localhost HTTPS staging endpoint."
+    },
+    {
+      "id": "deployment_readiness_and_promotion_gate",
+      "status": "NOT_RUN",
+      "reason": "The local readiness contract passes, but no canonical staging deployment or promotion path was executed."
+    },
+    {
+      "id": "rate_limits_and_abuse_controls",
+      "status": "NOT_RUN",
+      "reason": "No staging endpoint or documented edge controls."
+    },
+    {
+      "id": "redacted_logs_monitoring_and_alerts",
+      "status": "NOT_RUN",
+      "reason": "No staging deployment or authorized log source."
+    },
+    {
+      "id": "rollback_and_backup_restore",
+      "status": "NOT_RUN",
+      "reason": "The static workflow requires provider backup ID and date plus restore runbook and test IDs, but no target, provider backup, restoration, preview operation, or approved schema comparison has actually run."
+    },
+    {
+      "id": "deployed_evidence_commit_binding",
+      "status": "NOT_RUN",
+      "reason": "No staging deployment commit."
+    }
+  ],
+  "source_observations": [
+    {
+      "id": "OBS-AUTH-RESOLVER",
+      "status": "OPEN",
+      "severity": "HIGH",
+      "observation": "An in-flight resolver and synthetic personas exist, but they are uncommitted, unratified, unwired, and not aligned with the concurrent proposed closed contract. The server normalizer now enforces identity presence, exact version, actor equality, active state, and non-revocation."
+    },
+    {
+      "id": "OBS-HQ-EXPIRY",
+      "status": "OPEN_CONDITIONAL",
+      "severity": "HIGH",
+      "observation": "Tracked HQ source returns a decoded session after warning on missing, invalid, or expired expiry metadata. Deployed applicability is unknown."
+    },
+    {
+      "id": "OBS-HQ-CORS",
+      "status": "OPEN_OBSERVED_RUNTIME",
+      "severity": "HIGH",
+      "observation": "The authority mapper independently recorded the shared production HQ auth endpoint reflecting an untrusted request Origin with credential support. The Security agent did not repeat the production request."
+    },
+    {
+      "id": "OBS-HQ-CONFIG",
+      "status": "OPEN_CONDITIONAL",
+      "severity": "MEDIUM",
+      "observation": "Tracked HQ source creates process-random signing material instead of failing startup when canonical configuration is absent."
+    },
+    {
+      "id": "OBS-HANDOFF-REPLAY",
+      "status": "OPEN_CONDITIONAL",
+      "severity": "HIGH",
+      "observation": "The tracked handoff emits a nonce, but no tracked HQ one-time nonce consumption was found. Replay testing was not run."
+    },
+    {
+      "id": "OBS-DB-RUNTIME",
+      "status": "OPEN",
+      "severity": "HIGH",
+      "observation": "The latest in-flight SQL separates the authenticated self-profile capability from a deny-all application runtime role, and real disposable tests pass. Target authority, actor binding, exact workflow grants, pool isolation, and preview evidence remain open."
+    },
+    {
+      "id": "OBS-STATIC-SHELL",
+      "status": "LOCAL_CLOSED_EXTERNAL_OPEN",
+      "severity": "MEDIUM",
+      "observation": "Non-demo HTML and JavaScript now return 401 unless an explicit static-access adapter grants the request. Canonical edge and cookie composition, deployed asset caching, and source maps remain unproven."
+    },
+    {
+      "id": "OBS-BROWSER-SESSION-SHAPE",
+      "status": "CLOSED_LOCAL_STAGING_NOT_RUN",
+      "severity": "NONE",
+      "observation": "The route now emits only actor ID, roles, expiry, and CSRF token. Source, closed OpenAPI, focused tests, and an independent loopback probe pass; deployed staging verification remains not run."
+    },
+    {
+      "id": "OBS-PREVIEW-WORKFLOW",
+      "status": "LOCAL_STATIC_PASS_ENVIRONMENT_NOT_RUN",
+      "severity": "HIGH",
+      "observation": "The frozen workflow is fail closed and its 3-test suite passes. It separates secret-free validation from step-scoped migration secrets; binds the exact approval record, operation, commit, four SQL hashes, workflow hash, and full remote-history hash; enforces phase-safe separate operation history; checks post-operation role, RLS, grants, and flags; and uploads only when steps.redact.outcome is success. The target remains unassigned and no provider restore, preview operation, hosted attack, or schema-diff approval has run."
+    },
+    {
+      "id": "OBS-EVIDENCE-INTEGRITY",
+      "status": "CLOSED_LOCAL_BLOCKED_CLAIM",
+      "severity": "NONE",
+      "observation": "The independent final validator passes 20 of 20 expected files with zero errors and claimed state BLOCKED. Preview, staging, backup-restoration, and deployment binding remain absent."
+    }
+  ],
+  "control_summary": [
+    {
+      "domain": "identity",
+      "local": "IN_FLIGHT_SYNTHETIC_PASS_WITH_CONTRACT_GAP",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "sessions",
+      "local": "PARTIAL_PASS_WITH_MINIMAL_BROWSER_PROJECTION_AND_PROTECTED_SOURCE_GAPS",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "roles_and_idor",
+      "local": "SYNTHETIC_PASS",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "csrf_and_origin",
+      "local": "I1Q_SYNTHETIC_PASS_WITH_SHARED_HQ_RUNTIME_FAIL_OBSERVATION",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "rls_and_grants",
+      "local": "SYNTHETIC_PASS_WITH_PREVIEW_AND_BINDER_GAPS",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "audit_and_evidence",
+      "local": "DATABASE_SYNTHETIC_AND_REPOSITORY_EVIDENCE_PASS_BLOCKED_STATE",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "answer_and_source_isolation",
+      "local": "SYNTHETIC_PASS",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "headers_cors_cache_and_logs",
+      "local": "PARTIAL_PASS",
+      "staging": "NOT_RUN"
+    },
+    {
+      "domain": "rate_limits",
+      "local": "UNPROVEN",
+      "staging": "NOT_RUN"
+    }
+  ],
+  "open_gate_counts": {
+    "critical": 0,
+    "high": 6,
+    "medium": 2,
+    "staging_test_groups_not_run": 16
+  },
+  "no_inference_rule": "A local, static, synthetic, or prior-run result is not a pass for preview or staging."
+}

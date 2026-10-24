@@ -1,0 +1,129 @@
+{
+  "schema": "missionmed.i1q.assessment.legacy_quality_ranking.v1",
+  "ticket": "I1Q-1007X-MA",
+  "generated_date": "2026-07-15",
+  "status": "ITEM_LEVEL_QUALITY_AND_EXPOSURE_RANKING_NOT_COMPUTABLE_FROM_AGGREGATES",
+  "scope_completed": "Aggregate-only feasibility assessment for legacy v4 quality, medical-risk, duplicate, sibling, and exposure prioritization. No legacy item text, answer, explanation, source title, identity, medical content, attempt row, or student data was inspected.",
+  "evidence_inspected": [
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_LEGACY_V4.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/medical_content/legacy_v4_medical_risk_triage.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/lorentz_security/legacy_v4_mapping_report.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/legacy_reconciliation.json",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1004_MEGARUN/I1Q_1004_SECTION_F_QUESTION_QUALITY_RUBRIC.md"
+  ],
+  "population": {
+    "canonical_static_v4_rows": 845,
+    "distinct_static_question_ids": 845,
+    "base_items": 517,
+    "vignette_suffix_items": 328,
+    "base_vignette_sibling_pairs": 328,
+    "duplicate_prompt_groups": 11,
+    "duplicate_full_content_groups": 0,
+    "imported_rows": 0,
+    "physician_reviewed_rows": 0,
+    "authorized_item_level_exposure_rows": 0
+  },
+  "ranking": [],
+  "ranking_feasibility": {
+    "item_level_quality_score": "BLOCKED_NO_ITEM_LEVEL_RUBRIC_RESULTS",
+    "medical_risk_score": "BLOCKED_NO_CREDENTIALED_REVIEW",
+    "source_quality_score": "BLOCKED_NO_ITEM_LEVEL_LINEAGE",
+    "review_quality_score": "BLOCKED_NO_EDITORIAL_OR_MEDICAL_EVENTS",
+    "duplicate_priority": "PARTIAL_AGGREGATE_GROUP_COUNTS_ONLY",
+    "sibling_priority": "PARTIAL_AGGREGATE_PAIR_COUNT_ONLY",
+    "exposure_priority": "BLOCKED_NO_AUTHORIZED_AGGREGATE_EXPOSURE_EXPORT",
+    "empirical_difficulty_priority": "BLOCKED_NO_VALID_ATTEMPT_SNAPSHOTS"
+  },
+  "deterministic_review_queues": [
+    {
+      "queue": "UNIVERSAL_RETRO_REVIEW",
+      "known_scope": 845,
+      "unit": "rows",
+      "rankable_with_current_evidence": false
+    },
+    {
+      "queue": "SOURCE_TRANSFORMATION_AND_ANSWER_POSITION_AUDIT",
+      "known_scope": 845,
+      "unit": "rows",
+      "rankable_with_current_evidence": false
+    },
+    {
+      "queue": "BASE_VIGNETTE_SIBLING_REVIEW",
+      "known_scope": 328,
+      "unit": "pair_groups",
+      "rankable_with_current_evidence": false
+    },
+    {
+      "queue": "DUPLICATE_PROMPT_REVIEW",
+      "known_scope": 11,
+      "unit": "groups",
+      "rankable_with_current_evidence": false
+    },
+    {
+      "queue": "CREDENTIALED_MEDICAL_AND_EDITORIAL_REVIEW",
+      "known_scope": 845,
+      "unit": "rows",
+      "rankable_with_current_evidence": false
+    }
+  ],
+  "findings": [
+    "The static v4 source is reconciled at 845 rows, but no row is an approved I1Q revision.",
+    "Aggregate evidence supports queue sizing, not item-level ordering.",
+    "The 11 duplicate-prompt groups and 328 sibling pairs require restricted membership mapping before prioritization.",
+    "Exposure ranking is infeasible because no authorized item-level or privacy-safe aggregate exposure export was available.",
+    "A numeric legacy ranking would invent unsupported item-level evidence and is therefore intentionally empty."
+  ],
+  "proposed_priority_model": {
+    "status": "REQUIRES_DATA_AND_WEIGHT_RATIFICATION",
+    "ordering_factors": [
+      "active safety or medical conflict",
+      "high authorized aggregate exposure",
+      "duplicate or sibling collision",
+      "missing lineage or current evidence",
+      "rubric gate failure",
+      "dead or over-attractive distractor flag after valid volume",
+      "routine retro-review age"
+    ],
+    "weights": null,
+    "auto_retirement": false
+  },
+  "changes_proposed_or_made": {
+    "made": [],
+    "proposed": [
+      "Import only immutable hashed mappings into quarantine.",
+      "Create privacy-safe item-level aggregate features with composite identity and no content.",
+      "Run the nine-dimension rubric with legacy caps and exact review provenance.",
+      "Join only authorized non-student aggregate exposure by dataset version, question ID, and content hash.",
+      "Ratify ranking factors and weights before producing an ordered list."
+    ]
+  },
+  "tests_performed": [
+    "Read-only reconciliation of current legacy aggregate counts against architecture and specialist reports.",
+    "No item-level ranking, medical review, attempt query, or exposure calculation was performed.",
+    "Post-write validation passed for the exact six-file set, required keys, JSON parsing, zero forbidden Unicode dash characters, and zero trailing-whitespace lines."
+  ],
+  "risks": [
+    "Publishing an empty-evidence ranking would create false precision.",
+    "Exposure-only ranking could prioritize popularity over safety and quality.",
+    "Legacy import could be mistaken for approval.",
+    "Identifier-only joins could misattach historical attempts across datasets."
+  ],
+  "blockers": [
+    "No item-level quality features",
+    "No credentialed medical review",
+    "No item-level duplicate or sibling membership in aggregate evidence",
+    "No authorized aggregate exposure export",
+    "No imported immutable I1Q revisions",
+    "Rubric weights not ratified"
+  ],
+  "confidence": {
+    "population_and_queue_counts": "high",
+    "ranking_infeasibility": "high",
+    "item_quality": "not_assessable",
+    "exposure_priority": "not_assessable"
+  },
+  "exact_paths": [
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/assessment_science/legacy_quality_ranking.json"
+  ],
+  "handoff": "Root Supervisor should treat these as queue sizes only. Do not publish an ordered legacy ranking until a restricted aggregate feature export, exact mapping, rubric review, and weight ratification exist."
+}

@@ -1,0 +1,118 @@
+{
+  "schema": "missionmed.i1q.assessment.duplicate_variant_report.v1",
+  "ticket": "I1Q-1007X-MA",
+  "generated_date": "2026-07-15",
+  "status": "AGGREGATE_PARTIAL_READINESS_NO_ITEM_LEVEL_DEDUP",
+  "scope_completed": "Aggregate-only duplicate, sibling, identity, and Variant Group readiness audit. No source text, title, identity, medical content, student data, or item-level legacy row was inspected.",
+  "evidence_inspected": [
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_CORPUS_INVENTORY.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_LEGACY_V4.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_STAT_ADAPTER.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/platform.mjs",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/0001_i1q_question_platform.sql",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/candidate_counts.json"
+  ],
+  "aggregate_evidence": {
+    "real_corpus": {
+      "sources": 97,
+      "duplicate_video_id_groups": 0,
+      "distinct_transcript_hashes": 97,
+      "distinct_nodes_hashes": 97,
+      "real_candidates": 0
+    },
+    "synthetic_fixture": {
+      "candidate_count": 1,
+      "duplicate_assessment_denominator_sufficient": false
+    },
+    "legacy_static_v4": {
+      "rows": 845,
+      "distinct_question_ids": 845,
+      "base_items": 517,
+      "vignette_suffix_items": 328,
+      "base_vignette_sibling_pairs": 328,
+      "duplicate_prompt_groups": 11,
+      "duplicate_full_content_groups": 0,
+      "duplicate_choice_rows": 0
+    },
+    "current_stat_mirror": {
+      "rows": 3961,
+      "distinct_runtime_ids": 3961,
+      "duplicate_runtime_id_groups": 0,
+      "static_v4_id_intersection": 0
+    }
+  },
+  "findings": [
+    {
+      "id": "DV-1",
+      "severity": "blocking",
+      "finding": "No real candidate bank exists, so candidate duplicate rate, semantic sibling precision, and Variant Group assignment coverage are not measurable."
+    },
+    {
+      "id": "DV-2",
+      "severity": "high",
+      "finding": "The platform stores Variant Groups but release assembly does not reject multiple items from the same Variant Group."
+    },
+    {
+      "id": "DV-3",
+      "severity": "high",
+      "finding": "Legacy aggregate evidence identifies 11 duplicate-prompt groups and 328 base-vignette sibling pairs, but aggregate-only evidence provides no safe item-level membership for ranking or adjudication."
+    },
+    {
+      "id": "DV-4",
+      "severity": "medium",
+      "finding": "Unique source IDs and hashes prove artifact-level uniqueness only. They do not prove semantic uniqueness of teaching concepts or questions."
+    },
+    {
+      "id": "DV-5",
+      "severity": "medium",
+      "finding": "The static v4 and current STAT mirror have disjoint IDs and must remain separately versioned. Zero ID intersection is not evidence of zero content overlap."
+    }
+  ],
+  "readiness": {
+    "duplicate_composite_id_rejection": "READY_IN_LOCAL_STAT_ADAPTER",
+    "exact_item_content_hash_detection": "DATA_MODEL_PRESENT_NOT_BANK_VALIDATED",
+    "semantic_near_duplicate_detection": "NOT_READY",
+    "legacy_duplicate_membership_mapping": "NOT_AVAILABLE_FROM_AGGREGATES",
+    "variant_group_assignment": "MODEL_PRESENT_NOT_QUALITY_VALIDATED",
+    "release_sibling_exclusion": "NOT_IMPLEMENTED",
+    "repeated_exposure_cooldown": "NOT_IMPLEMENTED"
+  },
+  "changes_proposed_or_made": {
+    "made": [],
+    "proposed": [
+      "Reject duplicate composite identities and exact content hashes before review.",
+      "Generate restricted normalized fingerprints and semantic candidate pairs, then adjudicate them on an untouched duplicate gold set.",
+      "Require every review candidate to have a Variant Group and invariant teaching point.",
+      "Reject sibling collisions during release assembly and record an explicit override only through governed review.",
+      "Add per-channel exposure and Variant Group cooldown controls after authorized attempts exist."
+    ]
+  },
+  "tests_performed": [
+    "Read-only comparison of aggregate corpus, legacy, STAT, source, migration, and test evidence.",
+    "No pairwise content comparison, semantic embedding, medical review, or student-data query was performed.",
+    "Post-write validation passed for the exact six-file set, required keys, JSON parsing, zero forbidden Unicode dash characters, and zero trailing-whitespace lines."
+  ],
+  "risks": [
+    "Artifact hash uniqueness may be misreported as semantic uniqueness.",
+    "Sibling items may appear together and create cueing or construct redundancy.",
+    "Disjoint identifiers may conceal cross-dataset content overlap.",
+    "Exposure controls cannot operate without privacy-safe attempt events and Variant Group membership."
+  ],
+  "blockers": [
+    "Zero real candidates",
+    "No item-level legacy aggregate membership export",
+    "No adjudicated duplicate gold set",
+    "No release-time Variant Group exclusion",
+    "No exposure telemetry"
+  ],
+  "confidence": {
+    "aggregate_counts": "high",
+    "current_workflow_readiness": "high",
+    "semantic_duplicate_rate": "not_assessable",
+    "variant_quality": "not_assessable"
+  },
+  "exact_paths": [
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/assessment_science/duplicate_and_variant_report.json"
+  ],
+  "handoff": "Root Supervisor should preserve the aggregate-only boundary, add release sibling exclusion, and require a restricted adjudicated duplicate report before claiming candidate-bank dedup readiness."
+}

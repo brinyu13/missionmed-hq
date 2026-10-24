@@ -1,0 +1,1466 @@
+{
+  "ticket": "I1Q-1007X-MA",
+  "agent": "Agent 11 Independent Red Team",
+  "audited_commit": "6ac62c5a0503981680f161fe5119d5e5e2fa031a",
+  "audited_commit_scope": "INITIAL_AUDIT_PRESERVED",
+  "current_audited_commit": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4",
+  "audited_at": "2026-07-15",
+  "verdict": {
+    "state_c": "VETO",
+    "state_a": "SUPPORTED_WITH_EVIDENCE_QUALIFICATION",
+    "highest_supported_state": "STATE_A",
+    "consumer_or_student_release": "VETO",
+    "all_flags_required_off": true
+  },
+  "current_verdict": {
+    "audited_at": "2026-07-15",
+    "state_c": "VETO",
+    "state_a": "SUPPORTED_WITH_POINT_IN_TIME_AGGREGATE_QUALIFICATION",
+    "highest_supported_state": "STATE_A",
+    "consumer_or_student_release": "VETO",
+    "exact_commit_evidence_clearance": "INTEGRITY_PASS_STATE_A_ONLY",
+    "all_flags_required_off": true,
+    "irt_002": "RESOLVED_LOCAL_APPLICATION_SCOPE",
+    "irt_003": "RESOLVED_LOCAL_APPLICATION_SCOPE",
+    "irt_004": "TRUTHFULLY_QUALIFIED_NOT_RECOMPUTABLE",
+    "irt_009": "CLOSED_LOCAL_EXACT_CHECKPOINT",
+    "irt_010": "CLOSED_EXACT_CHECKPOINT"
+  },
+  "verified_current_facts": [
+    "Git HEAD equals 6ac62c5a0503981680f161fe5119d5e5e2fa031a.",
+    "Package tests passed 205, failed 0, and skipped 1 intentionally gated PostgreSQL case.",
+    "A fresh disposable PostgreSQL 16 proof passed 12, failed 0, and skipped 0.",
+    "Evidence validation passed 20 of 20 files with claimed State A.",
+    "Root dependency audit reported 0 vulnerabilities.",
+    "Committed deployment evidence has no URL and records all six feature flags false.",
+    "No canonical identity adapter, runtime grant manifest, HTTP-to-Postgres wiring, staging URL, production URL, browser proof, monitoring target, or operational rollback proof exists in the inspected packet.",
+    "The Class C stat_post_answer_debrief projection emits misconception_id.",
+    "Generic revision reads remove answers and rationales for every role, and no purpose-scoped HTTP answer endpoint exists.",
+    "No real transcript, nodes, VTT, or real-candidate artifact is present in the I1Q package."
+  ],
+  "point_in_time_reports": [
+    "The 2026-07-15 corpus report records 97 registry rows, 97 transcript JSON responses, 97 nodes responses, 0 local VTT files, and 97 privacy-blocked sources.",
+    "Root and specialist reports record 0 working-redacted sources, 0 extraction-ready sources, 0 real candidates, and 0 physician approvals.",
+    "The protected-runtime comparison records four tracked-to-deployed hash divergences and no authenticated consumer smoke."
+  ],
+  "inferences": [
+    "State A is the highest supportable point-in-time classification.",
+    "No current I1Q student leak is occurring because no I1Q deployment exists and student and consumer flags are recorded off.",
+    "The local SQL candidate is materially strong but cannot establish runtime RLS safety without the canonical role, grants, repository wiring, and staging execution."
+  ],
+  "unverified_claims": [
+    "The external corpus still contains exactly 97 rows at report time.",
+    "A future runtime preserves auth, RLS, session revocation, answer isolation, source isolation, and pool transaction isolation.",
+    "The repaired UI meets its score, WCAG 2.2 AA, responsive, browser, or human gates.",
+    "Protected consumers have no regression.",
+    "Operational rollback and monitoring work.",
+    "A future deployed runtime has no answer or source leak."
+  ],
+  "findings": [
+    {
+      "id": "IRT-001",
+      "severity": "CRITICAL",
+      "title": "State C integration and operations do not exist",
+      "classification": "verified_current",
+      "release_effect": "STATE_C_VETO",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+          "lines": "4-11"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/server.mjs",
+          "lines": "132-170,383-390"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/deployment_manifest.json",
+          "lines": "3-22"
+        }
+      ],
+      "reproduction_commands": [
+        "git rev-parse HEAD",
+        "nl -ba i1q-question-platform/src/server.mjs | sed -n '132,170p;383,390p'",
+        "nl -ba i1q-question-platform/evidence/deployment_manifest.json"
+      ],
+      "exact_remediation": [
+        "Provide and certify the canonical MissionMed identity resolver.",
+        "Create a reviewed least-privilege runtime role and exact grant migration.",
+        "Wire all non-synthetic HTTP paths to PostgresRepository with transaction-scoped actor context.",
+        "Register canonical preview, staging, internal-production, rollback, and monitoring workflows.",
+        "Run auth, RLS, browser, accessibility, rollback, monitoring, and protected-consumer gates on one immutable commit."
+      ]
+    },
+    {
+      "id": "IRT-002",
+      "severity": "HIGH",
+      "title": "Class D metadata leaks into the Class C student debrief",
+      "classification": "verified_current",
+      "release_effect": "CONSUMER_AND_STUDENT_RELEASE_VETO",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_fable/I1Q_STATQUESTIONS_1004C_ARCHITECTURE_AMENDMENT/I1Q_1004C_CHANNEL_SECURITY_AND_ANSWER_ISOLATION.md",
+          "lines": "12-15,31-37,68-74"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/exports.mjs",
+          "lines": "72-86,119-146,183-223"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/platform.mjs",
+          "lines": "1109-1156"
+        }
+      ],
+      "reproduction_commands": [
+        "cd i1q-question-platform && node --input-type=module -e \"import { projectStatDebrief } from './src/exports.mjs'; const row={dataset_version:'d',question_id:'q',answer:'A',explanation:'x'}; const revision={answer:'A',correct_answer_rationale:'x',choices:[{key:'A'},{key:'B',why_tempting:'x',why_wrong:'x',misconception_id:'internal_tag'}]}; console.log(JSON.stringify(Object.keys(projectStatDebrief(row,revision).distractor_rationales[0]).sort()));\""
+      ],
+      "exact_remediation": [
+        "Remove misconception_id and every Class D field from student debriefs.",
+        "Add closed-world Class C channel policies.",
+        "Execute LT-1 through LT-6 against exact serialized payloads and bind test results to artifact hashes.",
+        "Add regression tests for every Class D identifier family."
+      ]
+    },
+    {
+      "id": "IRT-003",
+      "severity": "HIGH",
+      "title": "Assigned reviewers cannot inspect the answer and rationale content they attest",
+      "classification": "verified_current",
+      "release_effect": "STATE_C_INTERNAL_REVIEW_BLOCKER",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/platform.mjs",
+          "lines": "716-750"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/server.mjs",
+          "lines": "294-370"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/public/app.js",
+          "lines": "958-992,1060-1223"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+          "lines": "1671-1768"
+        }
+      ],
+      "reproduction_commands": [
+        "rg -n \"readItemRevisionAnswers|revision-answers|answer-access\" i1q-question-platform/src/server.mjs i1q-question-platform/public/app.js i1q-question-platform/openapi.json",
+        "nl -ba i1q-question-platform/public/app.js | sed -n '958,992p;1060,1223p'"
+      ],
+      "exact_remediation": [
+        "Expose an audited purpose-scoped endpoint backed only by PostgresRepository.readItemRevisionAnswers.",
+        "Require accepted exact-hash assignment, current role, current medical credential where applicable, canonical identity, CSRF, and origin checks.",
+        "Render all UX-1 review content in one screen without browser persistence or logging.",
+        "Add denied-access and exact-content tests for every reviewer state."
+      ]
+    },
+    {
+      "id": "IRT-004",
+      "severity": "HIGH",
+      "title": "State A counts are internally consistent but not independently reproducible",
+      "classification": "verified_evidence_gap",
+      "release_effect": "STATE_A_QUALIFICATION",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/scripts/generate_evidence.mjs",
+          "lines": "170-228"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/validate-evidence.mjs",
+          "lines": "1871-1910"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_CORPUS_INVENTORY.md",
+          "lines": "13-56,101-124"
+        }
+      ],
+      "reproduction_commands": [
+        "nl -ba i1q-question-platform/scripts/generate_evidence.mjs | sed -n '170,228p'",
+        "nl -ba i1q-question-platform/src/validate-evidence.mjs | sed -n '1871,1910p'"
+      ],
+      "exact_remediation": [
+        "Retain one privacy-safe aggregate manifest row per authorized source.",
+        "Derive all counts and digests from that manifest.",
+        "Make the validator recompute totals, duplicates, statuses, and canonical digests.",
+        "Use an equivalent aggregate candidate-state manifest for candidate and approval counts."
+      ]
+    },
+    {
+      "id": "IRT-005",
+      "severity": "HIGH",
+      "title": "RLS is strong offline but unproven for the intended runtime",
+      "classification": "verified_current",
+      "release_effect": "STATE_C_RLS_CLEARANCE_WITHHELD",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+          "lines": "934-980,3231-3255"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/server.mjs",
+          "lines": "148"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/platform.mjs",
+          "lines": "371-376"
+        }
+      ],
+      "reproduction_commands": [
+        "rg -n \"new QuestionPlatform|PostgresRepository|MemoryRepository\" i1q-question-platform/src/server.mjs i1q-question-platform/src/platform.mjs",
+        "nl -ba i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql | sed -n '3231,3255p'"
+      ],
+      "exact_remediation": [
+        "Create and test the non-owner, non-superuser, non-BYPASSRLS runtime role.",
+        "Wire transaction-scoped PostgresRepository access.",
+        "Test pool reuse, revocation, cross-user denial, concurrency, and query plans in preview and staging.",
+        "Repeat the 12-test matrix against exact deployed migration bytes and grants."
+      ]
+    },
+    {
+      "id": "IRT-006",
+      "severity": "HIGH",
+      "title": "No-leak claims are local only",
+      "classification": "verified_evidence_boundary",
+      "release_effect": "NO_GLOBAL_NO_LEAK_CLEARANCE",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/security_results.json",
+          "lines": "3-41"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/deployment_manifest.json",
+          "lines": "3-22"
+        }
+      ],
+      "reproduction_commands": [
+        "npm test",
+        "npm run validate",
+        "find i1q-question-platform -type f \\( -iname '*.vtt' -o -iname '*transcript*.json' -o -iname '*nodes*.json' \\) -print"
+      ],
+      "exact_remediation": [
+        "Fix IRT-002 and IRT-003.",
+        "Scan exact staging responses, browser storage, logs, telemetry, artifacts, failures, and caches by role and phase.",
+        "Store only privacy-safe hashes and counts and obtain fresh independent clearance."
+      ]
+    },
+    {
+      "id": "IRT-007",
+      "severity": "HIGH",
+      "title": "Rollback, monitoring, and protected-consumer safety are not operationally proven",
+      "classification": "verified_current",
+      "release_effect": "STATE_C_OPERATIONS_BLOCKER",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/rollback_manifest.json",
+          "lines": "3-14"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_PROTECTED_SYSTEM_COMPARISON.md",
+          "lines": "21-76"
+        }
+      ],
+      "reproduction_commands": [
+        "nl -ba i1q-question-platform/evidence/rollback_manifest.json",
+        "nl -ba _AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_PROTECTED_SYSTEM_COMPARISON.md | sed -n '21,76p'"
+      ],
+      "exact_remediation": [
+        "Reconcile protected runtime hashes to owner-approved source and rollback artifacts.",
+        "Execute staging deploy, compensation, prior-artifact rollback, post-tests, and exact reapply through the canonical workflow.",
+        "Configure privacy-safe monitors and prove alert delivery and alert-triggered rollback."
+      ]
+    },
+    {
+      "id": "IRT-008",
+      "severity": "HIGH",
+      "title": "UI, accessibility, and required UX score are not proven",
+      "classification": "verified_current",
+      "release_effect": "STATE_C_UX_ACCESSIBILITY_BLOCKER",
+      "evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/browser_results.json",
+          "lines": "3-27"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/accessibility_results.json",
+          "lines": "3-17"
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/evidence/ux_scorecard.json",
+          "lines": "3-20 and final disclaimer"
+        }
+      ],
+      "reproduction_commands": [
+        "nl -ba i1q-question-platform/evidence/browser_results.json",
+        "nl -ba i1q-question-platform/evidence/accessibility_results.json",
+        "nl -ba i1q-question-platform/evidence/ux_scorecard.json | sed -n '1,45p'"
+      ],
+      "exact_remediation": [
+        "Fix the reviewer-content workflow and all open critical or high UX defects.",
+        "Run all workflow and failure-state browser matrices across required viewport sizes.",
+        "Run keyboard, assistive-technology, zoom, reflow, text-spacing, focus, contrast, and live-region tests.",
+        "Complete human validation and obtain a fresh independent score of at least 9.0 aggregate and 8.5 per category."
+      ]
+    }
+  ],
+  "tests_performed": [
+    {
+      "command": "npm test",
+      "scope": "i1q-question-platform",
+      "result": "PASS",
+      "passed": 205,
+      "failed": 0,
+      "skipped": 1
+    },
+    {
+      "command": "I1Q_POSTGRES_TEST_URL=<fresh local disposable database> node --test tests/postgres-migration.test.mjs",
+      "scope": "local PostgreSQL 16",
+      "result": "PASS",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "command": "npm run validate",
+      "scope": "i1q-question-platform",
+      "result": "PASS_20_OF_20_STATE_A"
+    },
+    {
+      "command": "npm audit --omit=dev --audit-level=low",
+      "scope": "repository root",
+      "result": "PASS_0_VULNERABILITIES"
+    },
+    {
+      "command": "synthetic key-only projectStatDebrief probe",
+      "scope": "Class C field classification",
+      "result": "FAIL_EMITS_MISCONCEPTION_ID"
+    }
+  ],
+  "confidence": {
+    "state_c_veto": 0.995,
+    "state_a_highest_point_in_time_state": 0.9,
+    "exact_97_external_count_independently_reproducible": 0.55,
+    "repository_zero_real_candidates": 0.98,
+    "runtime_no_leak_clearance": 0.0,
+    "runtime_rls_auth_rollback_monitoring_ux_clearance": 0.0
+  },
+  "owned_files": [
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/independent_red_team.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/red_team_findings.json",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/release_veto_or_clearance.md"
+  ],
+  "post_repair_rerun": {
+    "date": "2026-07-15",
+    "audit_target": {
+      "commit": "aebc98795f28fdfc2b130e118be762a30f536259",
+      "branch": "i1q-question-platform-ultra-1007x-ma",
+      "lineage": [
+        "b9bb26a_application_repairs",
+        "9eadd0e_generated_repaired_candidate_evidence",
+        "aebc987_aggregate_evidence_qualification_contract"
+      ],
+      "shared_worktree_head_observed_after_target": "6dc408fcf432b727e0d7bee20c5eef83ea479bf3",
+      "later_head_credited": false,
+      "source_and_tests_byte_identical_to_target": true
+    },
+    "scope_completed": [
+      "Re-inspected all eleven b9bb26a application repair files.",
+      "Inspected all twenty generated evidence records from 9eadd0e.",
+      "Inspected aebc987 generator, validator, and validator test changes.",
+      "Independently reproduced current IRT-002 and IRT-003 behavior.",
+      "Inspected and challenged IRT-004 machine-readable qualification.",
+      "Compared every committed artifact checksum with the exact aebc987 Git blob.",
+      "Searched exact aebc987 for a privacy-safe row manifest and external State C evidence.",
+      "Ran focused, evidence-validator, package, syntax, diff, and dependency verification."
+    ],
+    "evidence_inspected": [
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/exports.mjs",
+        "lines": "47-60,81-125,153-197,260-279"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/platform.mjs",
+        "lines": "926-998,1184-1245"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/server.mjs",
+        "lines": "49-62,136-190,215-233,298-320,399-420"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/public/app.js",
+        "lines": "1068-1100,1143-1178,1235-1264"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/scripts/generate_evidence.mjs",
+        "lines": "170-221"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/validate-evidence.mjs",
+        "lines": "569-579,1879-1902"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/tests/evidence-validator.test.mjs",
+        "lines": "638-669"
+      },
+      {
+        "git_object_path": "aebc98795f28fdfc2b130e118be762a30f536259:i1q-question-platform/evidence/inventory_report.json"
+      },
+      {
+        "git_object_path": "aebc98795f28fdfc2b130e118be762a30f536259:i1q-question-platform/evidence/artifact_checksums.json"
+      },
+      {
+        "git_object_path": "aebc98795f28fdfc2b130e118be762a30f536259:i1q-question-platform/evidence/deployment_manifest.json"
+      }
+    ],
+    "initial_versus_current": [
+      {
+        "id": "IRT-001",
+        "initial": "OPEN_CRITICAL",
+        "current": "OPEN_CRITICAL_UNCHANGED"
+      },
+      {
+        "id": "IRT-002",
+        "initial": "OPEN_HIGH_DIRECT_CLASS_D_KEY_LEAK",
+        "current": "PARTIALLY_RESOLVED_OVERALL_OPEN_HIGH_CLASS_D_VALUE_LEAK"
+      },
+      {
+        "id": "IRT-003",
+        "initial": "OPEN_HIGH_REVIEW_CONTENT_UNAVAILABLE",
+        "current": "RESOLVED_LOCAL_APPLICATION_SCOPE_RUNTIME_UNVERIFIED"
+      },
+      {
+        "id": "IRT-004",
+        "initial": "OPEN_HIGH_COUNTS_NOT_RECOMPUTABLE",
+        "current": "OPEN_HIGH_MACHINE_QUALIFICATION_NOT_EFFECTIVE_OR_MANIFEST_BOUND"
+      },
+      {
+        "id": "IRT-005",
+        "initial": "OPEN_HIGH",
+        "current": "OPEN_HIGH_UNCHANGED"
+      },
+      {
+        "id": "IRT-006",
+        "initial": "OPEN_HIGH",
+        "current": "OPEN_HIGH_CLASS_D_VALUE_COUNTEREXAMPLE"
+      },
+      {
+        "id": "IRT-007",
+        "initial": "OPEN_HIGH",
+        "current": "OPEN_HIGH_UNCHANGED"
+      },
+      {
+        "id": "IRT-008",
+        "initial": "OPEN_HIGH",
+        "current": "OPEN_HIGH_UI_CODE_IMPROVED_EXTERNAL_GATES_ABSENT"
+      }
+    ],
+    "verified_current_facts": [
+      "The audit target is exact pushed commit aebc98795f28fdfc2b130e118be762a30f536259.",
+      "Executed application source and tests are byte-identical to aebc987.",
+      "Focused repair tests passed 61, failed 0, and skipped 0.",
+      "Evidence-validator tests passed 30, failed 0, and skipped 0.",
+      "Package tests passed 215, failed 0, and skipped 1 intentionally gated PostgreSQL case out of 216 tests.",
+      "Root npm audit reported 0 vulnerabilities.",
+      "IRT-003 is resolved in local application scope by exact-assignment purpose-scoped content access and fail-closed controls.",
+      "A full valid release-artifact build can serialize the revision source ID through why_wrong while Class C validation returns no findings.",
+      "Exact aebc987 artifact checksums contain 44 entries and 3 stale entries.",
+      "Exact aebc987 inventory evidence lacks all four new machine-readable qualification fields.",
+      "Applying the exact cross-file predicate to the aebc987 inventory Git blob yields E_REAL_INVENTORY_QUALIFICATION.",
+      "Exact aebc987 contains no privacy-safe row-manifest path.",
+      "The recomputable-manifest validator branch does not name, hash, load, or recompute any manifest.",
+      "Exact deployment evidence has 0 deployment URLs, records all 6 flags false, and claims only State A."
+    ],
+    "point_in_time_reports": [
+      "The committed aggregate inventory reports 97 authorized sources, 97 registry rows, 97 transcript references, 97 nodes references, 0 local VTT files, 97 privacy-blocked sources, 0 working-redacted sources, and 0 extraction-ready sources.",
+      "The committed candidate report records 0 real candidates, 0 physician approvals, 0 release-eligible revisions, and 0 published revisions.",
+      "The initial disposable PostgreSQL proof reports 12 pass, 0 fail, and 0 skip; SQL did not change in the repair lineage."
+    ],
+    "inferences": [
+      "State A remains the highest supportable point-in-time classification.",
+      "The intended qualification is truthful only as POINT_IN_TIME_AGGREGATE because no recomputable privacy-safe row manifest exists.",
+      "No current deployed I1Q leak is demonstrated because no I1Q deployment exists and all file-recorded flags are false, but no global leak clearance is supportable."
+    ],
+    "unverified_claims": [
+      "The external corpus currently has exactly 97 rows.",
+      "An external datastore currently has exactly 0 real candidates and 0 physician approvals.",
+      "Canonical auth, runtime grants, HTTP-to-Postgres composition, RLS, and pool isolation work in staging or production.",
+      "Global answer and source isolation holds across responses, browser storage, logs, telemetry, caches, and errors.",
+      "Operational rollback, monitoring, and protected-consumer regression safety work.",
+      "The UI meets browser, responsive, accessibility, human, and score gates."
+    ],
+    "findings": [
+      {
+        "id": "IRT-009",
+        "severity": "HIGH",
+        "title": "Class D identifier values bypass Class C validation through permitted prose",
+        "classification": "VERIFIED_CURRENT",
+        "release_effect": "CONSUMER_AND_STUDENT_RELEASE_VETO",
+        "evidence": [
+          {
+            "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/exports.mjs",
+            "lines": "81-125,153-167,193-197,264-279"
+          },
+          {
+            "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/tests/exports-class-c.test.mjs",
+            "lines": "191-207",
+            "note": "The hidden-identifier test uses a wrong-typed object, not a valid identifier string."
+          }
+        ],
+        "observed": {
+          "direct_misconception_key_present": false,
+          "class_d_identifier_value_present": true,
+          "validator_findings": [],
+          "complete_build_succeeded": true
+        },
+        "reproduction_commands": [
+          "cd /Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform && run the exact IRT-009 node heredoc recorded in independent_red_team.md"
+        ],
+        "exact_remediation": [
+          "Derive the actual Class D value set from each internal revision before artifact hashing.",
+          "Canonically scan every exact serialized Class C string for item, revision, source, claim, reviewer, misconception, and psychometric identifier values.",
+          "Execute LT-5 and bind validator version, findings, result, artifact hash, and payload hash into release evidence.",
+          "Add valid-string injections for every Class D family in every allowed Class C prose field."
+        ]
+      },
+      {
+        "id": "IRT-010",
+        "severity": "HIGH",
+        "title": "Exact pushed evidence estate is stale and fails its new qualification contract",
+        "classification": "VERIFIED_CURRENT",
+        "release_effect": "EXACT_COMMIT_EVIDENCE_CLEARANCE_VETO",
+        "observed": {
+          "checksum_entries_checked": 44,
+          "stale_checksum_entries": 3,
+          "stale_paths": [
+            "i1q-question-platform/scripts/generate_evidence.mjs",
+            "i1q-question-platform/src/validate-evidence.mjs",
+            "i1q-question-platform/tests/evidence-validator.test.mjs"
+          ],
+          "missing_inventory_fields": [
+            "evidence_scope",
+            "row_manifest_retained",
+            "independently_recomputable_from_git",
+            "qualification"
+          ],
+          "exact_aebc987_validator_clearance_supportable": false
+        },
+        "reproduction_commands": [
+          "Run the exact Git-object SHA-256 heredoc recorded under IRT-010 in independent_red_team.md.",
+          "git show aebc98795f28fdfc2b130e118be762a30f536259:i1q-question-platform/evidence/inventory_report.json"
+        ],
+        "exact_remediation": [
+          "Regenerate all evidence after the final generator, validator, and test code on one clean immutable candidate.",
+          "Record the truthful point-in-time qualification unless an actual privacy-safe row manifest exists.",
+          "Recompute and verify every checksum against that same candidate.",
+          "Rerun package, PostgreSQL, dependency, and exact evidence validation, then request independent review of the new pushed commit."
+        ]
+      }
+    ],
+    "irt_004_machine_readable_qualification": {
+      "status": "OPEN",
+      "intended_point_in_time_contract_truthful": true,
+      "qualification_fields_present_in_generator": true,
+      "qualification_fields_present_in_exact_committed_inventory": false,
+      "privacy_safe_row_manifest_found": false,
+      "recomputable_mode_bound_to_manifest_path": false,
+      "recomputable_mode_bound_to_manifest_hash": false,
+      "recomputable_mode_performs_recomputation": false,
+      "exact_remediation": [
+        "For the current estate, commit evidence_scope POINT_IN_TIME_AGGREGATE with row_manifest_retained false, independently_recomputable_from_git false, and a nonempty qualification.",
+        "For any future recomputable claim, require and verify a privacy-safe manifest path, SHA-256, schema version, allowed fields, unique row identity, row count, and independently recomputed aggregates."
+      ]
+    },
+    "tests_performed": [
+      {
+        "command": "git diff --exit-code aebc98795f28fdfc2b130e118be762a30f536259 -- <repair and qualification source and test paths>",
+        "result": "PASS_NO_DIFF"
+      },
+      {
+        "command": "node --test tests/exports-class-c.test.mjs tests/platform.test.mjs tests/security-regressions.test.mjs tests/ui.test.mjs tests/api.test.mjs",
+        "passed": 61,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "node --test tests/evidence-validator.test.mjs",
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "npm test",
+        "total": 216,
+        "passed": 215,
+        "failed": 0,
+        "skipped": 1
+      },
+      {
+        "command": "npm audit --omit=dev --audit-level=low",
+        "vulnerabilities": 0
+      },
+      {
+        "command": "git diff --check 6ac62c5a0503981680f161fe5119d5e5e2fa031a..aebc98795f28fdfc2b130e118be762a30f536259",
+        "result": "PASS"
+      },
+      {
+        "command": "git ls-tree -r --name-only aebc98795f28fdfc2b130e118be762a30f536259 -- i1q-question-platform | rg -i 'row.*manifest|manifest.*row|inventory.*rows|candidate.*rows|aggregate.*manifest'",
+        "result": "NO_MATCH"
+      },
+      {
+        "command": "exact aebc987 Git-object artifact checksum comparison",
+        "checked": 44,
+        "stale": 3
+      },
+      {
+        "command": "npm run validate from an exact aebc987 checkout",
+        "result": "NOT_RUN_SHARED_WORKTREE_ADVANCED_AND_REPORT_ONLY_OWNERSHIP",
+        "replacement_verification": "Exact Git-object checks establish three E_ARTIFACT_STALE conditions and E_REAL_INVENTORY_QUALIFICATION without crediting later evidence."
+      },
+      {
+        "command": "synthetic full build Class D value injection",
+        "result": "FAIL_LEAK_REPRODUCED"
+      }
+    ],
+    "changes_proposed_or_made": {
+      "made": [
+        "Updated only the three Agent 11 report outputs."
+      ],
+      "product_or_shared_changes": 0
+    },
+    "risks": [
+      "Class D value disclosure through valid Class C prose.",
+      "Overstated local test coverage from a wrong-typed hidden-identifier fixture.",
+      "Stale exact-commit evidence mistaken for a passing estate.",
+      "Self-asserted recomputability without a manifest.",
+      "Local reviewer-access success mistaken for deployed auth and RLS safety.",
+      "All initial external, rollback, monitoring, regression, UX, and accessibility risks."
+    ],
+    "blockers": [
+      "IRT-001",
+      "IRT-004",
+      "IRT-005",
+      "IRT-006",
+      "IRT-007",
+      "IRT-008",
+      "IRT-009",
+      "IRT-010"
+    ],
+    "confidence": {
+      "state_c_veto": 0.998,
+      "irt_003_local_resolution": 0.98,
+      "irt_002_overall_open": 0.995,
+      "exact_commit_evidence_stale": 1.0,
+      "state_a_highest_point_in_time_state": 0.92,
+      "exact_counts_independently_recomputable": 0.0,
+      "global_runtime_clearance": 0.0
+    },
+    "handoff_to_root_supervisor": [
+      "Carry STATE C RELEASE VETO.",
+      "Carry STATE A SUPPORTED WITH POINT-IN-TIME AGGREGATE QUALIFICATION.",
+      "Mark IRT-003 resolved only in local application scope.",
+      "Mark IRT-002 partially resolved and overall open through IRT-009.",
+      "Keep IRT-004 open and do not promote point-in-time totals to recomputable facts.",
+      "Do not report exact aebc987 as evidence-validator green.",
+      "Require one new pushed immutable code-and-evidence checkpoint and all unchanged external State C evidence before another clearance review."
+    ]
+  },
+  "final_post_repair_rerun": {
+    "date": "2026-07-15",
+    "audit_target": {
+      "commit": "2d28d0b271b637f68358fd4aae414aa2f708c63f",
+      "branch": "i1q-question-platform-ultra-1007x-ma",
+      "head_matches_target": true,
+      "origin_matches_target": true,
+      "product_tree_was_clean": true
+    },
+    "verdict": {
+      "state_c": "VETO",
+      "state_a": "SUPPORTED_ONLY_AS_DATED_POINT_IN_TIME_AGGREGATE",
+      "state_b": "NOT_CLAIMED",
+      "state_d": "NOT_CLAIMED",
+      "consumer_or_student_release": "VETO",
+      "all_flags_required_off": true
+    },
+    "scope_completed": [
+      "Inspected exact Git objects for the final repair lineage.",
+      "Reviewed JavaScript and SQL Class D identifier collection, normalization, validation, hashing, and insertion ordering.",
+      "Ran an independent JavaScript matrix across seven identifier families and four Class C prose fields.",
+      "Confirmed the opaque public question ID and frozen nine-column STAT projection.",
+      "Rechecked IRT-003 local reviewer access.",
+      "Verified all 44 exact checkpoint checksums and inventory qualification fields.",
+      "Ran focused tests, full package tests, evidence validation, and root dependency audit."
+    ],
+    "evidence_inspected": [
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/exports.mjs",
+        "lines": "62-161,183-218,289-344"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/platform.mjs",
+        "lines": "1157-1206"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+        "lines": "2866-3213"
+      },
+      {
+        "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/tests/exports-class-c.test.mjs",
+        "lines": "215-385"
+      },
+      {
+        "git_object_path": "2d28d0b271b637f68358fd4aae414aa2f708c63f:i1q-question-platform/evidence/artifact_checksums.json"
+      },
+      {
+        "git_object_path": "2d28d0b271b637f68358fd4aae414aa2f708c63f:i1q-question-platform/evidence/inventory_report.json"
+      }
+    ],
+    "current_dispositions": {
+      "IRT-001": "OPEN_CRITICAL_UNCHANGED",
+      "IRT-002": "PARTIALLY_RESOLVED_OVERALL_OPEN_THROUGH_IRT_009",
+      "IRT-003": "RESOLVED_LOCAL_APPLICATION_SCOPE_RUNTIME_UNVERIFIED",
+      "IRT-004": "TRUTHFULLY_QUALIFIED_NOT_RECOMPUTABLE",
+      "IRT-005": "OPEN_HIGH_UNCHANGED",
+      "IRT-006": "OPEN_HIGH_IRT_009_COUNTEREXAMPLE",
+      "IRT-007": "OPEN_HIGH_UNCHANGED",
+      "IRT-008": "OPEN_HIGH_UNCHANGED",
+      "IRT-009": "OPEN_HIGH_DOUBLE_URL_ENCODING_BYPASS",
+      "IRT-010": "CLOSED_EXACT_CHECKPOINT"
+    },
+    "verified_current_facts": [
+      "All 28 direct identifier and prose-field combinations were denied.",
+      "Of 196 encoded identifier combinations, 172 were denied and 24 double URL-encoded combinations bypassed JavaScript isolation.",
+      "Of 24 encoded marker combinations, 20 were denied and 4 double URL-encoded source marker combinations bypassed JavaScript isolation.",
+      "A targeted bypass remained in the Class C payload and produced both artifact and manifest hashes.",
+      "The opaque public composite question ID remained unchanged.",
+      "The STAT projection retained exactly nine frozen columns.",
+      "All 44 exact checksum records matched Git-object bytes and SHA-256 values.",
+      "Evidence validation passed 20 of 20 files with 0 errors and claimed only State A.",
+      "The inventory declares POINT_IN_TIME_AGGREGATE, row_manifest_retained false, independently_recomputable_from_git false, and a nonempty dated qualification.",
+      "No privacy-safe aggregate row manifest exists in the exact tree.",
+      "Focused tests passed 84 with 0 failures.",
+      "Package tests passed 223 with 0 failures and 1 gated PostgreSQL skip.",
+      "Root npm audit reported 0 vulnerabilities.",
+      "Exact deployment evidence records 0 deployment URLs and all six flags false."
+    ],
+    "point_in_time_reports": [
+      "The dated aggregate inventory reports 97 authorized sources, 97 registry rows, 97 transcript references, 97 nodes references, 0 VTT references, 97 privacy-blocked sources, 0 working-redacted sources, and 0 extraction-ready sources.",
+      "The dated candidate report records 0 real candidates and 0 physician approvals."
+    ],
+    "inferences": [
+      "State A is the highest supportable state only as a dated point-in-time aggregate.",
+      "SQL source orders checks before hashing and insertion, but independent runtime proof was not completed in this rerun."
+    ],
+    "unverified_claims": [
+      "The external corpus currently contains exactly 97 rows.",
+      "The external datastore currently contains exactly 0 real candidates and physician approvals.",
+      "Changed SQL isolation passes a fresh disposable PostgreSQL matrix.",
+      "Canonical auth, runtime RLS, rollback, monitoring, protected-consumer safety, browser UX, and accessibility work externally."
+    ],
+    "findings": [
+      {
+        "id": "IRT-009",
+        "severity": "HIGH",
+        "status": "OPEN",
+        "title": "Iteratively URL-encoded Class D values bypass JavaScript release isolation",
+        "release_effect": "CONSUMER_AND_STUDENT_RELEASE_VETO",
+        "observed": {
+          "direct_attempts": 28,
+          "direct_denied": 28,
+          "encoded_identifier_attempts": 196,
+          "encoded_identifier_denied": 172,
+          "encoded_marker_attempts": 24,
+          "encoded_marker_denied": 20,
+          "total_bypasses": 28,
+          "bypass_encoding": "DOUBLE_URL_ENCODING",
+          "bypassed_identifier_families": [
+            "item",
+            "revision",
+            "source",
+            "claim",
+            "reviewer",
+            "misconception"
+          ],
+          "bypassed_fields": [
+            "explanation",
+            "correct_answer_rationale",
+            "why_tempting",
+            "why_wrong"
+          ],
+          "bypassed_payload_hashed": true,
+          "opaque_public_question_id_valid": true,
+          "stat_projection_columns": 9
+        },
+        "root_cause": "JavaScript percent decoding runs once. A percent-encoded percent is decoded into a second encoding layer that is not decoded before comparison.",
+        "exact_remediation": [
+          "Decode repeatedly until stable with strict depth and size bounds.",
+          "Add double and triple URL-encoding tests for all seven families in all four prose fields.",
+          "Assert rejection before artifact hashing and before SQL metadata or payload insertion.",
+          "Regenerate exact evidence and request another independent rerun."
+        ]
+      },
+      {
+        "id": "IRT-010",
+        "severity": "HIGH",
+        "status": "CLOSED",
+        "title": "Exact pushed evidence estate integrity",
+        "observed": {
+          "checksum_records": 44,
+          "matching_records": 44,
+          "stale_records": 0,
+          "qualification_fields_present": true
+        },
+        "closure_scope": "EXACT_CHECKPOINT_INTEGRITY_ONLY"
+      }
+    ],
+    "irt_004_qualification": {
+      "status": "TRUTHFULLY_QUALIFIED_NOT_RECOMPUTABLE",
+      "evidence_scope": "POINT_IN_TIME_AGGREGATE",
+      "row_manifest_retained": false,
+      "independently_recomputable_from_git": false,
+      "privacy_safe_row_manifest_found": false,
+      "unqualified_count_certification": "BLOCKED"
+    },
+    "tests_performed": [
+      {
+        "command": "node --test tests/exports-class-c.test.mjs tests/migration-1007x.test.mjs tests/platform.test.mjs tests/security-regressions.test.mjs tests/api.test.mjs tests/ui.test.mjs",
+        "passed": 84,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "npm test",
+        "total": 224,
+        "passed": 223,
+        "failed": 0,
+        "skipped": 1
+      },
+      {
+        "command": "npm run validate",
+        "files": 20,
+        "errors": 0,
+        "claimed_state": "STATE_A"
+      },
+      {
+        "command": "npm audit --omit=dev --audit-level=low",
+        "vulnerabilities": 0
+      },
+      {
+        "command": "exact Git-object checksum comparison",
+        "checked": 44,
+        "stale": 0
+      },
+      {
+        "command": "independent JavaScript identifier and encoding matrix",
+        "attempts": 248,
+        "denied": 220,
+        "bypasses": 28
+      },
+      {
+        "command": "fresh disposable PostgreSQL 16 run",
+        "result": "NOT_RUN_NO_SPACE_LEFT_ON_DEVICE_BEFORE_CLUSTER_START"
+      }
+    ],
+    "changes_proposed_or_made": {
+      "made": [
+        "Updated only the three Independent Red Team report files."
+      ],
+      "product_or_shared_changes": 0
+    },
+    "risks": [
+      "Double URL-encoded internal identifiers can be hashed into JavaScript release material.",
+      "Green committed tests omit iterative encoding depth.",
+      "Changed SQL lacks fresh independent runtime execution in this rerun.",
+      "Point-in-time totals may be overstated as recomputable.",
+      "All preserved external State C risks remain."
+    ],
+    "blockers": [
+      "IRT-001",
+      "IRT-004_UNQUALIFIED_COUNTS_ONLY",
+      "IRT-005",
+      "IRT-006",
+      "IRT-007",
+      "IRT-008",
+      "IRT-009",
+      "FRESH_POSTGRESQL_PROOF_FOR_CHANGED_SQL"
+    ],
+    "confidence": {
+      "state_c_veto": 0.999,
+      "state_a_highest_point_in_time_state": 0.95,
+      "irt_009_open": 1.0,
+      "irt_010_closed": 1.0,
+      "irt_003_local_resolution": 0.98,
+      "exact_counts_independently_recomputable": 0.0,
+      "changed_sql_independent_runtime_clearance": 0.0
+    },
+    "exact_file_paths": [
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/independent_red_team.md",
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/red_team_findings.json",
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/release_veto_or_clearance.md"
+    ],
+    "handoff_to_root_supervisor": [
+      "Carry STATE C RELEASE VETO.",
+      "Carry STATE A only as a dated point-in-time aggregate.",
+      "Mark IRT-009 open and IRT-010 closed at exact 2d28d0b.",
+      "Preserve IRT-004 non-recomputability qualification.",
+      "Do not claim State B, C, D, consumer release, global leak safety, or changed-SQL runtime clearance."
+    ]
+  },
+  "final_iterative_isolation_rerun": {
+    "audited_at": "2026-07-15",
+    "audit_target": {
+      "commit": "65bb52c4bd14d6d20145e666e3b95b6109dfef83",
+      "branch": "i1q-question-platform-ultra-1007x-ma",
+      "head_matches_target": true,
+      "origin_matches_target": true,
+      "product_tree_was_clean": true
+    },
+    "verdict": {
+      "state_c": "VETO",
+      "state_a": "SUPPORTED_ONLY_AS_DATED_POINT_IN_TIME_AGGREGATE",
+      "state_b": "NOT_CLAIMED",
+      "state_d": "NOT_CLAIMED",
+      "consumer_or_student_release": "VETO",
+      "postgresql_class_d_isolation": "VETO",
+      "all_flags_required_off": true
+    },
+    "scope_completed": [
+      "Inspected exact Git objects and repair history through 65bb52c.",
+      "Reviewed JavaScript and PostgreSQL Class D collection, normalization, validation, hashing, and insertion ordering.",
+      "Ran an independent JavaScript cross-product across seven identifier families, four prose fields, and seven direct or encoding variants.",
+      "Ran the committed suite and independent scanner and persistence matrices in fresh disposable PostgreSQL 16 clusters.",
+      "Verified depth and size fail-closed behavior, opaque public identity, and frozen nine-field STAT projection.",
+      "Verified all 44 exact checkpoint checksums and inventory qualification fields.",
+      "Ran focused tests, full package tests, evidence validation, and root dependency audit."
+    ],
+    "evidence_inspected": [
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/src/exports.mjs",
+        "lines": "64-65,74-105,129-138,173-193,268-281,321-337,340-381"
+      },
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+        "lines": "2866-2955,3001-3146,3237-3254,3267-3293"
+      },
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/tests/exports-class-c.test.mjs",
+        "lines": "301-463"
+      },
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/tests/postgres-migration.test.mjs",
+        "lines": "568-713,816-980"
+      },
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/evidence/artifact_checksums.json"
+      },
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/evidence/inventory_report.json"
+      },
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/evidence/candidate_counts.json"
+      },
+      {
+        "git_object_path": "65bb52c4bd14d6d20145e666e3b95b6109dfef83:i1q-question-platform/evidence/deployment_manifest.json"
+      }
+    ],
+    "current_dispositions": {
+      "IRT-001": "OPEN_CRITICAL_UNCHANGED",
+      "IRT-002": "PARTIALLY_RESOLVED_OVERALL_OPEN_THROUGH_IRT_009",
+      "IRT-003": "RESOLVED_LOCAL_APPLICATION_SCOPE_RUNTIME_UNVERIFIED",
+      "IRT-004": "TRUTHFULLY_QUALIFIED_NOT_RECOMPUTABLE",
+      "IRT-005": "OPEN_HIGH_UNCHANGED",
+      "IRT-006": "OPEN_HIGH_IRT_009_POSTGRESQL_COUNTEREXAMPLE",
+      "IRT-007": "OPEN_HIGH_UNCHANGED",
+      "IRT-008": "OPEN_HIGH_UNCHANGED",
+      "IRT-009": "OPEN_HIGH_POSTGRES_FULL_ASCII_MIXED_CASE_BYPASS",
+      "IRT-010": "CLOSED_EXACT_CHECKPOINT"
+    },
+    "verified_current_facts": [
+      "JavaScript denied all 196 combinations across seven families, four fields, and seven variants.",
+      "JavaScript depth 9 and 65537-byte probes failed closed with HTTP status 422 errors.",
+      "The opaque public question ID remained valid and the STAT projection retained exactly nine frozen fields.",
+      "The PostgreSQL scanner detected 47 of 49 family and variant pairs and missed two full printable-ASCII mixed-case source variants.",
+      "Eight PostgreSQL probes across four fields and URL depths two and three persisted eight artifacts and eight payloads in eight disposable releases.",
+      "SQL Class D scanning is located before hash and insert statements, but the bypass reaches those statements.",
+      "Fresh disposable PostgreSQL tests passed 13 with 0 failures and 0 skips, demonstrating a committed coverage gap rather than closure.",
+      "Focused tests passed 88 with 0 failures.",
+      "Package tests passed 227 with 0 failures and 1 gated PostgreSQL skip.",
+      "Evidence validation passed 20 of 20 files with 0 errors and claimed only State A.",
+      "All 44 exact checksum records matched Git-object bytes and SHA-256 values.",
+      "Root npm audit reported 0 vulnerabilities.",
+      "Exact deployment evidence records 0 deployment URLs and all six feature flags false.",
+      "No privacy-safe aggregate row manifest exists in the exact tree."
+    ],
+    "point_in_time_reports": [
+      "The dated aggregate inventory reports 97 authorized sources, 97 registry rows, 97 transcript references, 97 nodes references, 0 VTT references, 97 privacy-blocked sources, 0 working-redacted sources, and 0 extraction-ready sources.",
+      "The dated candidate evidence reports 0 real candidates and 0 physician approvals."
+    ],
+    "inferences": [
+      "State A is the highest supportable state only as a dated point-in-time aggregate.",
+      "Because jsonb_string_values scans every prose scalar through the same function, both missed encoding depths affect each of the four permitted prose fields; dynamic insertion confirmed all eight combinations.",
+      "The external State C veto remains independently sufficient even after local IRT-009 repair."
+    ],
+    "unverified_claims": [
+      "The external corpus currently contains exactly 97 rows.",
+      "The external datastore currently contains exactly 0 real candidates and physician approvals.",
+      "Canonical auth, runtime RLS, rollback, monitoring, protected-consumer safety, browser UX, and accessibility work externally.",
+      "A future deployed runtime has no answer or source leak."
+    ],
+    "findings": [
+      {
+        "id": "IRT-009",
+        "severity": "HIGH",
+        "status": "OPEN",
+        "title": "PostgreSQL accepts full printable-ASCII encoding of a mixed-case release-linked identifier",
+        "release_effect": "CONSUMER_AND_STUDENT_RELEASE_VETO",
+        "observed": {
+          "javascript_attempts": 196,
+          "javascript_denied": 196,
+          "javascript_bypasses": 0,
+          "postgres_family_variant_pairs": 49,
+          "postgres_scanner_detected": 47,
+          "postgres_scanner_bypasses": 2,
+          "bypass_identifier_family": "source",
+          "bypass_encodings": [
+            "FULL_PRINTABLE_ASCII_URL_DEPTH_2",
+            "FULL_PRINTABLE_ASCII_URL_DEPTH_3"
+          ],
+          "affected_prose_fields": [
+            "explanation",
+            "correct_answer_rationale",
+            "why_tempting",
+            "why_wrong"
+          ],
+          "dynamic_bypass_attempts": 8,
+          "persisted_artifact_rows": 8,
+          "persisted_payload_rows": 8,
+          "affected_disposable_releases": 8,
+          "opaque_public_question_id_valid": true,
+          "stat_projection_fields": 9,
+          "depth_limit_fail_closed": true,
+          "size_limit_fail_closed": true
+        },
+        "root_cause": "normalize_security_text lowercases before iterative printable-ASCII decoding. Decoding restores uppercase bytes after the only case fold, and direct comparison uses the resulting mixed-case candidate against a lowercase identifier.",
+        "evidence": [
+          {
+            "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+            "lines": "2916-2954,3120-3145,3237-3293"
+          },
+          {
+            "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/exports.mjs",
+            "lines": "92-113,129-138,173-193,321-337"
+          }
+        ],
+        "reproduction_commands": [
+          "cd /Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform && node --input-type=module < independent in-memory 7-family x 4-field x 7-variant matrix recorded in independent_red_team.md",
+          "BASE=$(mktemp -d /tmp/i1q-irt-65bb.XXXXXX); initdb -D $BASE/data -U postgres -A trust --no-locale -E UTF8; pg_ctl -D $BASE/data -o '-F -p 55465' -w start; createdb -h 127.0.0.1 -p 55465 -U postgres i1q_irt",
+          "cd /Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform && I1Q_POSTGRES_TEST_URL='<disposable-local-database-url>' node --test tests/postgres-migration.test.mjs",
+          "psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55465 -U postgres -d i1q_irt < independent 49-pair scanner and 8-release persistence heredocs recorded in independent_red_team.md"
+        ],
+        "exact_remediation": [
+          "Apply lower case folding after every SQL decode pass and after the final decode before direct comparison.",
+          "Retain canonical variants for Base64 and Base64URL checks.",
+          "Add actual mixed-case fixtures for all seven families and all required fields and encodings.",
+          "Assert 42501 for leak denials, 54000 for depth and size limits, and zero artifact and payload rows.",
+          "Regenerate checksummed evidence only after repair and request another independent rerun."
+        ]
+      },
+      {
+        "id": "IRT-010",
+        "severity": "HIGH",
+        "status": "CLOSED",
+        "title": "Exact pushed evidence estate integrity",
+        "observed": {
+          "checksum_records": 44,
+          "matching_records": 44,
+          "stale_records": 0,
+          "qualification_fields_present": true
+        },
+        "closure_scope": "EXACT_CHECKPOINT_INTEGRITY_ONLY"
+      }
+    ],
+    "irt_004_qualification": {
+      "status": "TRUTHFULLY_QUALIFIED_NOT_RECOMPUTABLE",
+      "evidence_scope": "POINT_IN_TIME_AGGREGATE",
+      "row_manifest_retained": false,
+      "independently_recomputable_from_git": false,
+      "privacy_safe_row_manifest_found": false,
+      "unqualified_count_certification": "BLOCKED"
+    },
+    "tests_performed": [
+      {
+        "command": "node --test tests/exports-class-c.test.mjs tests/migration-1007x.test.mjs tests/security-regressions.test.mjs tests/api.test.mjs tests/platform.test.mjs tests/ui.test.mjs",
+        "passed": 88,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "npm test",
+        "total": 228,
+        "passed": 227,
+        "failed": 0,
+        "skipped": 1
+      },
+      {
+        "command": "npm run validate",
+        "files": 20,
+        "errors": 0,
+        "claimed_state": "STATE_A"
+      },
+      {
+        "command": "npm audit --omit=dev --audit-level=low",
+        "vulnerabilities": 0
+      },
+      {
+        "command": "fresh disposable PostgreSQL 16 tests/postgres-migration.test.mjs",
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "independent JavaScript identifier and encoding matrix",
+        "attempts": 196,
+        "denied": 196,
+        "bypasses": 0
+      },
+      {
+        "command": "independent PostgreSQL family and variant scanner matrix",
+        "attempts": 49,
+        "detected": 47,
+        "bypasses": 2
+      },
+      {
+        "command": "independent PostgreSQL four-field by two-depth persistence matrix",
+        "attempts": 8,
+        "persisted_artifacts": 8,
+        "persisted_payloads": 8
+      },
+      {
+        "command": "exact Git-object checksum comparison",
+        "checked": 44,
+        "matching": 44,
+        "stale": 0
+      }
+    ],
+    "changes_proposed_or_made": {
+      "made": [
+        "Updated only the three Independent Red Team report files."
+      ],
+      "product_or_shared_changes": 0
+    },
+    "risks": [
+      "PostgreSQL can persist an encoded mixed-case Class D identifier in Class C prose.",
+      "The green committed PostgreSQL suite omits the failing mixed-case full-ASCII cross-product.",
+      "Checksum-perfect evidence can be mistaken for release clearance.",
+      "Point-in-time totals can be overstated as recomputable or current.",
+      "All preserved external State C risks remain."
+    ],
+    "blockers": [
+      "IRT-001",
+      "IRT-004_UNQUALIFIED_COUNTS_ONLY",
+      "IRT-005",
+      "IRT-006",
+      "IRT-007",
+      "IRT-008",
+      "IRT-009"
+    ],
+    "confidence": {
+      "state_c_veto": 1.0,
+      "state_a_highest_point_in_time_state": 0.95,
+      "irt_009_open": 1.0,
+      "irt_010_closed": 1.0,
+      "irt_003_local_resolution": 0.98,
+      "exact_counts_independently_recomputable": 0.0,
+      "postgresql_class_d_isolation_clearance": 0.0
+    },
+    "exact_file_paths": [
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/independent_red_team.md",
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/red_team_findings.json",
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/release_veto_or_clearance.md"
+    ],
+    "handoff_to_root_supervisor": [
+      "Carry STATE C RELEASE VETO.",
+      "Carry STATE A only as a dated point-in-time aggregate.",
+      "Mark IRT-009 open and IRT-010 closed at exact 65bb52c.",
+      "Preserve IRT-004 non-recomputability qualification and IRT-003 local-only closure.",
+      "Do not claim State B, C, D, consumer release, student release, global leak safety, or PostgreSQL Class D isolation.",
+      "Require a new immutable repair checkpoint, exact zero-persistence matrix, regenerated evidence, and another independent rerun."
+    ]
+  },
+  "final_sql_case_folding_rerun": {
+    "audited_at": "2026-07-15",
+    "audit_target": {
+      "commit": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4",
+      "branch": "i1q-question-platform-ultra-1007x-ma",
+      "head_matches_target": true,
+      "origin_matches_target": true,
+      "product_tree_was_clean": true
+    },
+    "verdict": {
+      "state_c": "VETO",
+      "state_a": "SUPPORTED_ONLY_AS_DATED_POINT_IN_TIME_AGGREGATE",
+      "state_b": "NOT_CLAIMED",
+      "state_d": "NOT_CLAIMED",
+      "consumer_or_student_release": "VETO_EXTERNAL_BLOCKERS",
+      "postgresql_class_d_isolation": "CLOSED_LOCAL_EXACT_CHECKPOINT",
+      "all_flags_required_off": true
+    },
+    "scope_completed": [
+      "Inspected exact Git objects and the repair lineage through ba17e22.",
+      "Reviewed SQL case folding, release-linked identifier collection, scanning, hashing, and insertion ordering.",
+      "Verified actual mixed-case relational fixtures for all seven identifier families.",
+      "Ran independent JavaScript and PostgreSQL matrices across seven families, four prose fields, and seven variants.",
+      "Ran marker, depth, size, SQLSTATE, and zero-persistence probes.",
+      "Verified opaque public identity and frozen nine-field STAT projection.",
+      "Verified all 44 exact checkpoint checksums and inventory qualification fields.",
+      "Ran focused tests, package tests, evidence validation, root audit, and fresh disposable PostgreSQL 16."
+    ],
+    "evidence_inspected": [
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+        "lines": "2896-2955,3073-3147,3238-3294"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/tests/postgres-migration.test.mjs",
+        "lines": "398-563,609-753,884-1064"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/tests/migration-1007x.test.mjs",
+        "lines": "238-300"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/src/exports.mjs",
+        "lines": "64-65,74-105,129-138,173-193,268-281,321-337"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/tests/exports-class-c.test.mjs",
+        "lines": "301-463"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/evidence/artifact_checksums.json"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/evidence/inventory_report.json"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/evidence/candidate_counts.json"
+      },
+      {
+        "git_object_path": "ba17e22b0fe8a48a7397557ef95d2ceb454970d4:i1q-question-platform/evidence/deployment_manifest.json"
+      }
+    ],
+    "current_dispositions": {
+      "IRT-001": "OPEN_CRITICAL_UNCHANGED",
+      "IRT-002": "RESOLVED_LOCAL_APPLICATION_SCOPE",
+      "IRT-003": "RESOLVED_LOCAL_APPLICATION_SCOPE_RUNTIME_UNVERIFIED",
+      "IRT-004": "TRUTHFULLY_QUALIFIED_NOT_RECOMPUTABLE",
+      "IRT-005": "OPEN_HIGH_UNCHANGED",
+      "IRT-006": "OPEN_HIGH_EXTERNAL_SCOPE_NO_LOCAL_COUNTEREXAMPLE",
+      "IRT-007": "OPEN_HIGH_UNCHANGED",
+      "IRT-008": "OPEN_HIGH_UNCHANGED",
+      "IRT-009": "CLOSED_LOCAL_EXACT_CHECKPOINT",
+      "IRT-010": "CLOSED_EXACT_CHECKPOINT"
+    },
+    "verified_current_facts": [
+      "SQL applies lower case folding after each URL decode pass and after final NFKC normalization.",
+      "The disposable release links actual mixed-case item, revision, source, claim, reviewer, misconception, and psychometric identifiers.",
+      "JavaScript denied all 196 identifier combinations across seven families, four fields, and seven variants.",
+      "JavaScript depth 9 and 65537-byte probes failed closed, the public question ID remained valid, and the STAT projection retained nine frozen fields.",
+      "Independent PostgreSQL denied 196 identifier probes and 16 marker probes with SQLSTATE 42501.",
+      "Independent PostgreSQL returned SQLSTATE 54000 for depth 9 and 65537-byte probes.",
+      "Independent PostgreSQL persisted zero probe artifacts and zero probe payloads.",
+      "Class D checks precede hashing, artifact insertion, and payload insertion in the exact migration.",
+      "Fresh disposable PostgreSQL tests passed 13 with 0 failures and 0 skips.",
+      "Focused tests passed 88 with 0 failures.",
+      "Package tests passed 227 with 0 failures and 1 gated PostgreSQL skip.",
+      "Evidence validation passed 20 of 20 files with 0 errors and claimed only State A.",
+      "All 44 exact checksum records matched Git-object bytes and SHA-256 values.",
+      "Root npm audit reported 0 vulnerabilities.",
+      "Exact deployment evidence records 0 deployment URLs, a null canonical route, and all six feature flags false.",
+      "No privacy-safe aggregate row manifest exists in the exact tree."
+    ],
+    "point_in_time_reports": [
+      "The dated aggregate inventory reports 97 authorized sources, 97 registry rows, 97 transcript references, 97 nodes references, 0 local VTT files, 0 working-redacted sources, and 0 extraction-ready sources, with all sources privacy-blocked.",
+      "The dated candidate evidence reports 0 real candidates and 0 physician approvals."
+    ],
+    "inferences": [
+      "State A is the highest supportable state only as a dated point-in-time aggregate.",
+      "The 65bb52c mixed-case SQL bypass is closed for the exact local code and tested contract at ba17e22.",
+      "External State C blockers independently preserve the release veto."
+    ],
+    "unverified_claims": [
+      "The external corpus currently contains exactly 97 rows.",
+      "The external datastore currently contains exactly 0 real candidates and physician approvals.",
+      "Canonical auth, runtime RLS, rollback, monitoring, protected-consumer safety, browser UX, and accessibility work externally.",
+      "A future deployed runtime has no answer or source leak."
+    ],
+    "findings": [
+      {
+        "id": "IRT-009",
+        "severity": "HIGH",
+        "status": "CLOSED",
+        "title": "PostgreSQL mixed-case iterative encoding isolation",
+        "closure_scope": "LOCAL_EXACT_CHECKPOINT_TESTED_CONTRACT",
+        "observed": {
+          "javascript_identifier_attempts": 196,
+          "javascript_identifier_denials": 196,
+          "postgres_identifier_attempts": 196,
+          "postgres_identifier_denials": 196,
+          "postgres_marker_attempts": 16,
+          "postgres_marker_denials": 16,
+          "leak_denial_sqlstate": "42501",
+          "limit_attempts": 2,
+          "limit_denials": 2,
+          "limit_sqlstate": "54000",
+          "persisted_artifact_rows": 0,
+          "persisted_payload_rows": 0,
+          "opaque_public_question_id_valid": true,
+          "stat_projection_fields": 9
+        },
+        "repair": "normalize_security_text applies lower case folding after every printable-ASCII URL decode pass and after final NFKC normalization.",
+        "evidence": [
+          {
+            "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+            "lines": "2916-2949,3238-3294"
+          },
+          {
+            "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/tests/postgres-migration.test.mjs",
+            "lines": "398-563,884-1064"
+          }
+        ],
+        "reproduction_commands": [
+          "cd /Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform && node --input-type=module < independent memory-only 7-family by 4-field by 7-variant matrix recorded in independent_red_team.md",
+          "cd /Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform && I1Q_POSTGRES_TEST_URL='<disposable-local-database-url>' node --test tests/postgres-migration.test.mjs",
+          "psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55471 -U postgres -d i1q_irt_ba17_independent < independent 196-identifier, 16-marker, 2-limit heredoc recorded in independent_red_team.md"
+        ],
+        "residual_risk": [
+          "Closure is local to exact ba17e22 and the explicit bounded encoding contract.",
+          "No deployed global no-leak certification follows."
+        ]
+      },
+      {
+        "id": "IRT-010",
+        "severity": "HIGH",
+        "status": "CLOSED",
+        "title": "Exact pushed evidence estate integrity",
+        "observed": {
+          "checksum_records": 44,
+          "matching_records": 44,
+          "stale_records": 0,
+          "qualification_fields_present": true
+        },
+        "closure_scope": "EXACT_CHECKPOINT_INTEGRITY_ONLY"
+      }
+    ],
+    "irt_004_qualification": {
+      "status": "TRUTHFULLY_QUALIFIED_NOT_RECOMPUTABLE",
+      "evidence_scope": "POINT_IN_TIME_AGGREGATE",
+      "row_manifest_retained": false,
+      "independently_recomputable_from_git": false,
+      "privacy_safe_row_manifest_found": false,
+      "unqualified_count_certification": "BLOCKED"
+    },
+    "tests_performed": [
+      {
+        "command": "node --test tests/exports-class-c.test.mjs tests/migration-1007x.test.mjs tests/security-regressions.test.mjs tests/api.test.mjs tests/platform.test.mjs tests/ui.test.mjs",
+        "passed": 88,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "npm test",
+        "total": 228,
+        "passed": 227,
+        "failed": 0,
+        "skipped": 1
+      },
+      {
+        "command": "npm run validate",
+        "files": 20,
+        "errors": 0,
+        "claimed_state": "STATE_A"
+      },
+      {
+        "command": "npm audit --omit=dev --audit-level=low",
+        "vulnerabilities": 0
+      },
+      {
+        "command": "fresh disposable PostgreSQL 16 tests/postgres-migration.test.mjs",
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "command": "independent JavaScript identifier and encoding matrix",
+        "attempts": 196,
+        "denied": 196,
+        "bypasses": 0
+      },
+      {
+        "command": "independent PostgreSQL identifier, marker, limit, and persistence matrix",
+        "identifier_attempts": 196,
+        "identifier_denials": 196,
+        "marker_attempts": 16,
+        "marker_denials": 16,
+        "limit_attempts": 2,
+        "limit_denials": 2,
+        "persisted_artifacts": 0,
+        "persisted_payloads": 0
+      },
+      {
+        "command": "exact Git-object checksum comparison",
+        "checked": 44,
+        "matching": 44,
+        "stale": 0
+      },
+      {
+        "command": "git diff --check 65bb52c4bd14d6d20145e666e3b95b6109dfef83..ba17e22b0fe8a48a7397557ef95d2ceb454970d4",
+        "result": "PASS"
+      }
+    ],
+    "changes_proposed_or_made": {
+      "made": [
+        "Updated only the three Independent Red Team report files."
+      ],
+      "product_or_shared_changes": 0,
+      "additional_irt_009_product_change_proposed": false
+    },
+    "risks": [
+      "Local exact-checkpoint closure can be overstated as deployed no-leak certification.",
+      "The normalization contract is bounded and over-limit inputs fail closed.",
+      "Point-in-time totals can be overstated as recomputable or current.",
+      "Checksum-perfect evidence does not establish external integration or operations.",
+      "All preserved external State C risks remain."
+    ],
+    "blockers": [
+      "IRT-001",
+      "IRT-004_UNQUALIFIED_COUNTS_ONLY",
+      "IRT-005",
+      "IRT-006_EXTERNAL_SCOPE",
+      "IRT-007",
+      "IRT-008"
+    ],
+    "confidence": {
+      "state_c_veto": 1.0,
+      "state_a_highest_point_in_time_state": 0.95,
+      "irt_009_closed_local_exact_checkpoint": 0.995,
+      "irt_010_closed": 1.0,
+      "irt_003_local_resolution": 0.98,
+      "exact_counts_independently_recomputable": 0.0,
+      "global_deployed_no_leak_clearance": 0.0
+    },
+    "exact_file_paths": [
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/independent_red_team.md",
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/red_team_findings.json",
+      "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/independent_red_team/release_veto_or_clearance.md"
+    ],
+    "handoff_to_root_supervisor": [
+      "Carry STATE C RELEASE VETO.",
+      "Carry STATE A only as a dated point-in-time aggregate.",
+      "Mark IRT-009 and IRT-010 closed at exact ba17e22.",
+      "Preserve the 65bb52c IRT-009 finding and all earlier audit history.",
+      "Preserve IRT-004 non-recomputability qualification and IRT-003 local-only closure.",
+      "Do not claim State B, C, D, production release, consumer release, student release, or global deployed no-leak safety.",
+      "Require canonical auth, runtime grants and composition, staging, browser and accessibility, rollback, monitoring, and protected-consumer evidence for State C."
+    ]
+  }
+}
