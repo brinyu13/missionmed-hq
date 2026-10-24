@@ -1,0 +1,20 @@
+{
+  "schema_version": "missionmed.i1q.1008e.coverage_receipt.v1",
+  "extraction_run_id": "opaque_run_i2IwFt-nc8yUknV2OcX47LKN7Ibxoqh2WLuNZIrma5M",
+  "transcript_artifacts_expected": 97,
+  "transcript_artifacts_processed": 97,
+  "nodes_artifacts_accounted": 99,
+  "automated_pass_cells_required": 873,
+  "automated_pass_cells_complete": 873,
+  "specialist_verification_cells_required": 194,
+  "specialist_verification_cells_complete": 194,
+  "specialist_role_reviews_required": 388,
+  "specialist_role_reviews_complete": 388,
+  "specialist_verification_status": "VERIFIED",
+  "extraction_complete": true,
+  "artifact_final_state_histogram": {
+    "COMPLETE_WITH_QUARANTINE": 97
+  },
+  "no_silent_omission": true,
+  "content_hash": "dc878857d099276b4ceb653c44426addc38a061a541eade8868b08495dca28ec"
+}

@@ -1,0 +1,195 @@
+{
+  "schema_version": "i1q-1007x-avicenna-failure-root-causes-v1",
+  "scope": {
+    "purpose": "Separate reproduced failures from uncovered static defects using the final snapshot recorded in diagnostics_log.md.",
+    "mutation_boundary": "No application, SQL, test, provider, protected-system, or Git state was changed by this diagnostic report."
+  },
+  "evidence_inspected": [
+    "i1q-question-platform/evidence/deployment_manifest.json",
+    "i1q-question-platform/evidence/rollback_manifest.json",
+    "i1q-question-platform/evidence/artifact_checksums.json",
+    "i1q-question-platform/evidence/test_results.json",
+    "i1q-question-platform/scripts/generate_evidence.mjs",
+    "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+    "i1q-question-platform/db/rollback/20260715122435_i1q_1007x_compensating_disable.sql",
+    "i1q-question-platform/src/platform.mjs",
+    "i1q-question-platform/tests/postgres-migration.test.mjs",
+    "i1q-question-platform/tests/security-regressions.test.mjs"
+  ],
+  "reproduced_failures": [
+    {
+      "id": "AV-RF-001",
+      "title": "Generated evidence is stale",
+      "classification": "current_generated_evidence_defect",
+      "root_causes": [
+        "deployment_manifest.json predates the six-flag contract and omits internal_review_enabled and student_content_enabled",
+        "rollback_manifest.json lists four flags instead of all six flags",
+        "artifact_checksums.json records 26 application files while the inspected non-evidence estate contains 43",
+        "twelve listed artifacts have stale bytes or hashes",
+        "seventeen current files are absent from the checksum manifest",
+        "test_results.json records five test files and 30 passed assertions while the final inspected run discovered 12 test files, passed 194 tests, and skipped one",
+        "generate_evidence.mjs selects the old 0001 migration pair and carries obsolete MissionMed OS blockers"
+      ],
+      "observed_result": "The validator returned 19 errors and exit code 1.",
+      "disposition": "Repair generator inputs and regenerate the evidence estate before certification."
+    },
+    {
+      "id": "AV-RF-002",
+      "title": "PostgreSQL execution proof did not run in the inspected snapshot",
+      "classification": "incomplete_verification",
+      "root_causes": [
+        "I1Q_POSTGRES_TEST_URL was absent in the inspected Avicenna run",
+        "static SQL tests and a fake driver do not prove PostgreSQL execution semantics"
+      ],
+      "observed_result": "The executable apply, reapply, role attack, isolation, compensation, and forced-RLS proof was skipped.",
+      "disposition": "Require a passing isolated disposable PostgreSQL run before database certification."
+    }
+  ],
+  "findings": [
+    {
+      "id": "AV-SF-001",
+      "title": "Channel policy is not enforced in SQL",
+      "severity": "critical_before_runtime_function_grant",
+      "classification": "static_contract_defect",
+      "evidence": [
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:2200"
+      ],
+      "root_cause": "i1q.create_channel_artifact checks caller role, release existence, and active policy existence, but it does not bind the target channel to the policy channel, enforce field_rules, perform a closed-world field scan, reject answer or rationale fields in class A or pre_answer payloads, or require successful leak validation.",
+      "risk": "A future runtime grantee could store an arbitrary answer-bearing payload while labeling it class A and pre_answer.",
+      "current_mitigation": "No runtime function grant exists in the candidate.",
+      "required_resolution": "Enforce the channel security policy and leak contract inside the trusted SQL boundary, then add negative executable tests."
+    },
+    {
+      "id": "AV-SF-002",
+      "title": "Release validation does not require official checks",
+      "severity": "critical_before_release_promotion",
+      "classification": "static_contract_defect",
+      "evidence": [
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:1971",
+        "i1q-question-platform/src/platform.mjs:876",
+        "i1q-question-platform/tests/security-regressions.test.mjs:332"
+      ],
+      "root_cause": "SQL and the in-memory application accept any nonempty caller-supplied check list. They do not require all official leak-test identifiers, require one result per artifact, or prove that the supplied evidence hash names stored results.",
+      "risk": "An independent actor and matching manifest hash can record a nominal pass without proving the required release checks ran.",
+      "current_mitigation": "Release and consumer paths remain disabled.",
+      "required_resolution": "Bind validation to the official check inventory, exact artifacts, and immutable stored evidence."
+    },
+    {
+      "id": "AV-SF-003",
+      "title": "Review assignment order and completion diverge",
+      "severity": "high",
+      "classification": "workflow_integrity_defect",
+      "evidence": [
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:1400",
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:1684",
+        "i1q-question-platform/src/platform.mjs:680"
+      ],
+      "root_cause": "The SQL assignment function does not verify current workflow state or require specialty. The in-memory application also creates assignments without a workflow-state check and does not move an accepted assignment to completed after its review event.",
+      "risk": "Medical review can be assigned too early, and application assignment state can diverge from SQL behavior.",
+      "current_mitigation": "A later medical event is blocked until medical_review, but the assignment and completion defects remain.",
+      "required_resolution": "Enforce assignment ordering and specialty requirements, complete assignments atomically with events, and test parity across repositories."
+    },
+    {
+      "id": "AV-SF-004",
+      "title": "Lifecycle and immutability rules are internally inconsistent",
+      "severity": "high",
+      "classification": "lifecycle_contract_defect",
+      "evidence": [
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:376",
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:506",
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:1159"
+      ],
+      "root_cause": "The migration rejects all item revision updates, including draft edits, and exposes no draft-edit function. Review event destinations omit superseded and retired. Source records, privacy redaction records, and extraction runs are absent from the immutable trigger list despite the architecture declaring them immutable.",
+      "risk": "The authoring lifecycle cannot be represented faithfully and some required immutable history lacks table-level protection.",
+      "current_mitigation": "Deny-all write posture limits present reachability.",
+      "required_resolution": "Align draft editing, candidate immutability, retirement, supersession, and immutable trigger coverage with Architecture 1002.1."
+    },
+    {
+      "id": "AV-SF-005",
+      "title": "Expired rights can remain release eligible",
+      "severity": "high",
+      "classification": "rights_compliance_defect",
+      "evidence": [
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:260",
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:1851",
+        "i1q-question-platform/src/platform.mjs:831"
+      ],
+      "root_cause": "rights_records.expires_at exists, but neither release assembly path checks it.",
+      "risk": "A rights record that still says cleared_for can remain eligible after its expiry timestamp.",
+      "current_mitigation": "No student or consumer release is enabled.",
+      "required_resolution": "Check rights currency directly during assembly or prove an independent fail-closed status transition process."
+    },
+    {
+      "id": "AV-SF-006",
+      "title": "Metadata RLS is broader than the binding RBAC sketch",
+      "severity": "medium_before_runtime_grants",
+      "classification": "authorization_scope_defect",
+      "evidence": [
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:2381"
+      ],
+      "root_cause": "A shared metadata policy grants authors and reviewers table-wide reads across releases, promotions, claims, model metadata, incidents, and psychometrics, while the architecture limits authors to their lineage and reviewers to assigned scope. The read_only role cannot read psychometric snapshots.",
+      "risk": "Future grants would expose more metadata than the binding role model allows and omit intended analytics access.",
+      "current_mitigation": "The migration grants no runtime role access.",
+      "required_resolution": "Replace shared broad policies with role-specific lineage, assignment, governance, and analytics policies."
+    },
+    {
+      "id": "AV-SF-007",
+      "title": "Compensation audit idempotence is not concurrency safe",
+      "severity": "medium",
+      "classification": "rollback_certification_defect",
+      "evidence": [
+        "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql:2308",
+        "i1q-question-platform/db/rollback/20260715122435_i1q_1007x_compensating_disable.sql:1"
+      ],
+      "root_cause": "The compensation function uses IF NOT EXISTS followed by an audit insert without a uniqueness constraint on compensation action plus entity ID. Concurrent calls can both pass the check. The function also lacks an internal actor or role check.",
+      "risk": "Concurrent compensation can append duplicate audit events, and safety depends entirely on withholding function execution grants.",
+      "current_mitigation": "The candidate revokes the compensation execution path from runtime roles.",
+      "required_resolution": "Add a database-enforced idempotency key and retain an explicit privileged-only execution boundary."
+    }
+  ],
+  "changes_proposed_or_made": {
+    "made": [
+      "Converted the diagnostic root-cause report from Markdown to structured JSON only."
+    ],
+    "proposed": [
+      "Repair findings AV-SF-001 through AV-SF-005 before any database apply.",
+      "Add regression coverage for all seven findings.",
+      "Resolve or explicitly accept AV-SF-006 and AV-SF-007 before granting a runtime role.",
+      "Regenerate evidence only after the generator reflects current authority, files, flags, migrations, and tests."
+    ]
+  },
+  "tests_performed": [
+    {
+      "test": "Final local application suite recorded by diagnostics_log.md",
+      "result": "All executed tests passed; 194 passed and one PostgreSQL execution proof was skipped."
+    },
+    {
+      "test": "Evidence validator",
+      "result": "Failed closed with 19 errors and exit code 1 because generated evidence was stale."
+    }
+  ],
+  "risks": [
+    "The migration pair is not apply-ready solely on the evidence in this diagnostic snapshot.",
+    "Static and fake-driver tests cannot prove PostgreSQL, RLS, transaction, or concurrency semantics.",
+    "No finding authorizes mutation of a protected system or production datastore."
+  ],
+  "blockers": [
+    "Critical channel-payload enforcement is absent from SQL.",
+    "Official release checks are not database-bound.",
+    "Review workflow, lifecycle, rights currency, RLS scope, and compensation idempotence require resolution.",
+    "Generated evidence must be corrected and regenerated."
+  ],
+  "confidence": {
+    "level": "high",
+    "basis": "Each finding is tied to inspected source lines and a binding architecture requirement. Runtime exploitability is not claimed while runtime grants remain absent."
+  },
+  "exact_paths": [
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/avicenna_diagnostics/diagnostics_log.md",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/agents/avicenna_diagnostics/failure_root_causes.json",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/db/rollback/20260715122435_i1q_1007x_compensating_disable.sql",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/src/platform.mjs",
+    "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1000/i1q-question-platform/scripts/generate_evidence.mjs"
+  ],
+  "handoff": "Root should gate database application on repairs for AV-SF-001 through AV-SF-005, regression coverage for all seven findings, current regenerated evidence, and a passing disposable PostgreSQL run. AV-SF-006 and AV-SF-007 require resolution or explicit authority acceptance before a runtime role is granted."
+}

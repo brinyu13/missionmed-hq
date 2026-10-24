@@ -1,0 +1,41 @@
+{
+  "fixture_classification": "SYNTHETIC_NON_CLINICAL",
+  "video_id": "video_fixture_001",
+  "transcript_id": "transcript_fixture_001",
+  "source_hash": "258c6038c8131d1b7bdac901175a060f37c8b03aaff61d825c9d431f8de5313a",
+  "segments": [
+    {
+      "segment_id": "segment_fixture_001",
+      "speaker": "instructor",
+      "speaker_confidence": 1,
+      "text": "We will use the synthetic fixture key.",
+      "start_time": 0,
+      "end_time": 4,
+      "node_links": [
+        "node_fixture_intro"
+      ]
+    },
+    {
+      "segment_id": "segment_fixture_002",
+      "speaker": "instructor",
+      "speaker_confidence": 1,
+      "text": "Which label matches the blue sample?",
+      "start_time": 5,
+      "end_time": 9,
+      "node_links": [
+        "node_fixture_question"
+      ]
+    },
+    {
+      "segment_id": "segment_fixture_003",
+      "speaker": "instructor",
+      "speaker_confidence": 1,
+      "text": "The fixture key maps blue to label beta.",
+      "start_time": 10,
+      "end_time": 14,
+      "node_links": [
+        "node_fixture_answer"
+      ]
+    }
+  ]
+}

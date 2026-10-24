@@ -1,0 +1,179 @@
+{
+  "schema": "missionmed.i1q.usability_scorecard.v2",
+  "ticket": "I1Q-1008A",
+  "assessment_id": "I1Q-1008A-UX-AFTER-FD7DDCD",
+  "assessment_status": "SIMULATED",
+  "source_commit": "fd7ddcd7688a0fc89cc4fc1320806220221046ae",
+  "source_tree_state": "IMMUTABLE_PRODUCT_CANDIDATE_COMMIT",
+  "scope": "Exact immutable local synthetic product candidate at commit fd7ddcd7688a0fc89cc4fc1320806220221046ae",
+  "method": "SIMULATED expert review using exact-commit source, 287 local tests, 19 focused UI tests, a fresh real local browser 17 by 11 workflow matrix, a fresh 16 by 11 state matrix, a 17 by 4 mobile context matrix, semantic scans, direct horizontal scroll gestures, width-equivalent reflow simulation, and visual inspection at 320 by 844 and 1440 by 900. No authenticated staging, real identity, assistive technology, cross-browser, or human validation was used.",
+  "source_fingerprints_sha256": {
+    "public/index.html": "63b4f2b3006179ca571ca5ab5665c0d65e4a3bc2eac00f06c2445b4cd3293f29",
+    "public/app.js": "776d1fa1d98201c682f638aa04eb2ffc963c9b48019b946c5d0aadd2e271c4b9",
+    "public/styles.css": "cf6a6a2220466fb2105a90343cf42a6158904111987bd5eda9b21e21c5715630",
+    "src/server.mjs": "f0088ad814e3747bfe1316bc41a7c2f86b70f5ec3aceb51c22417a8d6135d6aa",
+    "src/platform.mjs": "7cef0f9132822bb918df5f8be02d4a5a9ed4d057389ad79abde7f545638512ba",
+    "tests/ui.test.mjs": "13b7d94ffdb1267381c1617af0e3fd833e25fcd1941839bf36ef1f985f46a240",
+    "tests/api.test.mjs": "855905f3566d91abb18d023a1411ba80f01d34194ff6ba2c781f923d6a00ff16"
+  },
+  "score_scale": {
+    "minimum": 0.0,
+    "maximum": 10.0,
+    "target_aggregate": 9.0,
+    "target_category_floor": 8.5
+  },
+  "evidence_summary": {
+    "npm_tests_total": 287,
+    "npm_tests_passed": 285,
+    "npm_tests_failed": 0,
+    "npm_tests_skipped": 2,
+    "ui_tests_total": 19,
+    "ui_tests_passed": 19,
+    "browser_workflows_rendered": 17,
+    "browser_workflow_viewport_combinations": 187,
+    "operational_states_rendered": 16,
+    "operational_state_viewport_combinations": 176,
+    "mobile_context_combinations": 68,
+    "root_horizontal_overflow_combinations": 0,
+    "maximum_root_horizontal_overflow_pixels": 0,
+    "targeted_table_route_combinations_at_320_and_768": 8,
+    "targeted_table_route_root_failures": 0,
+    "outside_non_table_content_combinations": 0,
+    "clipped_visible_control_combinations": 0,
+    "clipped_search_pagination_combinations": 0,
+    "mobile_identity_missing_combinations": 0,
+    "mobile_environment_missing_combinations": 0,
+    "mobile_menu_horizontal_clip_combinations": 0,
+    "title_only_hash_disclosures": 0,
+    "abbreviated_exact_physician_hashes": 0,
+    "physician_exact_hash_character_count": 64,
+    "independently_scrolling_table_cells": 40,
+    "visible_table_regions_scanned": 88,
+    "refresh_geometry_failures": 0,
+    "targets_below_24px_combinations": 0,
+    "browser_console_warnings_or_errors": 0,
+    "duplicate_ids": 0,
+    "broken_aria_references": 0,
+    "unnamed_visible_controls": 0,
+    "unnamed_regions": 0,
+    "heading_level_skips": 0,
+    "workflow_focus_failures": 0,
+    "state_focus_failures": 0,
+    "width_equivalent_reflow_workflow_cells": 34,
+    "width_equivalent_reflow_state_cells": 32,
+    "width_equivalent_reflow_failures": 0,
+    "native_200_or_400_percent_zoom_tested": false
+  },
+  "repair_verdicts": {
+    "root_overflow": "CLOSED_LOCALLY",
+    "pagination_clipping": "CLOSED_LOCALLY",
+    "mobile_actor_and_environment_context": "CLOSED_LOCALLY",
+    "title_only_hash_disclosure": "CLOSED_LOCALLY",
+    "exact_physician_hash_consistency": "CLOSED_LOCALLY",
+    "mobile_environment_spacing": "CLOSED_LOCALLY",
+    "cursor_page_drain": "CLOSED_LOCALLY_FOR_250_ROW_FIXTURE",
+    "distinct_session_failure_states": "CLOSED_LOCALLY"
+  },
+  "required_categories": [
+    {
+      "category": "visual_hierarchy",
+      "score": 8.6,
+      "basis": "Operational hierarchy, status wrapping, identifiers, panels, and controls remain coherent at all tested widths; dense expert layouts still require human validation."
+    },
+    {
+      "category": "workflow_clarity",
+      "score": 8.2,
+      "basis": "Exact authoring, comparison, release, logout, and session-state paths are clear, while several governed workflows remain absent or read only."
+    },
+    {
+      "category": "cognitive_load",
+      "score": 7.2,
+      "basis": "Recovery copy and stable structure help, but every role still receives seventeen top-level destinations and dense expert terminology."
+    },
+    {
+      "category": "discoverability",
+      "score": 7.7,
+      "basis": "Named navigation, explicit selection, retained mobile context, and full identifiers are strong; role-based starts, deep links, and guided queues remain absent."
+    },
+    {
+      "category": "task_speed",
+      "score": 6.8,
+      "basis": "Cursor draining removes silent 200-row truncation, but the browser can still aggregate up to 50000 rows and lacks server-side search, cancellation, saved views, deep links, bulk work, and shortcuts."
+    },
+    {
+      "category": "evidence_visibility",
+      "score": 8.5,
+      "basis": "Full source, privacy, revision, audit, and physician attestation hashes are visible and wrap without title reliance; source-anchor navigation remains limited."
+    },
+    {
+      "category": "source_traceability",
+      "score": 8.3,
+      "basis": "Source joins, exact item comparison, exact release selection, and full immutable identity are strong, while protected comparison and claim-to-anchor navigation remain incomplete."
+    },
+    {
+      "category": "error_prevention",
+      "score": 8.6,
+      "basis": "Fail-closed access, readiness, exact If-Match, correct-option rules, same-item comparison, exact release selection, and session distinctions reduce consequential errors."
+    },
+    {
+      "category": "error_recovery",
+      "score": 8.1,
+      "basis": "Focused expired, revoked, outage, signed-out, and deterministic recovery states are strong; protected compare-and-reapply and canonical staging return remain open."
+    },
+    {
+      "category": "consistency",
+      "score": 8.6,
+      "basis": "Controls, states, focus, pagination, mobile context, table containment, and exact identifier presentation now follow one coherent pattern."
+    },
+    {
+      "category": "responsive_behavior",
+      "score": 8.7,
+      "basis": "All 187 workflow and 176 state cells pass root containment and control clipping locally, with independent table scrolling preserved; cross-browser and native zoom remain untested."
+    },
+    {
+      "category": "accessibility",
+      "score": 8.4,
+      "basis": "Semantics, focus destinations, contrast, target minimums, pagination, mobile context, identifiers, and local reflow are strong; assistive technology, full keyboard tasks, and native zoom remain external."
+    },
+    {
+      "category": "trust",
+      "score": 8.6,
+      "basis": "Consequential work binds visible exact immutable identity and session failures remain explicit and fail closed; authenticated staging and real role evidence remain external."
+    },
+    {
+      "category": "visual_quality",
+      "score": 8.6,
+      "basis": "The restrained operational design is coherent on phone and desktop after table containment, full-hash wrapping, and environment-spacing repairs."
+    }
+  ],
+  "aggregate_score": 8.21,
+  "aggregate_basis": "Equal-weight mean of the fourteen required categories, rounded to two decimals.",
+  "minimum_required_category": "task_speed",
+  "minimum_required_category_score": 6.8,
+  "target_met": false,
+  "category_floor_met": false,
+  "simulated_only": true,
+  "local_responsive_matrix_passed": true,
+  "authenticated_staging_tested": false,
+  "real_identities_tested": false,
+  "assistive_technology_tested": false,
+  "cross_browser_tested": false,
+  "human_validation_completed": false,
+  "wcag_2_2_aa_proven": false,
+  "responsive_certification_proven": false,
+  "release_verdict": "BLOCK",
+  "external_blockers": [
+    "canonical authenticated staging",
+    "real synthetic identity and role fixtures",
+    "assistive-technology execution",
+    "cross-browser and real-device execution",
+    "native 200 and 400 percent zoom",
+    "human validation"
+  ],
+  "confidence": {
+    "source_and_local_browser_findings": 0.99,
+    "simulated_scores": 0.89,
+    "authenticated_staging_claim": 0.0,
+    "human_validation_claim": 0.0
+  }
+}
