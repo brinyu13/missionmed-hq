@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    "FREIDA": {
+      "ingestion": "written_authorization_required",
+      "authority": "FREIDA_GME_CENSUS",
+      "termsUrl": "https://www.ama-assn.org/about/terms-use",
+      "termsReviewedAt": "2026-07-15",
+      "assertionClass": "program_reported",
+      "defaultReportingPeriod": "not_stated",
+      "notes": "AMA terms limit site content to personal noncommercial use and prohibit copying or incorporating it into an information retrieval system without prior written consent. Attribution alone is insufficient."
+    },
+    "Residency Explorer": {
+      "ingestion": "written_authorization_required",
+      "authority": "RESIDENCY_EXPLORER",
+      "termsUrl": "https://students-residents.aamc.org/applying-residency/residency-explorer-terms-and-conditions",
+      "termsLastUpdated": "2026-04-08",
+      "notes": "The current terms prohibit using Residency Explorer material to create or supplement a database, product, or service absent written AAMC authorization."
+    }
+  }
+}
