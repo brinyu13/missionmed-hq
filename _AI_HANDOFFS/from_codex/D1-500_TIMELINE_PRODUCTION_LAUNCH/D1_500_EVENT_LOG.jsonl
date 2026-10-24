@@ -1,0 +1,13 @@
+{"at":"2026-08-04","phase":"M1","event":"authority_registered","result":"PASS","detail":"DR-016 DR-017 DR-018 filed and pushed"}
+{"at":"2026-08-04","phase":"M1","event":"source_sealed","result":"PASS","commit":"b668cc4d3eaa8075a357d35a60456fcaaaffa18c"}
+{"at":"2026-08-04","phase":"M2","event":"automated_tests","result":"PASS","typescript":129,"runtime_browser":485,"total":614}
+{"at":"2026-08-04","phase":"M2","event":"rls_proof","result":"PASS","schema":"d1-timeline-db-500.1"}
+{"at":"2026-08-04","phase":"M2","event":"deterministic_release","result":"PASS","static_release":"timeline-0c5cc515a76346d6","wordpress_release":"timeline-wp-c228658bc70bc395"}
+{"at":"2026-08-04","phase":"M3","event":"canonical_entitlement","result":"PASS","source":"LearnDash course 3893 Closed enrollment"}
+{"at":"2026-08-04","phase":"M3","event":"railway_topology_created","result":"PASS","project_id":"295b3d56-f555-4851-91f4-eb32d7dc88e1","api_service_id":"12bfaf69-f883-42b5-a380-b6beea49f251","database_service_id":"134e537e-d48b-4452-acf6-8c3af2ce03db"}
+{"at":"2026-08-04","phase":"M3","event":"railway_database_connection","result":"BLOCKED","code":"RAILWAY_SSH_UNAUTHORIZED","secret_values_exposed":false}
+{"at":"2026-08-04","phase":"M3","event":"critical_systems_gate","result":"FAIL","detail":"pre-existing unrelated USCE Admin and Arena CDN hash drift"}
+{"at":"2026-08-04","phase":"M3","event":"production_state","result":"SAFE","timeline_live":false,"access_enabled":false,"kinsta_modified":false}
+{"at":"2026-08-04T14:42:16Z","phase":"M3","event":"critical_systems_reconciliation","result":"PASS","classification":"STALE_MANIFEST_AND_SOURCE_SYNC","usce_sha256":"9b6eade1c5e5d60044a418d6ec334958f037ba8ae948472673ad064a0862c29c","arena_sha256":"7bb0ad1cf1cf9e3d1fbaa021606d98fbd0000b2b0cac3898bce6c73225a37705","production_mutated":false}
+{"at":"2026-08-04T14:42:16Z","phase":"M3","event":"matrix_immutable_source_guard","result":"PASS","source_commit":"60e7169b544e6c93eb41f0de9717d8e61d2d49d0","assets_verified":10,"production_mutated":false}
+{"at":"2026-08-04T14:42:16Z","phase":"M3","event":"test_identities_received","result":"PARTIAL","opaque_handles":["D1-500-ADMIN-TEST-01","D1-500-STUDENT-360-01"],"passwords_recorded":false,"remaining_personas":["founder","second_eligible_student","non_360_student","expired_or_revoked_student"]}

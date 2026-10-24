@@ -1,0 +1,19 @@
+{
+  "id": "mission-timeline",
+  "name": "Mission Timeline Builder",
+  "version": "413.0.0-rc.0",
+  "mode": "MATRIX_RUNTIME_V2_APP_MODE",
+  "mount": "matrix/timeline-app-mode.js#mountMissionTimelineAppMode",
+  "unmount": "matrix/timeline-app-mode.js#unmountMissionTimelineAppMode",
+  "route": "#timeline",
+  "assetBase": "/timeline/",
+  "apiBase": "/api/timeline/v1",
+  "usesIframe": false,
+  "authenticationAuthority": "MATRIX",
+  "editableSourceAuthority": "TIMELINE_SERVICE",
+  "localRecoveryAuthority": "INDEXED_DB",
+  "featureFlag": "mission_timeline_app_mode",
+  "contractFeatureFlag": "matrix.timeline_app_mode.enabled",
+  "hostIntegrationStatus": "BLOCKED_BY_MATRIX_AUTHORITY",
+  "rollback": "Disable the route feature flag and preserve IndexedDB recovery data."
+}

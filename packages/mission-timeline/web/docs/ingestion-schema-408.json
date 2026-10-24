@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:missionmed:d1:ingestion:408.1",
+  "title": "D1 Timeline local document ingestion domain contract",
+  "version": "d1-ingestion-408.1",
+  "parserVersion": "408.1.0",
+  "status": "SANDBOX_DOMAIN_CONTRACT_NOT_PRODUCTION_DATABASE_SCHEMA",
+  "invariants": [
+    "No provenance means no ExtractionCandidate.",
+    "No ExtractionCandidate becomes a TimelineEvent without a HumanReviewAction.",
+    "Raw source documents remain distinct during multi-document ingestion.",
+    "Human corrections retain original extraction data.",
+    "Merged events retain provenance from every selected source document.",
+    "Year-only dates retain YEAR precision even when a placeholder timeline month is required for layout.",
+    "OCR-required documents create no candidates until a reviewed local OCR adapter supplies source text."
+  ],
+  "entities": {
+    "SourceDocument": {
+      "required": ["id", "fileName", "sha256", "pageCount", "userDeclaredType", "detectedType", "effectiveType", "typeConfirmedByUser", "extractionMethod", "parserVersion", "status"],
+      "identity": "doc-<sha256 prefix>",
+      "notableFields": ["fileSize", "mimeType", "userDeclaredType", "detectedType", "effectiveType", "typeConfirmedByUser", "typeCorrectionHistory", "detectionConfidence", "typeDetection", "charCount", "ocr", "warnings", "removed"]
+    },
+    "DocumentPage": {
+      "required": ["id", "sourceDocumentId", "pageNumber", "text", "lines", "charCount", "extractionMethod"],
+      "identity": "<sourceDocumentId>:page:<pageNumber>"
+    },
+    "SourceBlock": {
+      "required": ["id", "sourceDocumentId", "pageNumber", "section", "text", "lines"],
+      "purpose": "Normalized page-scoped section evidence used by a document-specific parser."
+    },
+    "ExtractionCandidate": {
+      "required": ["id", "fingerprint", "sourceDocumentId", "sourceDocumentIds", "canonicalType", "categoryId", "timelineKind", "datePrecision", "confidence", "privacy", "provenance", "mappingRationale", "reviewStatus", "resultingEventIds"],
+      "reviewStatuses": ["PENDING", "DEFERRED", "ACCEPTED", "REJECTED", "MERGED", "KEPT_BOTH", "SOURCE_NOT_SELECTED"],
+      "candidateKinds": ["NORMAL", "DUPLICATE", "CONFLICT", "PRIVACY", "UNCLASSIFIED"]
+    },
+    "CandidateProvenance": {
+      "required": ["id", "sourceDocumentId", "fileName", "documentType", "pageNumber", "section", "sourceExcerpt", "extractionMethod"],
+      "purpose": "Exact source link and excerpt supporting a candidate proposal."
+    },
+    "CandidateDuplicateGroup": {
+      "required": ["id", "candidateIds", "status", "rationale", "score"],
+      "resolutionActions": ["MERGE", "KEEP_BOTH"]
+    },
+    "CandidateConflict": {
+      "required": ["id", "candidateIds", "fields", "status", "rationale"],
+      "resolutionActions": ["CHOOSE_SOURCE", "EDIT", "REJECT", "DEFER"]
+    },
+    "HumanReviewAction": {
+      "required": ["id", "candidateId", "action", "details", "at"],
+      "purpose": "Append-only audit record for human review decisions."
+    },
+    "TimelineEventSourceLink": {
+      "required": ["id", "timelineEventId", "candidateId", "provenanceId", "sourceDocumentId", "createdAt", "sourceRemoved"],
+      "purpose": "Maintains event-to-source traceability after acceptance or source removal."
+    }
+  },
+  "visibilityStates": ["INTERVIEWER_SAFE", "FULL_STORY", "ADVISOR_ONLY", "STUDENT_ONLY", "HIDDEN"],
+  "processingStates": ["NO_DOCUMENT", "READING", "EXTRACTING", "SECTIONING", "CLASSIFYING", "CANDIDATE_CREATION", "DUPLICATE_ANALYSIS", "CONFLICT_ANALYSIS", "READY_FOR_REVIEW", "PARTIAL_FAILURE", "OCR_REQUIRED", "PASSWORD_REQUIRED", "UNSUPPORTED", "CORRUPTED"]
+}

@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  title: Mission Timeline API
+  version: 412.0.0-rc.0
+  description: Proposed non-production API contract for D1 Timeline.
+servers:
+  - url: /api/timeline/v1
+paths:
+  /health:
+    get:
+      security: []
+      responses:
+        "200": { description: Service health }
+  /session/exchange:
+    post:
+      description: Trusted Matrix BFF exchange. Browser body identity is not accepted as authority.
+      responses:
+        "200": { description: Short-lived Timeline session }
+        "401": { description: Trusted Matrix context missing or invalid }
+  /documents:
+    get:
+      responses:
+        "200": { description: Student-owned documents }
+    post:
+      responses:
+        "201": { description: Document created with server-derived owner }
+        "403": { description: Program or role scope denied }
+  /documents/{documentId}:
+    get:
+      parameters:
+        - $ref: "#/components/parameters/documentId"
+      responses:
+        "200": { description: Authorized document }
+        "403": { description: Relationship scope denied }
+  /documents/{documentId}/checkpoints/{deviceId}:
+    put:
+      parameters:
+        - $ref: "#/components/parameters/documentId"
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Recoverable checkpoint saved }
+        "409": { description: Revision conflict }
+  /documents/{documentId}/versions:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/documentId"
+      responses:
+        "201": { description: Immutable named version created }
+        "409": { description: Revision conflict }
+  /documents/{documentId}/reviews:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/documentId"
+      responses:
+        "201": { description: Version-bound advisor review requested }
+  /reviews/{reviewId}/comments:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/reviewId"
+      responses:
+        "201": { description: Scoped review comment created }
+  /reviews/{reviewId}/decision:
+    post:
+      parameters:
+        - $ref: "#/components/parameters/reviewId"
+      responses:
+        "200": { description: Exact-version approval or changes request }
+  /exports:
+    post:
+      responses:
+        "202": { description: Idempotent export job queued }
+        "409": { description: Exact-version approval required }
+  /exports/{jobId}:
+    get:
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Authorized export job status }
+  /objects/sign:
+    post:
+      responses:
+        "201": { description: Short-lived private upload authorization }
+  /objects/{objectId}/confirm:
+    post:
+      parameters:
+        - name: objectId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Size, MIME, and SHA256 verified }
+components:
+  securitySchemes:
+    timelineSession:
+      type: http
+      scheme: bearer
+  parameters:
+    documentId:
+      name: documentId
+      in: path
+      required: true
+      schema: { type: string }
+    reviewId:
+      name: reviewId
+      in: path
+      required: true
+      schema: { type: string }
+security:
+  - timelineSession: []

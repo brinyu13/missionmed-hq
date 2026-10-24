@@ -1,0 +1,25 @@
+/* 407 shell hardening keeps the 406A visual direction intact. */
+.d1-407-tools{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:10px;
+}
+.d1-407-tools select,
+.d1-407-tools input[type=file]{
+  max-width:100%;
+}
+.d1-407-mini{
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.14em;
+  line-height:1.8;
+  color:var(--mid);
+}
+
+.bigt[role="heading"]{margin:0}
+.bigt[role="heading"]:focus-visible{outline:2px solid var(--cy);outline-offset:6px}
+#modalBk[aria-hidden="true"]{visibility:hidden}
+#modalBk[aria-hidden="false"]{visibility:visible}
+#modalIn:focus{outline:none}
