@@ -1,0 +1,294 @@
+html[data-lor-runtime="gated"] body > :not(#lorRuntimeGate):not(script),
+html[data-lor-runtime="checking"] body > :not(#lorRuntimeGate):not(script) {
+  visibility: hidden !important;
+}
+
+/* Live mode is production-projection-only: the frozen prototype markup that ships in the same
+   document stays visually hidden (and inert, enforced by the adapter) while the hydrated
+   projection owns the viewport. */
+html[data-lor-runtime="live"] body > :not(#lorProductionRoot):not(script) {
+  visibility: hidden !important;
+}
+
+.lor-production-root {
+  background: #07181a;
+  box-sizing: border-box;
+  color: #f7fbfb;
+  inset: 0;
+  overflow: auto;
+  position: fixed;
+  visibility: visible !important;
+  width: 100%;
+  z-index: 2147483646;
+}
+
+html:not([data-lor-runtime="live"]):not([data-lor-runtime="verification"]) .lor-production-root {
+  display: none !important;
+}
+
+.lorCandidateVerification {
+  align-items: center;
+  background:
+    radial-gradient(circle at 14% 8%, rgba(78, 205, 196, .15), transparent 32rem),
+    linear-gradient(145deg, #07181a 0%, #0c2b2e 58%, #12393d 100%);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 28px;
+}
+
+.lorCandidateVerification__card {
+  background: rgba(9, 34, 37, .94);
+  border: 1px solid rgba(153, 224, 218, .3);
+  border-radius: 22px;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, .3);
+  box-sizing: border-box;
+  color: #f7fbfb;
+  max-width: 620px;
+  padding: 38px;
+  width: 100%;
+}
+
+.lorCandidateVerification__card h1 {
+  color: #fff;
+  font: 800 clamp(1.8rem, 4vw, 2.7rem)/1.05 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -.035em;
+  margin: 7px 0 14px;
+}
+
+.lorCandidateVerification__eyebrow {
+  color: #79ddd3;
+  font: 800 .74rem/1.3 Inter, ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .14em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.lorCandidateVerification__intro,
+.lorCandidateVerification__privacy {
+  color: #c9dcda;
+  font: 400 1rem/1.55 Inter, ui-sans-serif, system-ui, sans-serif;
+  margin: 0;
+}
+
+.lorCandidateVerification__form {
+  display: grid;
+  gap: 10px;
+  margin: 28px 0 20px;
+}
+
+.lorCandidateVerification__form label {
+  color: #eaf7f5;
+  font: 750 .86rem/1.3 Inter, ui-sans-serif, system-ui, sans-serif;
+  margin-top: 8px;
+}
+
+.lorCandidateVerification__form input {
+  appearance: none;
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  box-sizing: border-box;
+  color: #092427;
+  font: 650 1rem/1.2 Inter, ui-sans-serif, system-ui, sans-serif;
+  min-height: 50px;
+  padding: 13px 15px;
+  width: 100%;
+}
+
+.lorCandidateVerification__form input:focus-visible {
+  border-color: #79ddd3;
+  box-shadow: 0 0 0 3px rgba(121, 221, 211, .28);
+  outline: none;
+}
+
+.lorCandidateVerification__form button {
+  appearance: none;
+  background: #79ddd3;
+  border: 0;
+  border-radius: 999px;
+  color: #092427;
+  cursor: pointer;
+  font: 800 .94rem/1 Inter, ui-sans-serif, system-ui, sans-serif;
+  justify-self: start;
+  margin-top: 14px;
+  min-height: 48px;
+  padding: 14px 20px;
+}
+
+.lorCandidateVerification__form button:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
+.lorCandidateVerification__status {
+  color: #c9dcda;
+  font: 650 .88rem/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
+  min-height: 1.4em;
+  padding-top: 6px;
+}
+
+.lorCandidateVerification__status--error { color: #ffd0c9; }
+.lorCandidateVerification__status--success { color: #9de8c1; }
+
+.lorCandidateVerification__privacy {
+  border-top: 1px solid rgba(153, 224, 218, .18);
+  font-size: .82rem;
+  padding-top: 18px;
+}
+
+/* Editing affordances. Layout only: every colour, border, radius and type scale comes from the
+   frozen presentation's own .fld / .btn / .chip / .warnBox rules, which are in the same document
+   and already cascade into the production mount. Nothing here introduces a second design system. */
+.lorProductionActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.lorProductionActions .micNote {
+  flex-basis: 100%;
+  margin-top: 0;
+}
+
+.lorMatrixReturnLink {
+  margin-left: auto;
+  text-decoration: none;
+}
+
+.lorProductionStepForm {
+  margin-top: 14px;
+}
+
+.lorProductionStepDetail > .pHead {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lorProductionStepDetail .warnBox {
+  margin-top: 16px;
+}
+
+.lor-runtime-gate {
+  align-items: center;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(78, 205, 196, .14), transparent 34rem),
+    linear-gradient(145deg, #07181a 0%, #0c2b2e 54%, #12393d 100%);
+  box-sizing: border-box;
+  color: #f7fbfb;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 28px;
+  position: fixed;
+  visibility: visible !important;
+  width: 100%;
+  z-index: 2147483647;
+}
+
+.lor-runtime-gate[hidden] {
+  display: none !important;
+}
+
+.lor-runtime-gate__card {
+  background: rgba(9, 34, 37, .92);
+  border: 1px solid rgba(153, 224, 218, .3);
+  border-radius: 22px;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, .3);
+  box-sizing: border-box;
+  max-width: 600px;
+  padding: 38px;
+  width: 100%;
+}
+
+.lor-runtime-gate__card h1 {
+  color: #fff;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  letter-spacing: -.035em;
+  line-height: 1.05;
+  margin: 7px 0 14px;
+}
+
+.lor-runtime-gate__card p {
+  color: #c9dcda;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.lor-runtime-gate__eyebrow {
+  color: #79ddd3 !important;
+  font-size: .74rem !important;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.lor-runtime-gate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.lor-runtime-gate__actions a,
+.lor-runtime-gate__actions button {
+  appearance: none;
+  background: #79ddd3;
+  border: 0;
+  border-radius: 999px;
+  color: #092427;
+  cursor: pointer;
+  display: inline-flex;
+  font: 800 .88rem/1 Inter, ui-sans-serif, system-ui, sans-serif;
+  justify-content: center;
+  padding: 13px 18px;
+  text-decoration: none;
+}
+
+.lor-runtime-gate__code {
+  color: #8fa9a7 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: .72rem !important;
+  margin-top: 22px !important;
+}
+
+.lor-fidelity-badge {
+  background: #ffdf75;
+  border: 2px solid #211b08;
+  border-radius: 999px;
+  bottom: 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .22);
+  color: #211b08;
+  font: 900 11px/1.1 Inter, ui-sans-serif, system-ui, sans-serif;
+  left: 50%;
+  letter-spacing: .08em;
+  padding: 10px 14px;
+  pointer-events: none;
+  position: fixed;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  z-index: 2147483646;
+}
+
+@media (max-width: 560px) {
+  .lor-runtime-gate { padding: 16px; }
+  .lor-runtime-gate__card { border-radius: 18px; padding: 28px 22px; }
+  .lor-runtime-gate__actions { display: grid; }
+  .lor-fidelity-badge { max-width: calc(100vw - 32px); text-align: center; }
+  .lorCandidateVerification { padding: 16px; }
+  .lorCandidateVerification__card { border-radius: 18px; padding: 28px 22px; }
+  .lorCandidateVerification__form button { justify-self: stretch; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}
