@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 const repository=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-const assets=['index.html','styles.css','app.js'];
+const assets=['index.html','styles.css','app.js','itinerary-pdf.mjs','itinerary-worker.mjs','itinerary-fonts.mjs'];
 const plugins=['missionmed-interviewiq-sso.php','missionmed-interviewiq-route.php','missionmed-matrix-interviewiq-entry.php'];
 const fail=message=>{throw Error(message);};
 const phpString=value=>"'"+String(value).replaceAll('\\','\\\\').replaceAll("'","\\'")+"'";
@@ -49,7 +49,7 @@ export async function packageCoreRelease({root=repository,sourceCommit,output}={
   for(const name of plugins)await fs.writeFile(path.join(mu,name),input['interviewiq/infra/wordpress/'+name],{flag:'wx',mode:0o644});
   for(const filename of [...plugins.map(n=>path.join(mu,n)),path.join(release,'release.php')])run('php',['-l',filename]);
   // Exercise the deployed strict reader, including actual size/hash verification of every asset.
-  const verify="define('ABSPATH', '/'); function mmiiq_enabled(){return false;} function add_action(...$args){} require $argv[1]; $r=mmiiqg_read_release($argv[2],$argv[3]); if(!$r)exit(21); foreach(array('index.html','styles.css','app.js') as $f){if(!mmiiqg_asset($r,$f))exit(22);} foreach(array('styles'=>'styles.css','app'=>'app.js') as $alias=>$file){if(mmiiqg_versioned_asset_relative($alias)!==$file || mmiiqg_asset($r,mmiiqg_versioned_asset_relative($alias))!==mmiiqg_asset($r,$file))exit(23);} foreach(array('index','release','release.php','styles/','app/','nested/app','../app','APP') as $invalid){if(mmiiqg_versioned_asset_relative($invalid)!==$invalid || mmiiqg_asset($r,$invalid)!==null)exit(24);} echo json_encode($r['manifest']);";
+  const verify="define('ABSPATH', '/'); function mmiiq_enabled(){return false;} function add_action(...$args){} require $argv[1]; $r=mmiiqg_read_release($argv[2],$argv[3]); if(!$r)exit(21); foreach(array('index.html','styles.css','app.js','itinerary-pdf.mjs','itinerary-worker.mjs','itinerary-fonts.mjs') as $f){if(!mmiiqg_asset($r,$f))exit(22);} foreach(array('styles'=>'styles.css','app'=>'app.js') as $alias=>$file){if(mmiiqg_versioned_asset_relative($alias)!==$file || mmiiqg_asset($r,mmiiqg_versioned_asset_relative($alias))!==mmiiqg_asset($r,$file))exit(23);} foreach(array('index','release','release.php','styles/','app/','nested/app','../app','APP') as $invalid){if(mmiiqg_versioned_asset_relative($invalid)!==$invalid || mmiiqg_asset($r,$invalid)!==null)exit(24);} echo json_encode($r['manifest']);";
   const verified=JSON.parse(run('php',['-r',verify,path.join(mu,'missionmed-interviewiq-route.php'),runtime,releaseId]));
   if(JSON.stringify(verified)!==JSON.stringify(manifest))fail('Generated PHP manifest differs from expected manifest.');
   const relativeFiles=[...assets,'release.php'].map(n=>'mu-plugins/missionmed-interviewiq-runtime/releases/'+releaseId+'/'+n).concat(plugins.map(n=>'mu-plugins/'+n)).sort();

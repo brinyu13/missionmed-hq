@@ -1309,3 +1309,22 @@ body:has(.calendar-first) .route-hint{display:none}
  .calendarDetailsModal .mcv2-drawer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
  .calendarDetailsModal .mcv2-drawer-actions .pri,.calendarDetailsModal .mcv2-drawer-actions .calendarItineraryLink{grid-column:1/-1}
 }
+
+/* Explicit private-document preview; the Calendar does not load its renderer. */
+.itineraryPreviewMeta{color:#c0d1e1;font-size:13px}
+.itineraryPreviewToolbar,.itineraryPreviewPager{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;margin:16px 0}
+.itineraryPreviewToolbar .btn,.itineraryPreviewPager .btn{min-height:44px}
+.itineraryPreviewPager [role=status]{flex:1;min-width:130px;text-align:center;font-size:13px;color:#dce8f3}
+.itineraryPreviewPaper{background:#fff;border-radius:8px;overflow:hidden;min-height:120px;box-shadow:0 10px 30px #0003}
+.itineraryPreviewPaper canvas{display:block;width:100%;height:auto;min-height:1px}
+#iiq-itinerary-print{display:none}
+@media(max-width:600px){.itineraryPreviewToolbar .btn{flex:1 1 120px}.itineraryPreviewPager{gap:6px}.itineraryPreviewPager .btn{font-size:12px;padding:10px}.itineraryPreviewPager [role=status]{order:-1;flex-basis:100%}}
+@media print{
+ body[data-iiq-private-print=true]{background:#fff!important;overflow:visible!important}
+ body[data-iiq-private-print=true]>*:not(#iiq-itinerary-print){display:none!important}
+ body[data-iiq-private-print=true]>#iiq-itinerary-print{display:block!important;color:#000!important}
+ .itineraryPrintPage{display:block;break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}
+ .itineraryPrintPage:last-child{break-after:auto;page-break-after:auto}
+ .itineraryPrintPage p{font:9pt system-ui;color:#000;margin:0 0 4mm}
+ .itineraryPrintPage img{display:block;max-width:100%;max-height:245mm;width:auto;height:auto;margin:auto;object-fit:contain}
+}

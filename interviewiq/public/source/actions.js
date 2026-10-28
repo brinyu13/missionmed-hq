@@ -352,6 +352,120 @@ function intakeFieldEvent(e){const t=e.target;if(!t.dataset?.intakeField||!intak
 document.addEventListener('input',intakeFieldEvent);document.addEventListener('change',intakeFieldEvent);
 document.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&ev.target?.id==='in-searchText'&&intakeEnabled()&&intakeFlow&&!intakeFlow.busy){ev.preventDefault();Promise.resolve().then(()=>A['intake-search']()).catch(error=>{if(intakeFlow){intakeFlow.error=error.message;renderDrawer();}});}});
 
+// Private document code is loaded only by an explicit admitted file action.
+const ITINERARY_PREVIEW_LIMITS=Object.freeze({bytes:5242880,pages:40,imagePixels:4000000,canvasPixels:2000000,printPixels:16000000,workMs:20000,lifetimeMs:120000});
+function clearItineraryPrint(owner){
+ const root=document.getElementById('iiq-itinerary-print');if(owner&&root&&root.dataset.previewSequence!==String(owner.sequence))return;
+ root?.querySelectorAll('img').forEach(image=>image.removeAttribute('src'));root?.remove();if(document.body)delete document.body.dataset.iiqPrivatePrint;
+}
+function clearItineraryPreview(){
+ const v=itineraryPreview;itineraryPreview=null;itineraryPreviewSequence++;clearItineraryPrint();
+ const canvas=document.getElementById('itinerary-preview-canvas');if(canvas){canvas.width=0;canvas.height=0;}
+ if(!v)return;v.cancelled=true;clearTimeout(v.workTimer);clearTimeout(v.expiryTimer);
+ try{v.renderTask?.cancel();}catch{}
+ for(const task of [v.loadingTask,v.document,v.pdfWorker])try{task?.destroy()?.catch?.(()=>{});}catch{}
+ try{v.worker?.terminate();}catch{}
+ try{v.image?.close?.();v.image?.removeAttribute?.('src');}catch{}
+ for(const url of v.urls||[])URL.revokeObjectURL(url);
+ v.image=null;v.document=null;v.loadingTask=null;v.worker=null;v.pdfWorker=null;v.renderTask=null;v.urls?.clear();
+}
+function itineraryPreviewCurrent(v){
+ try{return itineraryPreview===v&&!v.cancelled&&v.sequence===itineraryPreviewSequence&&currentItinerary(v.authority,v.id,v.targetRef)&&itineraryPage===v.list&&itineraryPage.interviewVersion===v.interviewVersion&&S?.ui.drawer?.kind==='itinerary-view'&&S.ui.drawer.id===v.id&&S.ui.drawer.file===v.file.attachmentId&&(!v.authenticated||v.sessionEpoch===sessionEpoch&&session?.expiresAt>Date.now())&&v.expiresAt>Date.now();}catch{return false;}
+}
+function requireItineraryPreview(v){if(!itineraryPreviewCurrent(v)||v.resourceDenied||v.workerFailed)throw Error('The private preview is unavailable. Reopen the saved file or download its original.');}
+function failItineraryPreview(v){if(itineraryPreview!==v)return;clearItineraryPreview();if(S?.ui.drawer?.kind==='itinerary-view')renderDrawer();}
+function itineraryPreviewWork(v){
+ requireItineraryPreview(v);clearTimeout(v.workTimer);v.deadline=Date.now()+ITINERARY_PREVIEW_LIMITS.workMs;v.busy=true;
+ v.workTimer=setTimeout(()=>failItineraryPreview(v),ITINERARY_PREVIEW_LIMITS.workMs);updateItineraryPreviewControls(v);
+}
+function finishItineraryPreviewWork(v){if(itineraryPreview!==v)return;clearTimeout(v.workTimer);v.busy=false;updateItineraryPreviewControls(v);}
+function itineraryPreviewFile(id,fileId){
+ const c=itineraryContext(id),p=itineraryPage,f=p?.interviewId===id&&p.targetRef===c.targetRef?p.files.find(row=>row.attachmentId===fileId):null;
+ if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(id)||!f||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(f.attachmentId)||f.withdrawn!==false||!['PDF','PNG','JPEG'].includes(f.format)||!Number.isSafeInteger(f.version)||f.version<1||f.version>10||!Number.isSafeInteger(f.byteSize)||f.byteSize<1||f.byteSize>ITINERARY_PREVIEW_LIMITS.bytes||!/^[a-f0-9]{64}$/.test(f.sha256)||!Number.isSafeInteger(p.interviewVersion)||p.interviewVersion<1)throw Error('Load an available file from your current saved itinerary.');
+ return {context:c,list:p,file:Object.freeze({...f})};
+}
+function itineraryImageDimensions(bytes,format){
+ const b=new Uint8Array(bytes),d=new DataView(bytes);let width,height;
+ if(format==='PNG'){
+  if(b.length<33||[137,80,78,71,13,10,26,10].some((n,i)=>b[i]!==n)||d.getUint32(8)!==13||String.fromCharCode(...b.slice(12,16))!=='IHDR')throw Error('Unsupported image.');
+  width=d.getUint32(16);height=d.getUint32(20);
+ }else if(format==='JPEG'){
+  if(b.length<4||b[0]!==255||b[1]!==216||b[2]!==255)throw Error('Unsupported image.');
+  let p=2;while(p+3<b.length){if(b[p++]!==255)throw Error('Unsupported image.');while(b[p]===255)p++;const marker=b[p++];if(marker===217||marker===218)break;if(marker===216||marker>=208&&marker<=215)continue;const n=(b[p]<<8)|b[p+1];if(n<2||p+n>b.length)throw Error('Unsupported image.');if([192,193,194,195,197,198,199,201,202,203,205,206,207].includes(marker)){if(n<8)throw Error('Unsupported image.');height=(b[p+3]<<8)|b[p+4];width=(b[p+5]<<8)|b[p+6];break;}p+=n;}
+ }
+ if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||width*height>ITINERARY_PREVIEW_LIMITS.imagePixels)throw Error('This image exceeds the preview limit. Download its original.');
+ return {width,height};
+}
+async function readVerifiedItinerary(v){
+ requireItineraryPreview(v);const r=await apiFetch('/interviews/'+v.id+'/itinerary/'+v.file.attachmentId,{headers:v.headers,binaryDownload:true});requireItineraryPreview(v);
+ v.authenticated=true;v.sessionEpoch=sessionEpoch;v.expiresAt=Math.min(session.expiresAt,v.openedAt+ITINERARY_PREVIEW_LIMITS.lifetimeMs);clearTimeout(v.expiryTimer);v.expiryTimer=setTimeout(()=>failItineraryPreview(v),Math.max(0,v.expiresAt-Date.now()));
+ const extension={PDF:'pdf',PNG:'png',JPEG:'jpg'}[v.file.format];if(r.fileName!=='itinerary-'+v.file.version+'.'+extension||r.blob.size!==v.file.byteSize)throw Error('The saved attachment changed.');
+ const bytes=await r.blob.arrayBuffer();requireItineraryPreview(v);const sum=await crypto.subtle.digest('SHA-256',bytes);requireItineraryPreview(v);
+ if(Array.from(new Uint8Array(sum),n=>n.toString(16).padStart(2,'0')).join('')!==v.file.sha256)throw Error('The saved attachment changed.');
+ if(v.file.format==='PDF'){if(new TextDecoder().decode(new Uint8Array(bytes).slice(0,5))!=='%PDF-')throw Error('Unsupported document.');}else itineraryImageDimensions(bytes,v.file.format);
+ return bytes;
+}
+function itineraryAssetURL(name){
+ if(!['itinerary-pdf.mjs','itinerary-worker.mjs','itinerary-fonts.mjs'].includes(name))throw Error('Document code unavailable.');
+ const scripts=[...document.querySelectorAll('script[src]')].map(s=>new URL(s.src,location.href)).filter(u=>u.origin===location.origin&&!u.search&&!u.hash&&/^\/interviewiq\/releases\/[a-f0-9]{64}\/(?:app|app\.js)$/.test(u.pathname));
+ if(scripts.length!==1)throw Error('Document code unavailable.');return new URL(name,scripts[0]).href;
+}
+async function loadItineraryPdfModules(){
+ if(!itineraryModuleLoad)itineraryModuleLoad=Promise.all([import(itineraryAssetURL('itinerary-pdf.mjs')),import(itineraryAssetURL('itinerary-fonts.mjs'))]).catch(()=>{itineraryModuleLoad=null;throw Error('Document code unavailable.');});
+ return itineraryModuleLoad;
+}
+async function prepareItineraryPdf(v,bytes){
+ const [pdf,resources]=await loadItineraryPdfModules();requireItineraryPreview(v);if(typeof Worker!=='function')throw Error('Document preview unavailable.');
+ v.worker=new Worker(itineraryAssetURL('itinerary-worker.mjs'),{type:'module',name:'iiq-private-itinerary'});
+ v.worker.addEventListener('error',event=>{event.preventDefault();v.workerFailed=true;failItineraryPreview(v);});
+ v.pdfWorker=new pdf.PDFWorker({port:v.worker});await v.pdfWorker.promise;requireItineraryPreview(v);
+ class JobBinaryDataFactory extends resources.StrictLocalBinaryDataFactory {async fetch(resource){try{const result=await super.fetch(resource);requireItineraryPreview(v);return result;}catch{v.resourceDenied=true;throw Error('Unsupported document resource.');}}}
+ v.loadingTask=pdf.getDocument({data:new Uint8Array(bytes),worker:v.pdfWorker,useWorkerFetch:false,useWasm:false,enableXfa:false,disableFontFace:true,useSystemFonts:false,stopAtErrors:true,disableRange:true,disableStream:true,disableAutoFetch:true,maxImageSize:4000000,canvasMaxAreaInBytes:8000000,isOffscreenCanvasSupported:false,isImageDecoderSupported:false,BinaryDataFactory:JobBinaryDataFactory,verbosity:0});
+ v.document=await v.loadingTask.promise;requireItineraryPreview(v);v.pages=v.document.numPages;
+ if(!Number.isSafeInteger(v.pages)||v.pages<1||v.pages>ITINERARY_PREVIEW_LIMITS.pages)throw Error('This document exceeds the preview page limit.');v.pdf=pdf;
+}
+async function prepareItineraryImage(v,bytes){
+ itineraryImageDimensions(bytes,v.file.format);const data=new Uint8Array(bytes);let binary='';for(let n=0;n<data.length;n+=16384)binary+=String.fromCharCode(...data.subarray(n,n+16384));requireItineraryPreview(v);
+ const image=new Image();v.image=image;image.src='data:'+(v.file.format==='PNG'?'image/png':'image/jpeg')+';base64,'+btoa(binary);await image.decode();requireItineraryPreview(v);if(!image.naturalWidth||!image.naturalHeight||image.naturalWidth*image.naturalHeight>ITINERARY_PREVIEW_LIMITS.imagePixels)throw Error('Image exceeds the preview limit.');
+}
+function itineraryCanvasSize(width,height,print=false){
+ if(!Number.isFinite(width)||!Number.isFinite(height)||width<=0||height<=0)throw Error('Unsupported document dimensions.');
+ const target=print?1000:Math.min(960,document.getElementById('drawer-desc')?.clientWidth||960),scale=Math.min(target/width,Math.sqrt(ITINERARY_PREVIEW_LIMITS.canvasPixels/(width*height)),8192/width,8192/height);
+ return {width:Math.max(1,Math.floor(width*scale)),height:Math.max(1,Math.floor(height*scale)),scale};
+}
+async function paintItineraryPage(v,pageNumber,canvas,print=false){
+ requireItineraryPreview(v);if(Date.now()>v.deadline)throw Error('Document preview timed out.');
+ if(v.document){const page=await v.document.getPage(pageNumber);requireItineraryPreview(v);const original=page.getViewport({scale:1}),size=itineraryCanvasSize(original.width,original.height,print),viewport=page.getViewport({scale:size.scale});canvas.width=size.width;canvas.height=size.height;
+  const task=page.render({canvas,canvasContext:canvas.getContext('2d'),viewport,background:'rgb(255,255,255)',annotationMode:v.pdf.AnnotationMode.ENABLE});v.renderTask=task;task.onContinue=resume=>{try{requireItineraryPreview(v);if(Date.now()>v.deadline)throw Error('Document preview timed out.');resume();}catch{task.cancel();}};await task.promise;requireItineraryPreview(v);v.renderTask=null;
+ }else{const size=itineraryCanvasSize(v.image.naturalWidth,v.image.naturalHeight,print);canvas.width=size.width;canvas.height=size.height;canvas.getContext('2d').drawImage(v.image,0,0,size.width,size.height);requireItineraryPreview(v);}
+ if(Date.now()>v.deadline)throw Error('Document preview timed out.');return canvas.width*canvas.height;
+}
+function updateItineraryPreviewControls(v){
+ if(itineraryPreview!==v)return;const root=document.querySelector('.itineraryPreviewModal');if(!root)return;
+ root.querySelector('[data-itinerary-page-label]').textContent=v.busy?'Preparing private document…':'Page '+v.page+' of '+v.pages;
+ root.querySelectorAll('[data-act="itinerary-page"]').forEach(b=>b.disabled=v.busy||!v.ready||(Number(b.dataset.step)<0?v.page<=1:v.page>=v.pages));
+ const print=root.querySelector('[data-act="itinerary-print"]');if(print)print.disabled=v.busy||!v.ready;
+}
+async function openItineraryPreview(id,fileId){
+ const selected=itineraryPreviewFile(id,fileId);clearItineraryPreview();const v={id,file:selected.file,list:selected.list,interviewVersion:selected.list.interviewVersion,headers:selected.context.headers,targetRef:selected.context.targetRef,authority:calendarAuthority(),sequence:itineraryPreviewSequence,openedAt:Date.now(),expiresAt:Infinity,sessionEpoch:null,authenticated:false,page:1,pages:1,ready:false,busy:true,urls:new Set()};itineraryPreview=v;openDrawer({kind:'itinerary-view',id,file:fileId});
+ try{itineraryPreviewWork(v);const bytes=await readVerifiedItinerary(v);requireItineraryPreview(v);if(v.file.format==='PDF')await prepareItineraryPdf(v,bytes);else await prepareItineraryImage(v,bytes);requireItineraryPreview(v);renderDrawer();await paintItineraryPage(v,1,document.getElementById('itinerary-preview-canvas'));requireItineraryPreview(v);v.ready=true;}catch{failItineraryPreview(v);}finally{finishItineraryPreviewWork(v);}
+}
+async function changeItineraryPreviewPage(step){
+ const v=itineraryPreview;if(!v||v.busy||![-1,1].includes(step))return;const next=v.page+step;if(next<1||next>v.pages)return;
+ try{itineraryPreviewWork(v);await readVerifiedItinerary(v);requireItineraryPreview(v);v.page=next;await paintItineraryPage(v,next,document.getElementById('itinerary-preview-canvas'));requireItineraryPreview(v);v.ready=true;}catch{failItineraryPreview(v);}finally{finishItineraryPreviewWork(v);}
+}
+async function printItineraryPreview(){
+ const v=itineraryPreview;if(!v||v.busy||!v.ready)return;
+ try{itineraryPreviewWork(v);await readVerifiedItinerary(v);requireItineraryPreview(v);clearItineraryPrint();const root=document.createElement('div');root.id='iiq-itinerary-print';root.dataset.previewSequence=String(v.sequence);root.setAttribute('aria-hidden','true');document.body.append(root);let pixels=0;
+  for(let n=1;n<=v.pages;n++){requireItineraryPreview(v);const canvas=document.createElement('canvas');try{pixels+=await paintItineraryPage(v,n,canvas,true);requireItineraryPreview(v);if(pixels>ITINERARY_PREVIEW_LIMITS.printPixels)throw Error('Print limit exceeded.');const section=document.createElement('article'),label=document.createElement('p'),image=document.createElement('img');section.className='itineraryPrintPage';label.textContent='Private itinerary · page '+n+' of '+v.pages;image.alt='Itinerary page '+n;image.src=canvas.toDataURL('image/png');section.append(label,image);root.append(section);await image.decode();requireItineraryPreview(v);}finally{canvas.width=0;canvas.height=0;}}
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));requireItineraryPreview(v);if(root.children.length!==v.pages||Date.now()>v.deadline)throw Error('Print unavailable.');document.body.dataset.iiqPrivatePrint='true';window.print();
+ }catch{if(v.resourceDenied||v.workerFailed)failItineraryPreview(v);else if(itineraryPreviewCurrent(v))notice('Printing is unavailable or this file exceeds the in-app limit. Download the original to print it.');}finally{clearItineraryPrint(v);finishItineraryPreviewWork(v);}
+}
+window.addEventListener('afterprint',()=>clearItineraryPrint());
+window.addEventListener('pagehide',clearItineraryPreview);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&itineraryPreview)failItineraryPreview(itineraryPreview);});
+Object.assign(A,{'itinerary-view':el=>openItineraryPreview(el.dataset.id,el.dataset.file),'itinerary-page':el=>changeItineraryPreviewPage(Number(el.dataset.step)),'itinerary-print':()=>printItineraryPreview()});
+
 function calendarAuthority(){return {id:actor.id,role:actor.role,epoch:calendarEpoch};}
 function currentCalendar(a){return calendarV2()&&actor.id===a.id&&actor.role===a.role&&calendarEpoch===a.epoch;}
 function itineraryContext(id){
