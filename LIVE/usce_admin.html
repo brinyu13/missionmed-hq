@@ -3724,7 +3724,7 @@ CONFIG.gmailMailboxes[0];
         $('#mmJourneySendSummary').textContent='Send '+d.subject+' to '+d.to+'. This exact version is approved.';$('#mmJourneySendNow').disabled=false;journeyStep(5);return;
       }
       if(target>=2){const options=collectJourneyOptions();if(!offerSpecialtyValue()||!offerLocationValue()||options.some(o=>!o.program_type||!o.specialty||!o.location))throw new Error('First choose a program, specialty and location for every rotation option. Open Program to complete them.');}
-      if(target>=3){if(!readOfferForm())throw new Error('First choose the offered month and complete each rotation option. Open Dates to check the timing.');await prepareJourneyMessage();}
+      if(target>=3){const terms=readOfferForm();if(!terms)throw new Error('First choose the offered month and complete each rotation option. Open Dates to check the timing.');if(Number.isFinite(terms.expiresAt)&&terms.expiresAt<=Date.now()){journeyStep(2);throw new Error('This offer has expired. Change the response deadline in Dates to start a new deadline, then continue. Nothing has been sent.');}await prepareJourneyMessage();}
       if(target===4)renderJourneyReview();
       journeyStep(target);
       $('#mmJourneyState').textContent=state.dirty?'Your changes are kept here. Save before leaving this browser.':state.draftEmail?'Draft saved. Nothing sent.':'Nothing sent.';

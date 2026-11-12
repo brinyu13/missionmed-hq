@@ -128,3 +128,8 @@ check('Journey close and workspace navigation retain current-case unsaved work a
  a.setV3Workspace('pipeline');assert.equal(a.state.selectedRequestId,r.id);a.setV3Workspace('dashboard');a.openJourney();assert.equal(a.journey.step,2);assert.equal($('mmOfInstructions').value,'Keep my current instructions');assert.equal(calls.persist.length,0);assert.equal(calls.send.length,0);
  assert.ok([...w.document.querySelectorAll('[data-journey-progress]')].every(e=>e.tagName==='BUTTON'));
 });
+
+check('expired Offer returns to Dates with clear recovery and no network writes',async({a,$,r,calls})=>{
+ a.openJourney();a.state.liveOffersByRequest[r.id]={...a.readOfferForm(),id:'expired-offer',detailsLoaded:true,status:'READY',revision:1,expiresAt:Date.now()-60000};
+ await a.navigateJourney(4);assert.equal(a.journey.step,2);assert.match($('mmJourneyState').textContent,/Change the response deadline in Dates/);assert.equal(calls.persist.length,0);assert.equal(calls.preview.length,0);assert.equal(calls.send.length,0);assert.equal($('mmJourneyApproval').checked,false);
+});
