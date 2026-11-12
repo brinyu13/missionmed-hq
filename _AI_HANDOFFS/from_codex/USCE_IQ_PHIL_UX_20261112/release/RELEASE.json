@@ -1,0 +1,77 @@
+{
+  "source_sha": "ba64a9f21f551902f2efe2557fa109a4b666d0ff",
+  "admin_sha256": "28aa37856e9293b434dd5eff620ea037f157782e5616a0eb237ed188083940f2",
+  "runtime_deployment": "3fcfdde0-299e-49d9-8a97-2588af74ee86",
+  "runtime_source": "9b7b44e006ef3135bfd634d3d4d263bb6ebd585b",
+  "runtime_image": "sha256:0011f640d27ea1327a03ccc874146e9d8199c681cc89c73dfb360f2d5c70437f",
+  "applicant_sha256": "335f76b0020dddf9f50d769f29d4a26d2e058a1a79b11af64d86292cadff45b5",
+  "baseline_admin_sha256": "f3ddeca644fcdbab4adae3e71682a225cb2668914645ff7125a7c95111a64919",
+  "immediate_rollback_sha256": "3f93ed721a5028aab2a424ab87db058f14003bfe73bef2c3cbd3f97d39d3685e",
+  "authority": "DR-543",
+  "canonical_registration": "b61b2b36c7ff7f0c12eb6468a9cc772d0a3643dc",
+  "test_suite": {
+    "affected_pass": 117,
+    "ui_pass": 70,
+    "backend_contract_pass": 47,
+    "final_comms_rerun_pass": 27
+  },
+  "qa_case": "fced8fdd-3c3c-4825-b7d4-f77aaedb2d90",
+  "qa_status": "archived",
+  "request_count": 100,
+  "qa_message": "e4048b28-70ca-44f0-8e46-cfbe52520038",
+  "postmark_message": "ae43c605-9c24-43bc-aadb-c8d23de99e4f",
+  "info_gmail_receipt": "1a1d14405a07db82",
+  "qa_reply": "123e444a-e911-4d32-bc3a-57421f3a8c0a",
+  "reply_association": "verified_reference",
+  "phil_notification_provider_id": "f854e714-7690-4cf7-868f-f8810a291148",
+  "phil_notification_count": 1,
+  "independent_fuo": "APPROVE WITH LIMITS",
+  "review_model": "claude-sonnet-4-6",
+  "mobile_width": 390,
+  "desktop_iframe_height": 412,
+  "generic_approval_bounds": [
+    293.5,
+    337.5
+  ],
+  "journey_approval_bounds": [
+    302.5,
+    346.5
+  ],
+  "journey_next_bounds": [
+    354.5,
+    400.5
+  ],
+  "native_audit": [
+    {
+      "audit": {
+        "checked_at": "2026-11-12T20:53:11.485803+00:00",
+        "today_rows": 47,
+        "unreleased_rows": 0,
+        "active_owned_leases": 0
+      }
+    }
+  ],
+  "mobile_generic_approval_bounds": [
+    563.5,
+    607.5
+  ],
+  "mobile_journey_approval_bounds": [
+    586.5,
+    640.5
+  ],
+  "mobile_journey_next_bounds": [
+    648.5,
+    694.5
+  ],
+  "mobile_iframe_height": 708,
+  "mobile_header_close_bottom": 102,
+  "mobile_header_body_top": 112,
+  "mobile_final": "PASS actual Close, Communications, step-by-step through Review, editable proof and both approval rows",
+  "live_url": "https://missionmedinstitute.com/usce-admin/",
+  "provider_public_readback": true,
+  "phil_private_login": "LIVE_VERIFIED",
+  "phase1_status": "LIVE_ACCEPTED_WITH_LIMITS",
+  "broader_DR413_closure": "OPEN_SEPARATE_VERIFICATION_LIMITS",
+  "review_evidence_mode": "Read-only actual-live captured screens and source; no independent interactive authenticated replay",
+  "recorded_at": "2026-11-12T20:53:12.316401+00:00"
+}
