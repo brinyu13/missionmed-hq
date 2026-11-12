@@ -29,7 +29,7 @@ function check(name,fn){test(name,async()=>{const h=harness();try{await fn(h)}fi
 check('left rail is the only app navigation and Overview without a selected case is functional',async({a,w,$})=>{
  assert.equal(w.document.querySelector('.mm-topbar'),null);assert.equal(w.document.querySelector('[data-v3-workspace]'),null);
  a.state.selectedRequestId=null;w.document.querySelector('[data-sf-nav="overview"]').click();
- assert.equal($('mmCx').dataset.workspace,'overview');assert.match(w.document.querySelector('#mmWorkspace > .mm-hero p').textContent,/Select a student/);assert.equal(w.document.querySelector('[data-sf-nav="overview"]').disabled,false);assert.equal(w.document.querySelectorAll('.mm-req-item').length,1);
+ assert.equal($('mmCx').dataset.workspace,'overview');assert.match(w.document.querySelector('#mmWorkspace > .mm-hero p').textContent,/(Choose|Select) a student/);assert.equal(w.document.querySelector('[data-sf-nav="overview"]').disabled,false);assert.equal(w.document.querySelectorAll('.mm-req-item').length,1);
  w.document.querySelector('[data-sf-nav="pipeline"]').click();assert.equal(w.document.querySelectorAll('.mm-pipeline-lane').length,4);
  w.document.querySelector('[data-sf-nav="cases"]').click();assert.equal($('mmCx').dataset.workspace,'dashboard');
 });

@@ -15,14 +15,14 @@ function harness(url='https://synthetic.invalid/',parent=null){
  const a=w.MAILTEST,$=id=>w.document.getElementById(id);const input=(id,value)=>{$(id).value=value;$(id).dispatchEvent(new w.Event('input',{bubbles:true}));};const compose=async()=>{await a.loadMailConfig();a.startMailComposer(CASE);input('mmMailSubject','Synthetic subject');input('mmMailBody','Synthetic body');};
  return{dom,w,a,$,calls,sender,r,input,compose,override(fn){custom=fn;}};
 }
-function check(name,fn){test(name,async()=>{const h=harness();try{await fn(h)}finally{h.dom.window.close()}})}
+function check(name,fn){test(name,async()=>{const h=harness();try{await fn(h)}finally{await tick();h.dom.window.close()}})}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 check('general Communications is available without selecting a case; folders use the same endpoint',async({w,a,$,calls})=>{w.document.querySelector('[data-sf-nav="comms"]').click();await tick();assert.equal($('mmCx').dataset.workspace,'communications');assert.equal($('mmCommunications').hidden,false);assert.equal(w.document.querySelectorAll('[data-mail-folder]').length,5);assert.ok(calls.some(c=>c.path.includes('folder=inbox')));w.document.querySelector('[data-mail-folder="unassigned"]').click();await tick();assert.ok(calls.some(c=>c.path.includes('folder=unassigned')));a.startMailComposer(null);assert.equal($('mmMailCase').value,'');assert.equal($('mmMailTo').textContent,'Choose a student case');});
 check('sender not ready permits draft saving and blocks review and send',async({a,$,sender,compose,calls})=>{sender.ready=false;await compose();assert.equal($('mmMailPreview').disabled,true);assert.equal($('mmMailSend').disabled,true);await a.saveMailDraft();await assert.rejects(a.reviewMailDraft(),/sender is not ready/);await assert.rejects(a.sendReviewedMail(),/Review and approve/);assert.equal(calls.filter(c=>c.path.endsWith('/send')).length,0);});
 check('exact generic preview approval is invalidated by edits; recipient and sender remain verified',async({a,$,w,compose,input,calls})=>{await compose();await a.reviewMailDraft();assert.equal($('mmMailApproval').checked,false);$('mmMailApproval').checked=true;$('mmMailApproval').dispatchEvent(new w.Event('change'));assert.equal(a.mail.preview.from_email,'clinicals@missionmedinstitute.com');input('mmMailBody','Changed text');assert.equal(a.mail.preview,null);assert.equal($('mmMailApproval').checked,false);await assert.rejects(a.sendReviewedMail());assert.equal(calls.filter(c=>c.path.endsWith('/send')).length,0);});
 check('ambiguous send is attempted once and held for reconciliation; generic mail never calls Offer APIs',async({a,$,compose,override,calls})=>{await compose();await a.reviewMailDraft();$('mmMailApproval').checked=true;override(path=>path.endsWith('/send')?{ok:true,outcome:'ambiguous',dispatch_id:DIS}:undefined);await a.sendReviewedMail();await assert.rejects(a.sendReviewedMail());assert.equal(calls.filter(c=>c.path.endsWith('/send')).length,1);assert.equal($('mmMailReconcile').hidden,false);assert.match($('mmMailSendOutcome').textContent,/Do not resend/);assert.ok(calls.every(c=>c.path.startsWith('/api/usce/admin/communications')));});
 check('case history and unified thread share message records and render inbound body as text',async({a,$,calls,override})=>{a.state.selectedRequestId=CASE;override(path=>path.includes('folder=all')?{ok:true,items:[{id:MSG,subject:'Synthetic reply',state:'received',created_at:'2026-10-09T12:00:00Z'}],has_more:false}:undefined);await a.loadCaseMail(CASE);assert.equal($('mmCaseMailHistory').querySelector('button').textContent.startsWith('Synthetic reply'),true);await a.openMailThread(MSG);assert.ok(calls.some(c=>c.path.includes('folder=all')&&c.path.includes('intake_request_id='+CASE)));assert.ok(calls.some(c=>c.path.endsWith('/messages/'+MSG+'/thread')));assert.ok(calls.some(c=>c.path.endsWith('/messages/'+MSG+'/read')));assert.equal($('mmMailThreadMessages').querySelector('img'),null);assert.match($('mmMailThreadMessages').textContent,/<img/);assert.equal(a.mail.selected,MSG);});
-check('template uses recorded preferences and never claims confirmed availability',async({a,$,compose,r})=>{await compose();$('mmMailTemplate').value='preferences';$('mmMailUseTemplate').click();assert.match($('mmMailBody').value,/Internal Medicine/);assert.match($('mmMailBody').value,/New York/);assert.match($('mmMailBody').value,/Preferences do not confirm rotation availability/);assert.equal(a.state.liveOffersByRequest[r.id],undefined);});
+check('template uses recorded preferences and never claims confirmed availability',async({a,$,compose,r})=>{await compose();$('mmMailTemplate').value='preferences';$('mmMailUseTemplate').click();if(!$('mmMailReplacePrompt').hidden)$('mmMailReplaceConfirm').click();assert.match($('mmMailBody').value,/Internal Medicine/);assert.match($('mmMailBody').value,/New York/);assert.match($('mmMailBody').value,/Preferences do not confirm rotation availability/);assert.equal(a.state.liveOffersByRequest[r.id],undefined);});
 check('mismatched server recipient proof prevents sending and retains composer text',async({a,$,compose,override,calls})=>{await compose();override(path=>path.endsWith('/preview')?{ok:true,preview:{message_id:MSG,revision:1,to_email:'different@example.test',from_email:'clinicals@missionmedinstitute.com',reply_to:'clinicals@missionmedinstitute.com',subject:'Synthetic subject',body_text:'Synthetic body',preview_hash:'b'.repeat(64)}}:undefined);await assert.rejects(a.reviewMailDraft(),/did not match/);assert.equal($('mmMailBody').value,'Synthetic body');assert.equal(calls.filter(c=>c.path.endsWith('/send')).length,0);});
 test('canonical message deep link opens the unified conversation through authenticated API',async()=>{const h=harness('https://synthetic.invalid/?conversation='+MSG);try{assert.equal(h.calls.length,0);await h.a.loadLiveQueue();await tick();await tick();assert.equal(h.$('mmCx').dataset.workspace,'communications');assert.ok(h.calls.some(c=>c.path.endsWith('/messages/'+MSG+'/thread')));}finally{h.dom.window.close();}});
 
@@ -44,7 +44,7 @@ check('unavailable inbound body is marked incomplete and links to Clinicals Gmai
 
 check('linked reply and draft outside filtered queue use current trusted recipient without inventing preferences',async({a,$,r,override,compose})=>{
  a.state.requests=[];const dto={id:MSG,intake_request_id:CASE,state:'received',subject:'Linked reply',from_email:'historical@example.test',body_text:'Historical message',needs_triage:false};
- await a.loadMailConfig();a.startMailComposer(CASE,dto);assert.equal($('mmMailCompose').open,true);assert.equal($('mmMailTo').textContent,'Recipient verified when draft is saved');assert.equal(a.state.requests.length,0);$('mmMailTemplate').value='preferences';$('mmMailUseTemplate').click();assert.doesNotMatch($('mmMailBody').value,/Internal Medicine|New York|Oct 2026/);await a.reviewMailDraft();assert.equal(a.mail.preview.to_email,r.email);
+ await a.loadMailConfig();a.startMailComposer(CASE,dto);assert.equal($('mmMailCompose').open,true);assert.equal($('mmMailTo').textContent,'Recipient verified when draft is saved');assert.equal(a.state.requests.length,0);$('mmMailTemplate').value='preferences';$('mmMailUseTemplate').click();if(!$('mmMailReplacePrompt').hidden)$('mmMailReplaceConfirm').click();assert.doesNotMatch($('mmMailBody').value,/Internal Medicine|New York|Oct 2026/);await a.reviewMailDraft();assert.equal(a.mail.preview.to_email,r.email);
  $('mmMailCompose').close();a.startMailComposer(CASE,null,{...dto,state:'draft',revision:1,to_email:'historical@example.test',subject:'Saved draft',body_text:'Saved body'});assert.equal($('mmMailBody').value,'Saved body');assert.equal($('mmMailTo').textContent,'Recipient verified when draft is saved');assert.equal(a.state.requests.length,0);await a.reviewMailDraft();assert.equal($('mmMailTo').textContent,r.email);assert.equal(a.mail.preview.to_email,r.email);assert.notEqual(a.mail.preview.to_email,'historical@example.test');
 });
 check('archived linked case permits correspondence without reopening case or changing Offer',async({a,$,r,compose})=>{
@@ -79,4 +79,44 @@ check('pending conversation stays unread when the existing protected admin read 
  w.dispatchEvent(new w.MessageEvent('message',{origin:'https://missionmedinstitute.com',source:w.parent,data:{type:'mm-usce-conversation',conversation:MSG}}));
  override(path=>{if(path.includes('/public-intake-requests')){const error=new Error('Admin denied');error.status=403;throw error;}});await a.loadLiveQueue();await tick();
  assert.equal(a.mail.authReady,false);assert.equal(a.mail.pendingConversation,MSG);assert.equal(a.mail.consumedConversation,null);assert.equal(calls.some(call=>call.path.includes('/communications')),false);
+});
+
+check('student search selects only a verified case by name or email, with no network writes',async({a,w,$,input,calls,r})=>{
+ const other={...r,id:'44444444-4444-4444-8444-444444444444',name:'Taylor <Student>',email:'taylor@example.test'};
+ a.state.requests.push(other);await a.loadMailConfig();a.startMailComposer(null);
+ input('mmMailStudentSearch','TAYLOR');assert.equal(w.document.querySelectorAll('.mm-student-result').length,1);
+ assert.equal(w.document.querySelector('.mm-student-result b').textContent,'Taylor <Student>');assert.equal(w.document.querySelector('.mm-student-result img'),null);
+ w.document.querySelector('.mm-student-result').click();assert.equal($('mmMailCase').value,other.id);assert.equal($('mmMailTo').textContent,other.email);
+ assert.equal($('mmMailStudentResults').hidden,true);assert.equal(calls.some(c=>c.options.method==='POST'),false);
+ a.startMailComposer(null);input('mmMailStudentSearch','nobody@unknown.test');assert.equal(w.document.querySelectorAll('.mm-student-result').length,0);assert.equal($('mmMailCase').value,'');assert.match($('mmMailStudentHelp').textContent,/No matching student/);
+ input('mmMailStudentSearch','student@example.test');assert.equal(w.document.querySelectorAll('.mm-student-result').length,1);
+});
+check('closing and reopening a composition keeps its text without native discard prompts or stored approval',async({a,w,$,compose,input,calls})=>{
+ await compose();input('mmMailSubject','Keep this subject');input('mmMailBody','Keep these unsaved words');
+ w.confirm=()=>{throw Error('Native discard prompt is forbidden for workspace navigation')};
+ $('mmMailCancel').click();assert.equal($('mmMailCompose').open,false);
+ a.startMailComposer(CASE);assert.equal($('mmMailSubject').value,'Keep this subject');assert.equal($('mmMailBody').value,'Keep these unsaved words');assert.equal(a.mail.dirty,true);assert.equal($('mmMailApproval').checked,false);assert.equal(a.mail.preview,null);
+ assert.equal(calls.some(c=>c.options.method==='POST'),false);
+});
+check('changing a recipient with existing text requires an explicit inline choice and invalidates review',async({a,w,$,compose,input,r})=>{
+ await compose();const other={...r,id:'44444444-4444-4444-8444-444444444444',name:'Second Student',email:'second@example.test'};a.state.requests.push(other);
+ input('mmMailStudentSearch','second');w.document.querySelector('.mm-student-result').click();assert.equal($('mmMailCase').value,CASE);assert.equal($('mmMailRecipientPrompt').hidden,false);
+ $('mmMailRecipientCancel').click();assert.equal($('mmMailCase').value,CASE);assert.equal($('mmMailBody').value,'Synthetic body');
+ input('mmMailStudentSearch','second');w.document.querySelector('.mm-student-result').click();$('mmMailRecipientConfirm').click();assert.equal($('mmMailCase').value,other.id);assert.equal($('mmMailTo').textContent,other.email);assert.equal(a.mail.preview,null);assert.equal($('mmMailSend').hidden,true);
+});
+check('inline template and blank choices retain text until confirmation; Send appears only after exact approval',async({a,$,compose,input})=>{
+ await compose();$('mmMailTemplate').value='preferences';$('mmMailUseTemplate').click();assert.equal($('mmMailBody').value,'Synthetic body');assert.equal($('mmMailReplacePrompt').hidden,false);$('mmMailReplaceCancel').click();assert.equal($('mmMailBody').value,'Synthetic body');
+ $('mmMailBlank').click();assert.equal($('mmMailBody').value,'Synthetic body');$('mmMailReplaceConfirm').click();assert.equal($('mmMailBody').value,'');assert.equal($('mmMailSubject').value,'');
+ input('mmMailSubject','Checked subject');input('mmMailBody','Checked body');assert.equal($('mmMailSend').hidden,true);
+ await a.reviewMailDraft();assert.equal($('mmMailSend').hidden,true);$('mmMailApproval').checked=true;$('mmMailApproval').dispatchEvent(new ($('mmMailApproval').ownerDocument.defaultView.Event)('change'));assert.equal($('mmMailSend').hidden,false);
+ input('mmMailBody','Edited after approval');assert.equal($('mmMailSend').hidden,true);assert.equal($('mmMailApproval').checked,false);
+});
+check('saved or replied messages keep the verified recipient locked and cannot be redirected through search',async({a,w,$,compose,input})=>{
+ await compose();await a.saveMailDraft();a.startMailComposer(CASE,null,a.mail.draft);assert.equal($('mmMailStudentSearch').disabled,true);
+ input('mmMailStudentSearch','other');assert.equal($('mmMailStudentResults').hidden,true);assert.equal($('mmMailCase').value,CASE);
+});
+
+check('Review stays unavailable until a verified student and complete message are present',async({a,$,input})=>{
+ await a.loadMailConfig();a.startMailComposer(null);assert.equal($('mmMailPreview').disabled,true);input('mmMailSubject','Subject');input('mmMailBody','Body');assert.equal($('mmMailPreview').disabled,true);
+ a.startMailComposer(CASE);input('mmMailSubject','Subject');input('mmMailBody','Body');assert.equal($('mmMailPreview').disabled,false);
 });

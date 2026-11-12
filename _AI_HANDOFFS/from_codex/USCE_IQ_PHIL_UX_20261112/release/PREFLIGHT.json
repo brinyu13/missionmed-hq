@@ -1,0 +1,16 @@
+{
+  "authority": "DR-543",
+  "canonical_registration": "b61b2b36c7ff7f0c12eb6468a9cc772d0a3643dc",
+  "baseline_source": "9b7b44e006ef3135bfd634d3d4d263bb6ebd585b",
+  "baseline_head": "8c4740f98aa2057b4dbe909b3a8d546f36961cce",
+  "baseline_runtime": "3fcfdde0-299e-49d9-8a97-2588af74ee86",
+  "baseline_image": "sha256:0011f640d27ea1327a03ccc874146e9d8199c681cc89c73dfb360f2d5c70437f",
+  "baseline_admin_sha256": "f3ddeca644fcdbab4adae3e71682a225cb2668914645ff7125a7c95111a64919",
+  "candidate_admin_sha256": "13f6819b307dd0e7db40f14fadc7615699b496ea9f5dad4f8f575d8e0dd65d30",
+  "focused_ui_tests": 65,
+  "mail_backend_contract_tests": 47,
+  "independent_security_review": "APPROVE /root/nov12_independent_review",
+  "provider_scope": "Admin CDN only; runtime, applicant, auth, DB and mail infrastructure unchanged",
+  "review_routing": "Configured Fable5.2 if available; otherwise strongest available configured Claude Code Sonnet; read-only after Phase1 live",
+  "live_acceptance": "PENDING"
+}

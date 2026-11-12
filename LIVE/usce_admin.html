@@ -808,7 +808,51 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 #mmCx[data-auth-blocked="true"] .mm-hq-grid,#mmCx[data-auth-blocked="true"] #mmStats,#mmCx[data-auth-blocked="true"] #mmCommunications{visibility:hidden}
 @media(prefers-reduced-motion:reduce){#mmIqIntro{display:none!important}#mmIqIntro *{animation:none!important}}
 @media(max-width:600px){#mmAdminLogin{padding:24px}#mmAdminLogin h2{font-size:27px}}
-</style></head>
+</style><style>
+/* DR-543: clear, accessible composition over the existing mail contracts. */
+.mm-cx.mm-v3 #mmMailCompose{width:min(1100px,calc(100vw - 20px));height:calc(100dvh - 20px);max-height:calc(100dvh - 20px)}
+.mm-cx.mm-v3 #mmMailCompose[open]{grid-template-rows:56px minmax(0,1fr) 76px}
+.mm-cx.mm-v3 .mm-mail-compose-body{display:grid;grid-template-columns:310px minmax(0,1fr);gap:24px;padding:14px 20px}
+.mm-cx.mm-v3 .mm-mail-compose-student,.mm-cx.mm-v3 .mm-mail-compose-message{min-width:0}
+.mm-cx.mm-v3 .mm-mail-compose-student{position:relative}
+.mm-cx.mm-v3 .mm-mail-compose-body .mm-label{margin:0 0 6px;font-size:13px;font-weight:750}
+.mm-cx.mm-v3 #mmMailStudentSearch,.mm-cx.mm-v3 #mmMailSubject,.mm-cx.mm-v3 #mmMailTemplate{min-height:44px;font-size:14px}
+.mm-cx.mm-v3 #mmMailStudentHelp{margin:6px 0 10px;font-size:12px}
+.mm-cx.mm-v3 .mm-student-results{position:absolute;top:73px;left:0;right:0;z-index:2;max-height:220px;overflow:auto;background:white;border:1px solid #a8bfd8;border-radius:10px;box-shadow:0 12px 30px #08274724}
+.mm-cx.mm-v3 .mm-student-result{display:block;width:100%;min-height:52px;border:0;border-bottom:1px solid #e4ebf2;background:white;color:#163b60;padding:9px 12px;text-align:left;cursor:pointer}
+.mm-cx.mm-v3 .mm-student-result b,.mm-cx.mm-v3 .mm-student-result span{display:block;overflow-wrap:anywhere}
+.mm-cx.mm-v3 .mm-student-result b{font-size:14px}.mm-cx.mm-v3 .mm-student-result span{font-size:12px;color:#506780;margin-top:3px}
+.mm-cx.mm-v3 .mm-student-result:hover{background:#eaf2fb}.mm-cx.mm-v3 .mm-student-result:focus-visible,.mm-cx.mm-v3 #mmMailCompose :focus-visible{outline:3px solid #c59125;outline-offset:2px}
+.mm-cx.mm-v3 .mm-student-selected{background:#eef5fc;border:1px solid #c4d7e9;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px;overflow-wrap:anywhere}
+.mm-cx.mm-v3 .mm-student-selected strong,.mm-cx.mm-v3 .mm-student-selected span{display:block}
+.mm-cx.mm-v3 #mmMailCompose .mm-email-choices{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.mm-cx.mm-v3 #mmMailCompose .mm-email-choices .mm-btn{min-height:44px;font-size:11px;padding:9px 7px}.mm-cx.mm-v3 #mmMailBlank{grid-column:1/-1}
+.mm-cx.mm-v3 .mm-inline-choice{padding:12px;margin-top:10px;background:#fff5d9;border:1px solid #dcc07b;border-radius:8px;font-size:13px}
+.mm-cx.mm-v3 .mm-inline-choice .mm-btn{min-height:40px;font-size:12px}
+.mm-cx.mm-v3 .mm-mail-compose-message .mm-email-addresses{margin:0 0 12px;font-size:12px;overflow-wrap:anywhere}
+.mm-cx.mm-v3 .mm-mail-compose-message>.mm-label{margin-top:10px}
+.mm-cx.mm-v3 #mmMailBody{min-height:150px;font-size:15px;line-height:1.5}
+.mm-cx.mm-v3 .mm-mail-compose-foot .mm-btn{min-height:46px;font-size:14px;padding:11px 18px}
+.mm-cx.mm-v3 #mmMailComposeStatus{font-size:12px}
+.mm-cx.mm-v3 #mmMailExactPreview{background:#102e4c;color:#f6f8fc;border-radius:10px;padding:16px;margin-top:14px}
+.mm-cx.mm-v3 #mmMailExactPreview h3{color:#fff;font-size:18px;margin:0 0 10px}.mm-cx.mm-v3 #mmMailPreviewText{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 var(--mm-sans)}
+.mm-cx.mm-v3 #mmMailComposeNew{min-height:46px!important;font-size:13px!important}
+@media(max-width:760px){.mm-cx.mm-v3 .mm-mail-compose-body{grid-template-columns:1fr;gap:18px}.mm-cx.mm-v3 #mmMailCompose[open]{grid-template-rows:56px minmax(0,1fr) 114px}.mm-cx.mm-v3 .mm-mail-compose-foot{flex-wrap:wrap}.mm-cx.mm-v3 .mm-mail-compose-foot .mm-btn{flex:1;font-size:12px;padding:9px}.mm-cx.mm-v3 #mmMailComposeStatus{flex-basis:100%}}
+</style><style>
+/* DR-543: direct, validation-aware steps retain the approved photographic rail. */
+.mm-cx.mm-v3 .sf-rail nav>button{min-height:40px;font-size:13px}
+.mm-cx.mm-v3 .mm-journey-progress button{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;border:0;border-radius:8px;padding:5px 8px;background:transparent;color:#d5e4ef;text-align:left;font:14px var(--mm-sans);cursor:pointer}
+.mm-cx.mm-v3 .mm-journey-progress button b{display:grid;place-items:center;width:32px;height:32px;flex:none;border:1px solid #9ab8cd;border-radius:50%;font-size:13px;background:#284b64;color:#fff}
+.mm-cx.mm-v3 .mm-journey-progress button.is-active{background:#ffffff17;color:#fff;font-weight:750}
+.mm-cx.mm-v3 .mm-journey-progress button.is-active b{background:#fff;color:#154b7d;border-color:white;box-shadow:0 0 0 5px #3484bd55}
+.mm-cx.mm-v3 .mm-journey-progress button.is-complete b{background:#247fbc;border-color:#65a9d8}
+.mm-cx.mm-v3 .mm-journey-progress button:focus-visible{outline:3px solid #e7bf61;outline-offset:2px}
+.mm-cx.mm-v3 .mm-journey-progress button:disabled{cursor:wait;opacity:.65}
+.mm-cx.mm-v3 .mm-journey-head>.mm-btn{font-size:12px;min-height:40px}
+.mm-cx.mm-v3 .mm-journey-foot .mm-btn-primary{font-size:14px;min-height:46px}
+@media(max-height:650px) and (min-width:761px){.mm-cx.mm-v3 .mm-journey-rail{padding:14px 18px}.mm-cx.mm-v3 .mm-journey-rail>img{height:64px;object-fit:contain;margin:0 0 10px}.mm-cx.mm-v3 .mm-journey-progress{gap:3px}.mm-cx.mm-v3 .mm-journey-progress button{min-height:39px}.mm-cx.mm-v3 .mm-journey-motto{font-size:16px}}
+@media(max-width:760px){.mm-cx.mm-v3 .mm-journey-progress button{min-width:110px;width:auto;font-size:12px;gap:6px}.mm-cx.mm-v3 .mm-journey-head{flex-wrap:wrap;gap:6px}.mm-cx.mm-v3 .mm-journey-head>.mm-btn{font-size:11px;padding:6px 9px}}
+</style><style>.mm-cx.mm-v3 #mmMailComposeNew.is-secondary{background:white!important;color:#173e66!important;border:1px solid #c8d8e8!important}.mm-cx.mm-v3 #mmMailReply{min-height:44px;font-size:14px;padding:10px 18px}</style></head>
 <body>
 
 <div class="mm-cx" id="mmCx">
@@ -817,10 +861,10 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 <div class="v1-brand"><img src="https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-institute-logo-email-dark.png" alt="MissionMed Institute"></div><div class="sf-rail-title">MissionMed Clinicals HQ<small>INTERNAL OFFER SYSTEM</small></div>
 <button type="button" data-sf-nav="cases" aria-current="page"><span aria-hidden="true">▤</span>Dashboard</button>
 <button type="button" data-sf-nav="pipeline"><span aria-hidden="true">◫</span>Pipeline</button>
-<button type="button" data-sf-nav="overview"><span aria-hidden="true">◫</span>Overview</button>
+<button type="button" data-sf-nav="overview"><span aria-hidden="true">◫</span>Student details</button>
 <button type="button" data-sf-nav="comms"><span aria-hidden="true">◷</span>Communications</button>
-<button type="button" data-sf-nav="offer" disabled><span aria-hidden="true">◇</span>Offer</button>
-<button type="button" data-sf-nav="audit" disabled><span aria-hidden="true">↺</span>History</button>
+<button type="button" data-sf-nav="offer" disabled><span aria-hidden="true">◇</span>Build offer</button>
+<button type="button" data-sf-nav="audit" disabled><span aria-hidden="true">↺</span>Offer history</button>
 <div class="mm-runtime"><a class="sf-open-full" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html" target="_blank" rel="noopener noreferrer" hidden>Open full workspace ↗</a>
       <span class="mm-runtime-pill" id="mmRuntimePill"><span class="mm-dot"></span><span id="mmRuntimeText">Checking session</span></span>
     </div>
@@ -931,7 +975,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     <div class="mm-hero">
       <span class="mm-eyebrow">People Purpose Physicians</span>
       <h1>USCE Clinical Requests</h1><button id="mmKpiClear" type="button" class="mm-btn mm-btn-sm mm-btn-ghost" hidden>Clear all filters</button>
-      <p>Review preferences, log outreach, track the thread, build the offer, and send with coordinator approval.</p>
+      <p>Choose a student. We will guide you through the next step.</p>
     </div>
     <div class="mm-adapter-banner" id="mmAdapterBanner">
       <strong>Secure admin access:</strong> loading the protected USCE request queue for authorized MissionMed administrators.
@@ -1204,14 +1248,38 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
  <div class="mm-mail-list-pane"><div id="mmMailList"></div><button id="mmMailMore" type="button" class="mm-btn mm-btn-ghost" hidden>Older messages</button></div>
  <section class="mm-mail-conversation" aria-label="Selected conversation"><header><h2 id="mmMailThreadTitle">Select a conversation</h2><div class="mm-quickact"><button id="mmMailReply" type="button" class="mm-btn mm-btn-primary" disabled>Reply</button><button id="mmMailEditDraft" type="button" class="mm-btn mm-btn-ghost" hidden>Edit draft</button><button id="mmMailAssign" type="button" class="mm-btn mm-btn-ghost" hidden>Assign to case</button><button id="mmMailCaseOpen" type="button" class="mm-btn mm-btn-ghost" disabled>Open case</button></div></header><div id="mmMailThreadMessages"><p class="mm-hint">Read and reply to messages connected to the same student case.</p></div><button id="mmMailThreadMore" type="button" class="mm-btn mm-btn-ghost" hidden>Earlier conversation</button></section></div>
 </section>
-<dialog id="mmMailCompose" aria-labelledby="mmMailComposeTitle"><header class="mm-mail-compose-head"><h2 id="mmMailComposeTitle">Write Message</h2><button id="mmMailCancel" type="button" class="mm-btn mm-btn-ghost">Close</button></header><div class="mm-mail-compose-body"><label class="mm-label" for="mmMailCase">Student case</label><select id="mmMailCase" class="mm-select"></select><div class="mm-email-addresses"><div><b>FROM / REPLY TO</b><span id="mmMailFrom">Checking Clinicals sender…</span></div><div><b>TO — FROM VERIFIED CASE</b><span id="mmMailTo"></span></div></div><div class="mm-email-choices"><select id="mmMailTemplate" aria-label="Choose personalized template" class="mm-select"><option value="acknowledgment">Request acknowledgment</option><option value="preferences">Preference check</option><option value="followup">Request follow-up</option></select><button id="mmMailUseTemplate" type="button" class="mm-btn mm-btn-ghost">Use personalized template</button><button id="mmMailEdit" type="button" class="mm-btn mm-btn-ghost">Edit message</button><button id="mmMailBlank" type="button" class="mm-btn mm-btn-ghost">Write from scratch</button></div><label class="mm-label" for="mmMailSubject">Subject</label><input id="mmMailSubject" class="mm-input" maxlength="240"><label class="mm-label" for="mmMailBody">Message</label><textarea id="mmMailBody" class="mm-textarea" maxlength="20000" rows="8"></textarea><p class="mm-hint">This message does not change an Offer. Use the Offer Journey for secure offer links, terms, approval and sending.</p><section id="mmMailExactPreview" hidden><h3>Exact saved message</h3><pre id="mmMailPreviewText"></pre><label class="mm-journey-approval"><input id="mmMailApproval" type="checkbox">I approve this exact message and recipient.</label></section><p id="mmMailSendOutcome" role="status" aria-live="polite"></p><button id="mmMailReconcile" type="button" class="mm-btn mm-btn-ghost" hidden>Check provider outcome</button></div><footer class="mm-mail-compose-foot"><span id="mmMailComposeStatus" role="status" aria-live="polite">Nothing sent</span><button id="mmMailSave" type="button" class="mm-btn mm-btn-ghost">Save draft</button><button id="mmMailPreview" type="button" class="mm-btn mm-btn-ghost">Review exact message</button><button id="mmMailSend" type="button" class="mm-btn mm-btn-primary" disabled>Send approved message</button></footer></dialog>
+<dialog id="mmMailCompose" aria-labelledby="mmMailComposeTitle">
+<header class="mm-mail-compose-head"><h2 id="mmMailComposeTitle">Write a message</h2><button id="mmMailCancel" type="button" class="mm-btn mm-btn-ghost">Back to workspace</button></header>
+<div class="mm-mail-compose-body">
+<section class="mm-mail-compose-student" aria-label="Choose the student">
+<label class="mm-label" for="mmMailStudentSearch">Who are you writing to?</label>
+<input id="mmMailStudentSearch" class="mm-input" type="search" placeholder="Search student name or email" autocomplete="off" aria-controls="mmMailStudentResults" aria-describedby="mmMailStudentHelp">
+<p id="mmMailStudentHelp" class="mm-hint" role="status" aria-live="polite">Find the student, then choose their name.</p>
+<div id="mmMailStudentResults" class="mm-student-results" role="group" aria-label="Matching students" hidden></div>
+<select id="mmMailCase" hidden tabindex="-1" aria-hidden="true"></select>
+<div id="mmMailStudentSelected" class="mm-student-selected" hidden></div>
+<label class="mm-label" for="mmMailTemplate">Choose a starting message</label>
+<select id="mmMailTemplate" aria-label="Choose personalized template" class="mm-select"><option value="acknowledgment">Welcome / request received</option><option value="preferences">Check preferences</option><option value="followup">Follow up</option></select>
+<div class="mm-email-choices"><button id="mmMailUseTemplate" type="button" class="mm-btn mm-btn-ghost">USE TEMPLATE</button><button id="mmMailEdit" type="button" class="mm-btn mm-btn-ghost">EDIT MESSAGE</button><button id="mmMailBlank" type="button" class="mm-btn mm-btn-ghost">WRITE FROM SCRATCH</button></div>
+<section id="mmMailReplacePrompt" class="mm-inline-choice" aria-label="Replace this message" hidden><p>Your current text is kept until you confirm.</p><button id="mmMailReplaceConfirm" type="button" class="mm-btn mm-btn-primary">Replace message</button><button id="mmMailReplaceCancel" type="button" class="mm-btn mm-btn-ghost">Keep my text</button></section>
+<section id="mmMailRecipientPrompt" class="mm-inline-choice" aria-label="Change recipient" hidden><p id="mmMailRecipientPromptText"></p><button id="mmMailRecipientConfirm" type="button" class="mm-btn mm-btn-primary">Use this student</button><button id="mmMailRecipientCancel" type="button" class="mm-btn mm-btn-ghost">Keep current student</button></section>
+</section>
+<section class="mm-mail-compose-message" aria-label="Your message">
+<div class="mm-email-addresses"><div><b>FROM / REPLY TO</b><span id="mmMailFrom">Checking the Clinicals sender...</span></div><div><b>TO</b><span id="mmMailTo">Choose a student first</span></div></div>
+<label class="mm-label" for="mmMailSubject">Subject</label><input id="mmMailSubject" class="mm-input" maxlength="240">
+<label class="mm-label" for="mmMailBody">Message</label><textarea id="mmMailBody" class="mm-textarea" maxlength="20000" rows="8"></textarea>
+<p class="mm-hint">For an Offer and its secure link, use Build Offer. This message does not change the Offer.</p>
+<section id="mmMailExactPreview" hidden><h3>Check your message before sending</h3><pre id="mmMailPreviewText"></pre><label class="mm-journey-approval"><input id="mmMailApproval" type="checkbox">I approve this exact message and recipient.</label></section>
+<p id="mmMailSendOutcome" role="status" aria-live="polite"></p><button id="mmMailReconcile" type="button" class="mm-btn mm-btn-ghost" hidden>Check send status</button>
+</section></div>
+<footer class="mm-mail-compose-foot"><span id="mmMailComposeStatus" role="status" aria-live="polite">Find the student, write your message, then review it.</span><button id="mmMailSave" type="button" class="mm-btn mm-btn-ghost">Save draft</button><button id="mmMailPreview" type="button" class="mm-btn mm-btn-primary">REVIEW MESSAGE</button><button id="mmMailSend" type="button" class="mm-btn mm-btn-primary" disabled hidden>SEND MESSAGE</button></footer></dialog>
 <dialog id="mmMailDispatchDialog" aria-labelledby="mmMailDispatchTitle"><header class="mm-mail-compose-head"><h2 id="mmMailDispatchTitle">Delivery attention</h2><button id="mmMailDispatchClose" type="button" class="mm-btn mm-btn-ghost">Close</button></header><p>Provider acceptance and delivery are separate. Ambiguous attempts require provider readback. Retry appears only when the server records confirmed-unsent failure.</p><div id="mmMailDispatchList"></div></dialog>
 <dialog id="mmMailAssignment" aria-labelledby="mmMailAssignmentTitle"><h2 id="mmMailAssignmentTitle">Assign this message to a verified student case</h2><p>Verify the sender and message before assigning. No case is selected automatically.</p><select id="mmMailAssignCase" class="mm-select" aria-label="Verified case"></select><div class="mm-quickact"><button id="mmMailAssignCancel" type="button" class="mm-btn mm-btn-ghost">Cancel</button><button id="mmMailAssignConfirm" type="button" class="mm-btn mm-btn-primary">Confirm assignment</button></div></dialog>
 
 <dialog id="mmJourneyScrim" aria-labelledby="mmJourneyTitle">
  <div class="mm-journey">
-  <header class="mm-journey-head"><div><span class="mm-eyebrow">YOUR OFFER JOURNEY</span><h2 id="mmJourneyTitle">Let's build this offer together</h2><small id="mmJourneyContext"></small></div><button type="button" class="mm-btn mm-btn-ghost" id="mmJourneyClose" aria-label="Close offer builder">×</button></header>
-  <aside class="mm-journey-rail"><img src="https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-institute-logo-email-dark.png" alt="MissionMed Institute"><nav class="mm-journey-progress" aria-label="Offer steps"><span data-journey-progress="0"><b>1</b> Student</span><span data-journey-progress="1"><b>2</b> Program</span><span data-journey-progress="2"><b>3</b> Dates</span><span data-journey-progress="3"><b>4</b> Email</span><span data-journey-progress="4"><b>5</b> Review</span><span data-journey-progress="5"><b>6</b> Send</span></nav><div class="mm-journey-motto">Students Today.<br>Physicians Tomorrow.</div></aside>
+  <header class="mm-journey-head"><div><span class="mm-eyebrow">YOUR OFFER JOURNEY</span><h2 id="mmJourneyTitle">Let's build this offer together</h2><small id="mmJourneyContext"></small></div><button type="button" class="mm-btn mm-btn-ghost" id="mmJourneyOpenCase">Student details</button><button type="button" class="mm-btn mm-btn-ghost" id="mmJourneyOpenMessages">Messages</button><button type="button" class="mm-btn mm-btn-ghost" id="mmJourneyClose" aria-label="Close offer builder">×</button></header>
+  <aside class="mm-journey-rail"><img src="https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-institute-logo-email-dark.png" alt="MissionMed Institute"><nav class="mm-journey-progress" aria-label="Offer steps"><button type="button" data-journey-progress="0" aria-label="Go to Student step"><b>1</b> Student</button><button type="button" data-journey-progress="1" aria-label="Go to Program step"><b>2</b> Program</button><button type="button" data-journey-progress="2" aria-label="Go to Dates step"><b>3</b> Dates</button><button type="button" data-journey-progress="3" aria-label="Go to Email step"><b>4</b> Email</button><button type="button" data-journey-progress="4" aria-label="Go to Review step"><b>5</b> Review</button><button type="button" data-journey-progress="5" aria-label="Go to Send step"><b>6</b> Send</button></nav><div class="mm-journey-motto">Students Today.<br>Physicians Tomorrow.</div></aside>
   <div class="mm-journey-body">
    <section id="mmJourneyStudent"><h3>First, the right student.</h3><p class="mm-hint">Review their request. We'll use these preferences to help you prepare an offer.</p><div id="mmJourneyStudentFacts"></div><button id="mmJourneyWriteMessage" type="button" class="mm-btn mm-btn-ghost mm-btn-sm">Save offer and write a separate message</button><p class="mm-hint">A proposed offer does not reserve a rotation. Confirm availability with the program before sending.</p></section>
    <section id="mmJourneyProgramHost" hidden><h3>Which rotation are you proposing?</h3><p class="mm-hint" id="mmJourneyProgramPrefs"></p><div class="mm-builder-grid" id="mmJourneyProgramFields"></div><details class="mm-journey-extra"><summary>Instructions and internal notes</summary><div id="mmJourneyNotesFields"></div></details></section>
@@ -1888,7 +1956,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
       state.selectedRequestId = state.requests.some(r => r.id === state.selectedRequestId) ? state.selectedRequestId : null;
       setAdapterBanner('Cases updated at ' + new Date().toLocaleTimeString() + '. Select a case to review its next step.', 'live');
       setRuntime('Live protected', 'live');
-      restoreCaseNavigation(); root.classList.toggle('mm-case-open',!!state.selectedRequestId);
+      restoreCaseNavigation(); root.classList.toggle('mm-case-open',!!state.selectedRequestId&&state.restoreDetailOpen!==false);
       renderRequestList(); renderDetail(); switchTab(state.activeTab);
       mail.authReady=true;consumePendingConversation();
       if (currentReq()) {loadCaseActivity(currentReq()).catch(() => {});const offer=getOfferForRequest(currentReq());if(offer)loadLiveComms(offer.id,currentReq());}
@@ -2104,7 +2172,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   }
   function applyKpiFilter(key){
     if(!['new','progress','offered','accepted',null].includes(key)||state.busy)return;
-    setV3Workspace('dashboard');if(root.dataset.workspace!=='dashboard'||state.selectedRequestId)return;
+    if(!setV3Workspace('dashboard'))return;
     state.kpiFilter=key;state.filter='all';state.workFilter='active';state.query='';$('#mmFilter').value='all';$('#mmWorkFilter').value='active';$('#mmSearch').value='';saveCaseNavigation();renderRequestList();
   }
   $$('[data-kpi]').forEach(button=>button.addEventListener('click',()=>applyKpiFilter(button.dataset.kpi)));$('#mmKpiClear').addEventListener('click',()=>applyKpiFilter(null));
@@ -2154,18 +2222,28 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     const other=requests.filter(r=>!lanes.some(([,statuses])=>statuses.includes(r.status)));if(other.length){const note=document.createElement('div');note.id='mmPipelineExceptions';note.textContent=other.length+' cases have other recorded statuses. ';const back=document.createElement('button');back.type='button';back.className='mm-btn mm-btn-sm mm-btn-ghost';back.textContent='View all in Dashboard';back.addEventListener('click',()=>setV3Workspace('dashboard'));note.append(back);list.append(note);}
   }
   function setV3Workspace(mode){
-    if(state.busy||!mailNavigate())return;
-    if(state.selectedRequestId)backToCases();if(state.selectedRequestId)return;
-    root.dataset.workspace=mode;$('#mmCommunications').hidden=mode!=='communications';if(mode==='communications')openCommunications();root.querySelector('#mmWorkspace > .mm-hero h1').textContent=mode==='pipeline'?'USCE Pipeline':mode==='overview'?'Case Overview':'USCE Clinical Requests';root.querySelector('#mmWorkspace > .mm-hero p').textContent=mode==='pipeline'?'Move from request to offer to acceptance.':mode==='overview'?'Select a student below to review their request, recorded evidence and next steps.':'Review. Coordinate. Build Offers. Make an Impact.';renderRequestList();
-    syncRailNavigation();
+    if(state.busy||!mailNavigate())return false;
+    if($('#mmJourneyScrim').open)pauseJourney();
+    root.classList.remove('mm-case-open');
+    root.dataset.workspace=mode;$('#mmCommunications').hidden=mode!=='communications';
+    if(mode==='communications')openCommunications();
+    root.querySelector('#mmWorkspace > .mm-hero h1').textContent=mode==='pipeline'?'USCE Pipeline':mode==='overview'?'Student details':'USCE Clinical Requests';
+    root.querySelector('#mmWorkspace > .mm-hero p').textContent=mode==='pipeline'?'Find the student and continue their next step.':mode==='overview'?'Choose a student below to see their request and next step.':'Choose a student. We will guide you through the next step.';
+    saveCaseNavigation();renderRequestList();syncRailNavigation();return true;
+  }
+  function showSelectedSection(tab){
+    if(state.busy)return;
+    const r=currentReq();if(!r){setV3Workspace('overview');toast('Choose a student from the list first.');return;}
+    if(!setV3Workspace('dashboard'))return;
+    root.classList.add('mm-case-open');switchTab(tab);saveCaseNavigation();syncRailNavigation();
   }
   function syncRailNavigation(){
-    const selected=!!currentReq(),mode=root.dataset.workspace;
-    $$('[data-sf-nav]').forEach(button=>{const tab=button.dataset.sfNav;button.disabled=['offer','audit'].includes(tab)&&!selected;const active=mode==='communications'?tab==='comms':mode==='pipeline'?tab==='pipeline':selected?tab===state.activeTab:tab===(mode==='overview'?'overview':'cases');if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
+    const selected=!!currentReq(),mode=root.dataset.workspace,details=root.classList.contains('mm-case-open');
+    $$('[data-sf-nav]').forEach(button=>{const tab=button.dataset.sfNav;button.disabled=['offer','audit'].includes(tab)&&!selected;const active=mode==='communications'?tab==='comms':mode==='pipeline'?tab==='pipeline':details?tab===state.activeTab:tab===(mode==='overview'?'overview':'cases');if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
   }
   root.querySelector('.sf-rail').addEventListener('click',event=>{
     const button=event.target.closest('[data-sf-nav]');if(!button||button.disabled)return;const tab=button.dataset.sfNav;
-    if(tab==='cases')setV3Workspace('dashboard');else if(tab==='pipeline')setV3Workspace('pipeline');else if(tab==='comms')setV3Workspace('communications');else if(tab==='overview'){if(currentReq())switchTab('overview');else setV3Workspace('overview');}else if(tab==='offer')openJourney();else if(tab==='audit')switchTab('audit');syncRailNavigation();
+    if(tab==='cases')setV3Workspace('dashboard');else if(tab==='pipeline')setV3Workspace('pipeline');else if(tab==='comms')setV3Workspace('communications');else if(tab==='overview')showSelectedSection('overview');else if(tab==='offer'){showSelectedSection('offer');if(root.classList.contains('mm-case-open'))openJourney();}else if(tab==='audit')showSelectedSection('audit');syncRailNavigation();
   });
   function renderRequestList(){
     refreshStats();
@@ -2206,7 +2284,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   // Session-only navigation memory: case ID, tab and entered search; no draft or token contents.
   const CASE_RESUME_KEY = 'mm_usce_case_navigation_v1';
   function saveCaseNavigation(){
-    try {sessionStorage.setItem(CASE_RESUME_KEY,JSON.stringify({id:state.selectedRequestId,tab:state.activeTab,query:state.query}));}catch(_error){}
+    try {sessionStorage.setItem(CASE_RESUME_KEY,JSON.stringify({id:state.selectedRequestId,tab:state.activeTab,query:state.query,detailOpen:root.classList.contains('mm-case-open')}));}catch(_error){}
   }
   function restoreCaseNavigation(){
     if(state.selectedRequestId)return;
@@ -2215,17 +2293,19 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
       if(!saved||typeof saved.id!=='string')return;
       // Restore only after this authenticated queue has returned the case.
       if(!state.requests.some(r=>r.id===saved.id)){sessionStorage.removeItem(CASE_RESUME_KEY);setAdapterBanner('The previously open case is not in this loaded queue. Search or refresh to locate it. Unsaved changes were not restored.','live');return;}
-      state.selectedRequestId=saved.id;state.activeTab=['overview','comms','offer','audit'].includes(saved.tab)?saved.tab:'overview';
+      state.selectedRequestId=saved.id;state.restoreDetailOpen=saved.detailOpen!==false;state.activeTab=['overview','comms','offer','audit'].includes(saved.tab)?saved.tab:'overview';
     }catch(_error){}
   }
 
   function selectRequest(id){
     if(!mailNavigate())return false;
     if (state.busy) { toast('Wait for the current action to finish.'); return false; }
-    if (state.dirty && !window.confirm('Discard unsaved changes and open another case?')) return false;
+    if(id===state.selectedRequestId){root.classList.add('mm-case-open');switchTab('overview');return true;}
+    if (state.dirty && !window.confirm('Your current student has unsaved changes. Discard those changes and open another student?')) return false;
+    journey.resumeAvailable=false;
     state.dirty = false; state.draftEmail = null;
-    state.selectedRequestId = id; state.activeTab = 'overview'; saveCaseNavigation();
-    root.classList.add('mm-case-open');
+    state.selectedRequestId = id; state.activeTab = 'overview';
+    root.classList.add('mm-case-open');saveCaseNavigation();
     renderRequestList(); renderDetail(); switchTab('overview');
     $('#mmDetName').setAttribute('tabindex', '-1'); $('#mmDetName').focus();
     const r = currentReq(); if (r) { loadCaseActivity(r).catch(() => {}); const offer = getOfferForRequest(r); if (offer) loadLiveComms(offer.id,r); }
@@ -2366,16 +2446,12 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   /* Tabs */
   function switchTab(t){
     if(t==='comms'&&currentReq())loadCaseMail(currentReq().id);
-    state.activeTab = t; saveCaseNavigation();syncRailNavigation();
+    state.activeTab = t; $('#mmActGotoOffer').hidden=t!=='overview'; saveCaseNavigation();syncRailNavigation();
     $$('#mmDetTabs button').forEach(b => (b.classList.toggle('is-active', b.dataset.tab === t), b.setAttribute('aria-selected', String(b.dataset.tab === t))));
     $$('.mm-tabpane').forEach(p => p.classList.toggle('is-active', p.dataset.pane === t));
   }
   $$('#mmDetTabs button').forEach(b => b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
-  function backToCases(){
-    if (state.busy || (state.dirty && !window.confirm('Discard unsaved changes and return to cases?'))) return;
-    state.dirty = false; state.selectedRequestId = null; state.draftEmail = null; saveCaseNavigation();
-    root.classList.remove('mm-case-open');syncRailNavigation(); renderRequestList(); renderDetail(); $('#mmSearch').focus();
-  }
+  function backToCases(){if(!setV3Workspace('dashboard'))return;$('#mmSearch').focus();}
   $('#mmDetBack').addEventListener('click', backToCases);
   $('#mmCaseBack').addEventListener('click', backToCases);
   $('#mmRefreshCases').addEventListener('click', loadLiveQueue);
@@ -3472,7 +3548,7 @@ CONFIG.gmailMailboxes[0];
 
 
   /* Required V2 Journey: presentation over the existing draft, preview and exact-version send contracts. */
-  const journey={options:[],step:0,caseId:null,returnFocus:null,messageDirty:false,preparedForm:null,result:null};
+  const journey={options:[],step:0,caseId:null,returnFocus:null,messageDirty:false,preparedForm:null,result:null,resumeAvailable:false,navigating:false};
   const journeySections=['mmJourneyStudent','mmJourneyProgramHost','mmJourneyDatesHost','mmJourneyEmailHost','mmJourneyReview','mmJourneySend'];
   function optionFirst(){return {id:journey.options[0]?.id||crypto.randomUUID(),program_type:$('#mmOfProgram').value.trim(),specialty:offerSpecialtyValue(),location:offerLocationValue(),month_label:journey.options.length?$('#mmOfMonthLabel').value.trim():$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val).join(' or '),duration_weeks:parseInt($('#mmOfLength').value,10)||null,date_window_start:$('#mmOfStart').value||null,date_window_end:$('#mmOfEnd').value||null};}
   function collectJourneyOptions(){if(!journey.options.length)return [];journey.options[0]=optionFirst();return journey.options.map(o=>({...o}));}
@@ -3553,7 +3629,7 @@ CONFIG.gmailMailboxes[0];
     $('#mmJourneyNext').textContent=['Next: Select Program →','Next: Choose Dates →','Next: Write Message →','Review this message →','Continue to send →','Send'][index];
     $('#mmJourneyTitle').textContent='Step '+(index+1)+' of 6';
     $('#mmJourneySaveClose').textContent=journey.result?'Close':'Save & exit';
-    updateJourneyDates();
+    updateJourneyDates();renderJourneyNavigation();
     const heading=$('#'+journeySections[index]).querySelector('h3');if(heading){heading.tabIndex=-1;heading.focus();}
   }
   function fillJourneyComposer(r,o){
@@ -3568,24 +3644,20 @@ CONFIG.gmailMailboxes[0];
     const r=currentReq();if(!r||state.busy)return;
     if(offerTermsReadOnly()){toast('This offer already has a recorded response or is archived. Review its history and next steps.');return;}
     const o=getOfferForRequest(r);if(o&&!o.detailsLoaded){toast('Wait for the saved offer to finish loading, or refresh to retry.');return;}
+    const resume=journey.resumeAvailable&&journey.caseId===r.id;const resumeStep=journey.step;
     journey.returnFocus=document.activeElement;journey.caseId=r.id;journey.result=null;
     $('#mmJourneyContext').textContent=r.name+' · '+r.email;
     $('#mmJourneyStudentFacts').innerHTML=journeyFacts(r);
     $('#mmJourneyProgramPrefs').textContent='Requested: '+r.specialties.join(' · ')+' / '+r.locations.join(' · ');
-    if(!state.dirty){renderOfferBuilder(r);fillJourneyComposer(r,getOfferForRequest(r));}
+    if(!resume&&!state.dirty){renderOfferBuilder(r);fillJourneyComposer(r,getOfferForRequest(r));}
     journeyInvalidate();$('#mmJourneySendResult').textContent='';
     $('#mmJourneyState').textContent=state.dirty?'Unsaved changes — nothing sent':o?'Saved draft — nothing sent by opening this Journey':'New draft — nothing sent';
-    $('#mmJourneyScrim').showModal();journeyStep(0);
+    $('#mmJourneyScrim').showModal();journeyStep(resume?Math.min(resumeStep,4):0);journey.resumeAvailable=true;
   }
   function closeJourneyWithoutSave(){
     $('#mmJourneyScrim').close();const focus=journey.returnFocus;if(focus&&focus.isConnected)focus.focus();const r=currentReq();if(r){renderSelectedStatus(r);renderAdminTracker(r);}renderOfferSummary();
   }
-  function requestJourneyClose(){
-    if(state.busy)return;
-    if(state.dirty&&!window.confirm('Close without saving your changes? Your last saved draft will still be available.'))return;
-    if(state.dirty){state.dirty=false;journey.messageDirty=false;state.draftEmail=null;renderOfferBuilder(currentReq());}
-    closeJourneyWithoutSave();
-  }
+  function requestJourneyClose(){pauseJourney();}
   async function saveJourneyTerms(){
     if(state.adapter!=='live'||state.busy)throw new Error('Wait for the current action to finish.');
     const offer=readOfferForm();if(!offer)throw new Error('Set the rotation and offered months before saving.');
@@ -3638,22 +3710,31 @@ CONFIG.gmailMailboxes[0];
     $('#mmJourneyReviewConsequence').textContent='The student will receive this message with their secure offer link and the current offer details. Nothing has been sent. Approve this exact version to continue.';
     $('#mmJourneyApproval').checked=!!d.approved;
   }
-  async function journeyNext(){
-    if(state.busy)return;
+  function renderJourneyNavigation(){
+    $$('[data-journey-progress]').forEach(button=>{button.disabled=state.busy||journey.navigating||!!journey.result;});
+  }
+  async function navigateJourney(target){
+    if(state.busy||journey.navigating||journey.result||!Number.isInteger(target)||target<0||target>5)return;
+    journey.navigating=true;renderJourneyNavigation();
     try{
-      $('#mmJourneyState').textContent='Checking this step…';
-      if(journey.step===0){journeyStep(1);}
-      else if(journey.step===1){const options=collectJourneyOptions();if(!offerSpecialtyValue()||!offerLocationValue()||options.some(o=>!o.program_type||!o.specialty||!o.location))throw new Error('Choose a program, specialty and location for every option.');journeyStep(2);}
-      else if(journey.step===2){if(!readOfferForm())throw new Error('Choose at least one offered month.');await prepareJourneyMessage();journeyStep(3);}
-      else if(journey.step===3){await prepareJourneyMessage();renderJourneyReview();journeyStep(4);}
-      else if(journey.step===4){
+      if(target<=journey.step){journeyStep(target);return;}
+      if(target===5){
         const d=state.draftEmail;
-        if(!$('#mmJourneyApproval').checked||!d||!d.approved||d.approvedContent!==approvalSnapshot(d)||journey.preparedForm!==offerFormSnapshot())throw new Error('Approve the current offer and message before continuing.');
-        $('#mmJourneySendSummary').textContent='Send '+d.subject+' to '+d.to+'. This exact version is approved.';
-        $('#mmJourneySendNow').disabled=false;journeyStep(5);
+        if(!$('#mmJourneyApproval').checked||!d||!d.approved||d.approvedContent!==approvalSnapshot(d)||journey.preparedForm!==offerFormSnapshot())throw new Error('Open Review, check the complete message and tick the approval box before sending.');
+        $('#mmJourneySendSummary').textContent='Send '+d.subject+' to '+d.to+'. This exact version is approved.';$('#mmJourneySendNow').disabled=false;journeyStep(5);return;
       }
-      $('#mmJourneyState').textContent=state.dirty?'Unsaved changes — nothing sent':state.draftEmail?'Draft saved — nothing sent':'Nothing sent';
+      if(target>=2){const options=collectJourneyOptions();if(!offerSpecialtyValue()||!offerLocationValue()||options.some(o=>!o.program_type||!o.specialty||!o.location))throw new Error('First choose a program, specialty and location for every rotation option. Open Program to complete them.');}
+      if(target>=3){if(!readOfferForm())throw new Error('First choose the offered month and complete each rotation option. Open Dates to check the timing.');await prepareJourneyMessage();}
+      if(target===4)renderJourneyReview();
+      journeyStep(target);
+      $('#mmJourneyState').textContent=state.dirty?'Your changes are kept here. Save before leaving this browser.':state.draftEmail?'Draft saved. Nothing sent.':'Nothing sent.';
     }catch(error){$('#mmJourneyState').textContent=errorSummary(error);toast(errorSummary(error));}
+    finally{journey.navigating=false;renderJourneyNavigation();}
+  }
+  async function journeyNext(){return navigateJourney(journey.step+1);}
+  function pauseJourney(){
+    if(state.busy)return false;
+    journey.resumeAvailable=true;closeJourneyWithoutSave();return true;
   }
   async function saveAndCloseJourney(){
     if(state.busy)return;
@@ -3697,6 +3778,9 @@ CONFIG.gmailMailboxes[0];
     $('#mmActGotoOffer').textContent='Guide me step-by-step';
     $('#mmJourneyLaunch').addEventListener('click',openJourney);
     $('#mmJourneyNext').addEventListener('click',journeyNext);
+    $$('[data-journey-progress]').forEach(button=>button.addEventListener('click',()=>navigateJourney(Number(button.dataset.journeyProgress))));
+    $('#mmJourneyOpenCase').addEventListener('click',()=>{if(pauseJourney())showSelectedSection('overview');});
+    $('#mmJourneyOpenMessages').addEventListener('click',()=>{if(pauseJourney())setV3Workspace('communications');});
     $('#mmJourneyBack').addEventListener('click',()=>{if(!state.busy&&!journey.result){if(journey.step>=4)journeyInvalidate();journeyStep(Math.max(0,journey.step-1));}});
     $('#mmJourneySaveClose').addEventListener('click',saveAndCloseJourney);$('#mmJourneyClose').addEventListener('click',requestJourneyClose);
     $('#mmJourneyScrim').addEventListener('cancel',e=>{e.preventDefault();if(!state.busy)requestJourneyClose();});
@@ -3743,23 +3827,86 @@ CONFIG.gmailMailboxes[0];
 
   /* Generic correspondence shares durable mailbox records; Offer revisions stay in the existing Journey. */
   const MAIL_API='/api/usce/admin/communications',MAIL_UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const mail={folder:'inbox',query:'',items:[],cursor:null,thread:[],threadCursor:null,selected:null,selectedItem:null,generation:0,threadGeneration:0,authReady:false,pendingConversation:null,consumedConversation:null,config:null,composeError:null,linkedCase:null,dirty:false,draft:null,preview:null,attempted:false,dispatch:null,key:null,busy:false,caseHistory:{}};
+  const mail={folder:'inbox',query:'',items:[],cursor:null,thread:[],threadCursor:null,selected:null,selectedItem:null,generation:0,threadGeneration:0,authReady:false,pendingConversation:null,consumedConversation:null,config:null,composeError:null,linkedCase:null,dirty:false,draft:null,preview:null,attempted:false,dispatch:null,key:null,busy:false,caseHistory:{},working:new Map(),composerStarted:false,pendingRecipient:null,pendingReplacement:null};
   function mailError(error){const code=error?.payload?.error;return ({stale_revision:'This draft changed. Your text is retained. Reload the saved draft before reviewing again.',stale_preview:'This message changed. Save and review the current version again.',clinicals_sender_not_ready:'The Clinicals sender is not ready. Save your draft; sending is unavailable.',use_offer_journey:'Send secure Offer links through the reviewed Offer Journey.',send_requires_reconciliation:'Send outcome needs reconciliation. Do not resend.',mail_storage_not_configured:'Communications storage is not configured.',communications_unavailable:'Communications is unavailable. Your text is retained.'})[code]||error?.message||'Communications is unavailable.';}
-  function mailNavigate(){if(mail.busy)return false;if(mail.dirty&&!window.confirm('Discard unsaved message edits?'))return false;mail.dirty=false;return true;}
+  function mailNavigate(){if(mail.busy)return false;if($('#mmMailCompose').open){rememberMailComposer();$('#mmMailCompose').close();}return true;}
   function mailStatus(text){$('#mmMailStatus').textContent=text;}
-  function mailControls(){const ready=mail.config?.sender?.ready===true;$('#mmMailPreview').disabled=mail.busy||!ready;$('#mmMailSend').disabled=mail.busy||!ready||!mail.preview||mail.dirty||mail.attempted||!$('#mmMailApproval').checked;$('#mmMailSave').disabled=mail.busy;$('#mmMailCancel').disabled=mail.busy;['mmMailCase','mmMailSubject','mmMailBody','mmMailTemplate','mmMailUseTemplate','mmMailEdit','mmMailBlank'].forEach(id=>$('#'+id).disabled=mail.busy);$('#mmMailCase').disabled=mail.busy||!!mail.draft||!!mail.reply;$('#mmMailComposeStatus').textContent=mail.busy?'Working…':mail.composeError?mail.composeError:mail.attempted?'Send attempted. Check the recorded outcome before any further action.':!ready?'Clinicals sender is not verified ready. Drafts can be saved; sending is disabled.':mail.dirty?'Unsaved message — nothing sent':mail.preview?'Exact saved version reviewed — approve before sending':'Nothing sent';}
+  function mailControls(){
+    const ready=mail.config?.sender?.ready===true,reviewed=!!mail.preview&&!mail.dirty,approved=reviewed&&$('#mmMailApproval').checked;
+    $('#mmMailPreview').disabled=mail.busy||!ready||!mailRequestCase()||!$('#mmMailSubject').value.trim()||!$('#mmMailBody').value.trim();
+    $('#mmMailPreview').hidden=reviewed;
+    $('#mmMailSend').disabled=mail.busy||!ready||!approved||mail.attempted;
+    $('#mmMailSend').hidden=!approved;
+    $('#mmMailSave').disabled=mail.busy;$('#mmMailCancel').disabled=mail.busy;
+    ['mmMailCase','mmMailSubject','mmMailBody','mmMailTemplate','mmMailUseTemplate','mmMailEdit','mmMailBlank'].forEach(id=>$('#'+id).disabled=mail.busy);
+    $('#mmMailCase').disabled=mail.busy||!!mail.draft||!!mail.reply;
+    $('#mmMailComposeStatus').textContent=mail.busy?'Working...':mail.composeError?mail.composeError:mail.attempted?'Send attempted. Check its recorded status before trying again.':!ready?'The Clinicals sender is not ready. You can keep or save your draft.':reviewed?(approved?'Ready to send this approved message.':'Check the message, then tick the approval box.'):(mail.dirty?'Your message is kept in this workspace. Review it before sending.':'Find the student, write your message, then review it.');
+    renderStudentPicker();
+  }
   function mailInvalidate(){mail.composeError=null;mail.preview=null;$('#mmMailApproval').checked=false;$('#mmMailExactPreview').hidden=true;mailControls();}
   async function mailRequest(tail='',options={method:'GET'}){return adminFetch(MAIL_API+tail,{},options);}
   async function loadMailConfig(){try{mail.config=await mailRequest('/config');$('#mmMailSender').textContent=mail.config.sender?.from_email||'Clinicals sender unavailable';}catch(error){mail.config=null;mailStatus(mailError(error));}mailControls();}
   function renderMailList(){const list=$('#mmMailList');list.replaceChildren();for(const item of mail.items){const button=document.createElement('button');button.type='button';button.className='mm-mail-item'+(item.unread?' is-unread':'')+(item.id===mail.selected?' is-active':'');button.dataset.messageId=item.id;button.innerHTML='<b>'+esc(item.student_name||item.from_email||item.to_email||'Needs review')+'</b><span>'+esc(item.subject||'(No subject)')+'</span><small>'+esc(item.state||'Recorded')+' · '+esc(fmtDateTime(Date.parse(item.received_at||item.created_at)))+'</small>';button.addEventListener('click',()=>openMailThread(item.id));list.append(button);}if(!mail.items.length){const p=document.createElement('p');p.className='mm-hint';p.textContent='No messages match this folder and search.';list.append(p);}$('#mmMailMore').hidden=!mail.cursor;$$('[data-mail-folder]').forEach(button=>button.setAttribute('aria-current',button.dataset.mailFolder===mail.folder?'page':'false'));}
-  async function loadMailList(append=false){const generation=++mail.generation;mailStatus('Loading messages…');const params=new URLSearchParams({folder:mail.folder,search:mail.query});if(append&&mail.cursor){params.set('before',mail.cursor.before);params.set('before_id',mail.cursor.before_id);}try{const data=await mailRequest('?'+params);if(generation!==mail.generation)return;const rows=Array.isArray(data.items)?data.items:[];mail.items=append?Array.from(new Map(mail.items.concat(rows).map(item=>[item.id,item])).values()):rows;mail.cursor=data.has_more?data.next_cursor:null;for(const folder of ['inbox','sent','drafts','unread','unassigned'])$('#mmMailCount_'+folder).textContent=Number.isFinite(data.counts?.[folder])?data.counts[folder]:'';renderMailList();const sync=data.sync;mailStatus(sync?.last_error_code?'Mailbox sync requires attention; showing recorded messages.':sync?.recovering?'Mailbox sync is recovering; showing recorded messages.':sync?.backfill_complete===false?'First mailbox sync is incomplete; showing recorded messages.':'Messages updated. Provider acceptance does not establish delivery.');}catch(error){if(generation!==mail.generation)return;mailStatus(mailError(error));if(!append){mail.items=[];renderMailList();$('#mmMailList').firstElementChild.textContent='Messages could not be loaded. Refresh to retry.';}}}
-  function renderMailThread(){const host=$('#mmMailThreadMessages');host.replaceChildren();for(const item of mail.thread.slice().reverse()){const article=document.createElement('article');article.className='mm-mail-message';article.dataset.messageId=item.id;article.innerHTML='<header><b>'+esc(item.from_email||'Recorded message')+'</b><small>'+esc(item.state||'Recorded')+' · '+esc(fmtDateTime(Date.parse(item.received_at||item.created_at)))+'</small></header><h3>'+esc(item.subject||'(No subject)')+'</h3><small>To: '+esc(item.to_email||'Not recorded')+'</small>';const body=document.createElement('pre');body.textContent=item.body_unavailable?'The full body could not be retrieved. Open the Clinicals mailbox to read the message.':item.body_text||'(No text body recorded)';article.append(body);if(item.body_unavailable){const gmail=document.createElement('a');gmail.href='https://mail.google.com/mail/u/?authuser=clinicals%40missionmedinstitute.com';gmail.target='_blank';gmail.rel='noopener noreferrer';gmail.textContent='Open Clinicals in Gmail';article.append(gmail);}if(item.attachment_count){const note=document.createElement('small');note.textContent=item.attachment_count+' attachment(s) recorded. Attachment download is unavailable here.';article.append(note);}if(item.body_truncated){const note=document.createElement('small');note.textContent='Stored body was truncated by the mailbox importer.';article.append(note);}host.append(article);}$('#mmMailThreadMore').hidden=!mail.threadCursor;const selected=mailSelected();$('#mmMailReply').disabled=!selected?.intake_request_id||selected?.needs_triage;$('#mmMailEditDraft').hidden=selected?.state!=='draft';$('#mmMailAssign').hidden=!selected?.needs_triage;$('#mmMailCaseOpen').disabled=!selected?.intake_request_id;$('#mmMailThreadTitle').textContent=selected?.subject||'Conversation';focusSelectedMailMessage();}
+  async function loadMailList(append=false){const generation=++mail.generation;mailStatus('Loading messages…');const params=new URLSearchParams({folder:mail.folder,search:mail.query});if(append&&mail.cursor){params.set('before',mail.cursor.before);params.set('before_id',mail.cursor.before_id);}try{const data=await mailRequest('?'+params);if(generation!==mail.generation)return;const rows=Array.isArray(data.items)?data.items:[];mail.items=append?Array.from(new Map(mail.items.concat(rows).map(item=>[item.id,item])).values()):rows;mail.cursor=data.has_more?data.next_cursor:null;for(const folder of ['inbox','sent','drafts','unread','unassigned'])$('#mmMailCount_'+folder).textContent=Number.isFinite(data.counts?.[folder])?data.counts[folder]:'';renderMailList();const sync=data.sync;mailStatus(sync?.last_error_code?'Mailbox sync requires attention; showing recorded messages.':sync?.recovering?'Mailbox sync is recovering; showing recorded messages.':sync?.backfill_complete===false?'First mailbox sync is incomplete; showing recorded messages.':'Messages are up to date.');}catch(error){if(generation!==mail.generation)return;mailStatus(mailError(error));if(!append){mail.items=[];renderMailList();$('#mmMailList').firstElementChild.textContent='Messages could not be loaded. Refresh to retry.';}}}
+  function renderMailThread(){const host=$('#mmMailThreadMessages');host.replaceChildren();for(const item of mail.thread.slice().reverse()){const article=document.createElement('article');article.className='mm-mail-message';article.dataset.messageId=item.id;article.innerHTML='<header><b>'+esc(item.from_email||'Recorded message')+'</b><small>'+esc(item.state||'Recorded')+' · '+esc(fmtDateTime(Date.parse(item.received_at||item.created_at)))+'</small></header><h3>'+esc(item.subject||'(No subject)')+'</h3><small>To: '+esc(item.to_email||'Not recorded')+'</small>';const body=document.createElement('pre');body.textContent=item.body_unavailable?'The full body could not be retrieved. Open the Clinicals mailbox to read the message.':item.body_text||'(No text body recorded)';article.append(body);if(item.body_unavailable){const gmail=document.createElement('a');gmail.href='https://mail.google.com/mail/u/?authuser=clinicals%40missionmedinstitute.com';gmail.target='_blank';gmail.rel='noopener noreferrer';gmail.textContent='Open Clinicals in Gmail';article.append(gmail);}if(item.attachment_count){const note=document.createElement('small');note.textContent=item.attachment_count+' attachment(s) recorded. Attachment download is unavailable here.';article.append(note);}if(item.body_truncated){const note=document.createElement('small');note.textContent='Stored body was truncated by the mailbox importer.';article.append(note);}host.append(article);}$('#mmMailThreadMore').hidden=!mail.threadCursor;const selected=mailSelected();$('#mmMailComposeNew').classList.toggle('is-secondary',!!selected?.intake_request_id&&!selected?.needs_triage);$('#mmMailReply').disabled=!selected?.intake_request_id||selected?.needs_triage;$('#mmMailEditDraft').hidden=selected?.state!=='draft';$('#mmMailAssign').hidden=!selected?.needs_triage;$('#mmMailCaseOpen').disabled=!selected?.intake_request_id;$('#mmMailThreadTitle').textContent=selected?.subject||'Conversation';focusSelectedMailMessage();}
   function focusSelectedMailMessage(){const host=$('#mmMailThreadMessages'),target=Array.from(host.children).find(article=>article.dataset.messageId===mail.selected);if(!target)return;host.scrollTop=Math.max(0,host.scrollTop+target.getBoundingClientRect().top-host.getBoundingClientRect().top);target.tabIndex=-1;target.focus({preventScroll:true});}
   async function openMailThread(id,append=false,force=false){if(!MAIL_UUID.test(id)||!append&&!force&&!mailNavigate())return;const generation=++mail.threadGeneration;mail.selected=id;if(!append)mail.selectedItem=null;mailStatus('Loading conversation…');const params=new URLSearchParams();if(append&&mail.threadCursor){params.set('before',mail.threadCursor.before);params.set('before_id',mail.threadCursor.before_id);}try{if(!append){const exact=await mailRequest('/messages/'+encodeURIComponent(id));if(generation!==mail.threadGeneration)return;if(exact.item?.id!==id)throw new Error('The requested message could not be verified.');mail.selectedItem=exact.item;}const data=await mailRequest('/messages/'+encodeURIComponent(id)+'/thread'+(params.size?'?'+params:''));if(generation!==mail.threadGeneration)return;mail.thread=append?Array.from(new Map(mail.thread.concat(data.items||[]).map(item=>[item.id,item])).values()):(data.items||[]);if(mail.selectedItem&&!mail.thread.some(item=>item.id===id))mail.thread.push(mail.selectedItem);mail.thread.sort((a,b)=>Date.parse(b.received_at||b.created_at)-Date.parse(a.received_at||a.created_at));mail.threadCursor=data.has_more?data.next_cursor:null;renderMailThread();renderMailList();const url=new URL(location.href);url.searchParams.set('conversation',id);history.replaceState(null,'',url);mailStatus('Conversation loaded.');const selected=mailSelected();if(selected?.unread){await mailRequest('/messages/'+id+'/read',{method:'POST',body:{}});if(generation===mail.threadGeneration){selected.unread=false;const row=mail.items.find(item=>item.id===id);if(row)row.unread=false;renderMailList();}}}catch(error){if(generation===mail.threadGeneration)mailStatus(mailError(error));}}
   function mailSelected(){return mail.selectedItem||mail.thread.find(item=>item.id===mail.selected);}
+
+  function rememberMailComposer(){
+    if(!mail.composerStarted)return;
+    if(mail.attempted){mail.working.delete($('#mmMailCase').value||'__unselected__');return;}
+    const key=$('#mmMailCase').value||'__unselected__';
+    mail.working.set(key,{subject:$('#mmMailSubject').value,body:$('#mmMailBody').value,draft:mail.draft,reply:mail.reply,linkedCase:mail.linkedCase,dirty:mail.dirty});
+  }
+  function renderStudentPicker(){
+    const query=$('#mmMailStudentSearch').value.trim().toLowerCase(),results=$('#mmMailStudentResults'),selected=mailRequestCase();
+    const locked=mail.busy||!!mail.draft||!!mail.reply;
+    $('#mmMailStudentSearch').disabled=locked;
+    const summary=$('#mmMailStudentSelected');summary.replaceChildren();summary.hidden=!selected;
+    if(selected){const name=document.createElement('strong'),email=document.createElement('span');name.textContent=selected.name||'Selected student';email.textContent=selected.email||'Recipient checked before sending';summary.append(name,email);}
+    results.replaceChildren();
+    const matches=query?state.requests.filter(r=>MAIL_UUID.test(r.id)&&r.email&&(String(r.name||'')+' '+r.email).toLowerCase().includes(query)).slice(0,8):[];
+    results.hidden=locked||!query;
+    for(const r of matches){const button=document.createElement('button');button.type='button';button.className='mm-student-result';const name=document.createElement('b'),email=document.createElement('span');name.textContent=r.name||'Student';email.textContent=r.email;button.append(name,email);button.addEventListener('click',()=>chooseMailStudent(r.id));results.append(button);}
+    if(query&&!matches.length&&!locked){const empty=document.createElement('p');empty.className='mm-hint';empty.textContent='No students found. Check the name or try their email.';results.append(empty);}
+    $('#mmMailStudentHelp').textContent=locked?(mail.busy?'Please wait...':'This message is linked to the student shown below.'):query?(matches.length?'Choose a name below.':'No matching student. Try another name or email.'):selected?'Recipient selected. Search here to find another student.':'Find the student, then choose their name.';
+  }
+  function chooseMailStudent(id,confirmed=false){
+    if(mail.busy||mail.draft||mail.reply)return;
+    const r=state.requests.find(r=>r.id===id&&MAIL_UUID.test(r.id)&&r.email);if(!r)return;
+    const previous=$('#mmMailCase').value;
+    if(!confirmed&&previous&&previous!==id&&($('#mmMailSubject').value||$('#mmMailBody').value)){
+      mail.pendingRecipient=id;$('#mmMailRecipientPromptText').textContent='Change the recipient to '+r.name+'? Your message is kept. Check its name and details before sending.';$('#mmMailRecipientPrompt').hidden=false;$('#mmMailStudentResults').hidden=true;$('#mmMailRecipientConfirm').focus();return;
+    }
+    rememberMailComposer();fillMailCases(id);
+    if($('#mmMailCase').value!==id)return;
+    $('#mmMailCase').dispatchEvent(new Event('change',{bubbles:true}));
+    $('#mmMailStudentSearch').value='';$('#mmMailRecipientPrompt').hidden=true;mail.pendingRecipient=null;renderStudentPicker();$('#mmMailSubject').focus();
+  }
+  function applyMailReplacement(mode){
+    if(mode==='template'){
+      if(!mailRequestCase()){mail.composeError='Find and choose the student first.';mailControls();$('#mmMailStudentSearch').focus();return;}
+      $('#mmMailSubject').value='Your clinical rotation request';$('#mmMailBody').value=genericTemplate();
+    }else{$('#mmMailSubject').value='';$('#mmMailBody').value='';}
+    mail.pendingReplacement=null;$('#mmMailReplacePrompt').hidden=true;mail.dirty=true;mailInvalidate();rememberMailComposer();$('#mmMailSubject').focus();
+  }
+  function requestMailReplacement(mode){
+    if(mail.busy)return;
+    if(mode==='template'&&!mailRequestCase()){mail.composeError='Find and choose the student first.';mailControls();$('#mmMailStudentSearch').focus();return;}
+    if($('#mmMailSubject').value||$('#mmMailBody').value){mail.pendingReplacement=mode;$('#mmMailReplacePrompt').hidden=false;$('#mmMailReplaceConfirm').focus();return;}
+    applyMailReplacement(mode);
+  }
+  $('#mmMailStudentSearch').addEventListener('input',renderStudentPicker);
+  $('#mmMailStudentSearch').addEventListener('keydown',event=>{if(event.key==='ArrowDown'&&!$('#mmMailStudentResults').hidden){event.preventDefault();$('#mmMailStudentResults').querySelector('button')?.focus();}if(event.key==='Escape'&&!$('#mmMailStudentResults').hidden){event.preventDefault();event.stopPropagation();$('#mmMailStudentResults').hidden=true;}});
+  $('#mmMailRecipientConfirm').addEventListener('click',()=>chooseMailStudent(mail.pendingRecipient,true));
+  $('#mmMailRecipientCancel').addEventListener('click',()=>{mail.pendingRecipient=null;$('#mmMailRecipientPrompt').hidden=true;$('#mmMailStudentSearch').focus();});
+  $('#mmMailReplaceConfirm').addEventListener('click',()=>applyMailReplacement(mail.pendingReplacement));
+  $('#mmMailReplaceCancel').addEventListener('click',()=>{mail.pendingReplacement=null;$('#mmMailReplacePrompt').hidden=true;$('#mmMailBody').focus();});
+
   function mailRequestCase(){return state.requests.find(r=>r.id===$('#mmMailCase').value)||(mail.linkedCase?.id===$('#mmMailCase').value?mail.linkedCase:null);}
-  function fillMailCases(selected){const box=$('#mmMailCase');box.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent='Choose a verified student case';box.append(blank);for(const r of state.requests){if(!MAIL_UUID.test(r.id)||!r.email)continue;const option=document.createElement('option');option.value=r.id;option.textContent=r.name+' · '+r.email;box.append(option);}if(mail.linkedCase&&!state.requests.some(r=>r.id===mail.linkedCase.id)){const option=document.createElement('option');option.value=mail.linkedCase.id;option.textContent=(mail.linkedCase.name||'Linked student')+' · '+(mail.linkedCase.email||'recipient confirmed on save');box.append(option);}box.value=selected||'';$('#mmMailTo').textContent=mailRequestCase()?.email||(mailRequestCase()?'Recipient verified when draft is saved':'Choose a student case');}
-  function startMailComposer(requestId,reply=null,draft=null){if(state.busy||!mailNavigate())return;mail.linkedCase=null;const linked=draft||reply;if(requestId&&!state.requests.some(r=>r.id===requestId)&&linked?.intake_request_id===requestId&&MAIL_UUID.test(linked.id)&&MAIL_UUID.test(requestId)&&linked.needs_triage!==true){const name=mail.items.find(item=>item.id===linked.id)?.student_name||null;const email=null;mail.linkedCase={id:requestId,name,email,specialties:null,locations:null,months:null};}mail.composeError=null;mail.draft=draft;mail.preview=null;mail.dispatch=null;mail.key=null;mail.attempted=false;mail.reply=reply;fillMailCases(requestId);if(requestId&&!mailRequestCase()){mailStatus('This student case is not in the authenticated queue. Refresh cases before composing.');return;}$('#mmMailSubject').value=draft?.subject||(reply?'Re: '+String(reply.subject||'').replace(/^Re:\s*/i,''):'');$('#mmMailBody').value=draft?.body_text||'';$('#mmMailFrom').textContent=mail.config?.sender?.from_email||'Checking Clinicals sender…';$('#mmMailApproval').checked=false;$('#mmMailExactPreview').hidden=true;$('#mmMailSendOutcome').textContent='';$('#mmMailReconcile').hidden=true;mail.dirty=false;$('#mmMailCompose').showModal();mailControls();loadMailConfig().then(()=>$('#mmMailFrom').textContent=mail.config?.sender?.from_email||'Clinicals sender unavailable');}
+  function fillMailCases(selected){const box=$('#mmMailCase');box.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent='Choose a verified student case';box.append(blank);for(const r of state.requests){if(!MAIL_UUID.test(r.id)||!r.email)continue;const option=document.createElement('option');option.value=r.id;option.textContent=r.name+' · '+r.email;box.append(option);}if(mail.linkedCase&&!state.requests.some(r=>r.id===mail.linkedCase.id)){const option=document.createElement('option');option.value=mail.linkedCase.id;option.textContent=(mail.linkedCase.name||'Linked student')+' · '+(mail.linkedCase.email||'recipient confirmed on save');box.append(option);}box.value=selected||'';$('#mmMailTo').textContent=mailRequestCase()?.email||(mailRequestCase()?'Recipient verified when draft is saved':'Choose a student case');renderStudentPicker();}
+  function startMailComposer(requestId,reply=null,draft=null){if(state.busy||!mailNavigate())return;const kept=!reply&&!draft?mail.working.get(requestId||'__unselected__'):null;if(kept){reply=kept.reply;draft=kept.draft;}mail.linkedCase=kept?.linkedCase||null;const linked=draft||reply;if(requestId&&!state.requests.some(r=>r.id===requestId)&&linked?.intake_request_id===requestId&&MAIL_UUID.test(linked.id)&&MAIL_UUID.test(requestId)&&linked.needs_triage!==true){const name=mail.items.find(item=>item.id===linked.id)?.student_name||null;const email=null;mail.linkedCase={id:requestId,name,email,specialties:null,locations:null,months:null};}mail.composeError=null;mail.draft=draft;mail.preview=null;mail.dispatch=null;mail.key=null;mail.attempted=false;mail.reply=reply;fillMailCases(requestId);if(requestId&&!mailRequestCase()){mailStatus('This student case is not in the authenticated queue. Refresh cases before composing.');return;}$('#mmMailSubject').value=kept?.subject??(draft?.subject||(reply?'Re: '+String(reply.subject||'').replace(/^Re:\s*/i,''):''));$('#mmMailBody').value=kept?.body??draft?.body_text??'';$('#mmMailFrom').textContent=mail.config?.sender?.from_email||'Checking Clinicals sender…';$('#mmMailApproval').checked=false;$('#mmMailExactPreview').hidden=true;$('#mmMailSendOutcome').textContent='';$('#mmMailReconcile').hidden=true;mail.dirty=kept?.dirty||false;mail.composerStarted=true;$('#mmMailStudentSearch').value='';$('#mmMailReplacePrompt').hidden=true;$('#mmMailRecipientPrompt').hidden=true;$('#mmMailCompose').showModal();mailControls();loadMailConfig().then(()=>$('#mmMailFrom').textContent=mail.config?.sender?.from_email||'Clinicals sender unavailable');(mailRequestCase()?$('#mmMailSubject'):$('#mmMailStudentSearch')).focus();}
   async function composeForCase(requestId){setV3Workspace('communications');if(root.dataset.workspace==='communications')startMailComposer(requestId);}
   function genericTemplate(){const r=mailRequestCase();if(!r)return '';const kind=$('#mmMailTemplate').value;return (r.name?'Hello '+r.name+',':'Hello,')+'\n\n'+(kind==='preferences'?(Array.isArray(r.specialties)&&r.specialties.length&&Array.isArray(r.locations)&&r.locations.length&&Array.isArray(r.months)&&r.months.length?'We have your request preferences for '+r.specialties.join(' / ')+' in '+r.locations.join(' / ')+', for '+r.months.join(' / ')+'. Please let Clinicals know if any preference needs updating. Preferences do not confirm rotation availability.':'Please reply with any clinical rotation preferences you would like the Clinicals team to review. Preferences do not confirm rotation availability.'):kind==='followup'?'We are following up on your clinical rotation request. Please reply with any questions or updates you would like the Clinicals team to review.':'Thank you for your clinical rotation request. The Clinicals team will review the information recorded in your case. Please reply with any questions.')+'\n\nMissionMed Clinicals';}
   function composerSnapshot(){return JSON.stringify([$('#mmMailCase').value,$('#mmMailSubject').value,$('#mmMailBody').value,mail.draft?.id,mail.draft?.revision]);}
@@ -3778,9 +3925,9 @@ CONFIG.gmailMailboxes[0];
   $('#mmMailAssign').addEventListener('click',()=>{const item=mailSelected();if(!item?.needs_triage)return;$('#mmMailAssignment').showModal();});$('#mmMailAssignCancel').addEventListener('click',()=>$('#mmMailAssignment').close());$('#mmMailAssignConfirm').addEventListener('click',()=>mailMutation(async()=>{const item=mailSelected(),id=$('#mmMailAssignCase').value;if(!MAIL_UUID.test(id)||!item?.needs_triage)throw new Error('Choose the verified case for this unassigned message.');await mailRequest('/messages/'+item.id+'/assign',{method:'POST',body:{intake_request_id:id,revision:item.revision}});$('#mmMailAssignment').close();await openMailThread(item.id,false,true);await loadMailList();}));
   $('#mmMailAssignment').addEventListener('close',()=>{});$('#mmMailAssign').addEventListener('click',()=>{const box=$('#mmMailAssignCase');box.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent='Choose the verified case';box.append(blank);for(const r of state.requests){if(!MAIL_UUID.test(r.id))continue;const option=document.createElement('option');option.value=r.id;option.textContent=r.name+' · '+r.email;box.append(option);}});
   $('#mmMailCase').addEventListener('change',()=>{$('#mmMailTo').textContent=mailRequestCase()?.email||'Choose a case';mail.dirty=true;mailInvalidate();});['mmMailSubject','mmMailBody'].forEach(id=>$('#'+id).addEventListener('input',()=>{mail.dirty=true;mailInvalidate();}));
-  $('#mmMailUseTemplate').addEventListener('click',()=>{if($('#mmMailBody').value&&!window.confirm('Replace this message with the selected personalized template?'))return;$('#mmMailSubject').value='Your clinical rotation request';$('#mmMailBody').value=genericTemplate();mail.dirty=true;mailInvalidate();});$('#mmMailEdit').addEventListener('click',()=>$('#mmMailBody').focus());$('#mmMailBlank').addEventListener('click',()=>{if(($('#mmMailSubject').value||$('#mmMailBody').value)&&!window.confirm('Replace this subject and message with a blank draft?'))return;$('#mmMailSubject').value='';$('#mmMailBody').value='';mail.dirty=true;mailInvalidate();$('#mmMailSubject').focus();});
+  $('#mmMailUseTemplate').addEventListener('click',()=>requestMailReplacement('template'));$('#mmMailEdit').addEventListener('click',()=>$('#mmMailBody').focus());$('#mmMailBlank').addEventListener('click',()=>requestMailReplacement('blank'));
   $('#mmMailSave').addEventListener('click',()=>mailMutation(async()=>{await saveMailDraft();mailStatus('Draft saved. Nothing sent.');await loadMailList();}));$('#mmMailPreview').addEventListener('click',()=>mailMutation(reviewMailDraft));$('#mmMailApproval').addEventListener('change',mailControls);$('#mmMailSend').addEventListener('click',()=>mailMutation(sendReviewedMail));
-  function closeMailComposer(){if(!mailNavigate())return;$('#mmMailCompose').close();}$('#mmMailCancel').addEventListener('click',closeMailComposer);$('#mmMailCompose').addEventListener('cancel',event=>{event.preventDefault();closeMailComposer();});
+  function closeMailComposer(){if(!mailNavigate())return;rememberMailComposer();$('#mmMailCompose').close();}$('#mmMailCancel').addEventListener('click',closeMailComposer);$('#mmMailCompose').addEventListener('cancel',event=>{event.preventDefault();closeMailComposer();});
   $('#mmMailReconcile').addEventListener('click',()=>mailMutation(async()=>{if(!mail.dispatch)return;const data=await mailRequest('/dispatches/'+mail.dispatch+'/reconcile',{method:'POST',body:{}});$('#mmMailSendOutcome').textContent=data.dispatch?.state==='provider_accepted'?'Provider acceptance confirmed. Delivery is not confirmed.':'Reconciliation recorded; inspect message status before any further action.';loadMailList();}));
   $('#mmCaseWriteMessage').addEventListener('click',()=>{const r=currentReq();if(r)composeForCase(r.id);});
   $('#mmJourneyWriteMessage').addEventListener('click',async()=>{const r=currentReq();if(!r)return;await saveAndCloseJourney();if(!$('#mmJourneyScrim').open)composeForCase(r.id);});

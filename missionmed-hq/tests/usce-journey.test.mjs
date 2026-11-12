@@ -10,7 +10,7 @@ function harness(){
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
  let source=w.document.querySelector('script').textContent,anchor="renderRequestList(); switchView('hq'); loadLiveQueue();";
  assert.equal(source.split(anchor).length,2);
- source=source.replace(anchor,()=>"window.TEST={state,journey,openJourney,journeyStep,journeyNext,prepareJourneyMessage,saveAndCloseJourney,readOfferForm,sendOfferEmail,approvalSnapshot,offerFormSnapshot,syncOfferControlLocks,mocks(m){persistLiveOfferDraft=m.persist;recordLiveMessagePreview=m.preview;adminFetch=m.send;loadLiveQueue=async()=>{};}};");
+ source=source.replace(anchor,()=>"window.TEST={state,journey,openJourney,journeyStep,journeyNext,navigateJourney,setV3Workspace,prepareJourneyMessage,saveAndCloseJourney,readOfferForm,sendOfferEmail,approvalSnapshot,offerFormSnapshot,syncOfferControlLocks,mocks(m){persistLiveOfferDraft=m.persist;recordLiveMessagePreview=m.preview;adminFetch=m.send;loadLiveQueue=async()=>{};}};");
  w.eval(source);
  const a=w.TEST,$=id=>w.document.getElementById(id),calls={persist:[],preview:[],send:[]};
  const r={id:'case-a',name:'Synthetic Student',email:'student@example.test',status:'NEW',specialties:['Internal Medicine'],locations:['New York'],months:['Oct 2026'],length:'4 weeks',comms:[],offerHistory:[],createdAt:Date.now()};
@@ -107,4 +107,24 @@ for(const [name,response,expected] of [
  a.openJourney();a.journeyStep(3);await a.prepareJourneyMessage();a.journeyStep(4);approve();await a.journeyNext();$('mmJourneySendNow').click();await new Promise(resolve=>setImmediate(resolve));
  assert.equal($('mmJourneySendResult').textContent,expected);assert.equal($('mmJourneyState').textContent,expected);assert.equal(calls.send.length,1);assert.equal($('mmJourneySendNow').disabled,true);
  $('mmJourneySendNow').click();await new Promise(resolve=>setImmediate(resolve));assert.equal(calls.send.length,1);assert.doesNotMatch($('mmJourneySendResult').textContent,/Delivery recorded|delivered/i);
+});
+
+check('completed Offer data can jump directly to Review; jumping to Send never grants approval',async({a,$,calls,approve})=>{
+ a.openJourney();await a.navigateJourney(5);assert.equal(a.journey.step,0);assert.match($('mmJourneyState').textContent,/approval box/);assert.equal(calls.persist.length,0);assert.equal(calls.send.length,0);
+ await a.navigateJourney(4);assert.equal(a.journey.step,4);assert.equal(calls.persist.length,1);assert.equal(calls.preview.length,1);assert.equal($('mmJourneyApproval').checked,false);
+ await a.navigateJourney(5);assert.equal(a.journey.step,4);assert.equal(calls.send.length,0);
+ approve();await a.navigateJourney(5);assert.equal(a.journey.step,5);assert.equal(calls.send.length,0);
+});
+check('missing Program information blocks a forward jump without saving, previewing or sending',async({a,$,calls})=>{
+ a.openJourney();$('mmOfSpecialty').value='';await a.navigateJourney(4);assert.equal(a.journey.step,0);assert.match($('mmJourneyState').textContent,/program, specialty and location/);assert.equal(calls.persist.length,0);assert.equal(calls.preview.length,0);assert.equal(calls.send.length,0);
+});
+check('clickable earlier Offer steps preserve personalized text and edits still invalidate Send approval',async({a,$,calls,input,approve})=>{
+ a.openJourney();await a.navigateJourney(3);input('mmJourneySubject','My personal subject');input('mmJourneyMessage','My personal message');await a.navigateJourney(4);approve();
+ const previews=calls.preview.length;await a.navigateJourney(1);assert.equal($('mmJourneySubject').value,'My personal subject');assert.equal($('mmJourneyMessage').value,'My personal message');assert.equal(calls.preview.length,previews);
+ input('mmOfStart','2026-10-12');await a.navigateJourney(5);assert.equal(a.journey.step,1);assert.equal(calls.send.length,0);
+});
+check('Journey close and workspace navigation retain current-case unsaved work and resume its step',async({a,w,$,input,r,calls})=>{
+ a.openJourney();await a.navigateJourney(2);input('mmOfInstructions','Keep my current instructions');$('mmJourneyClose').click();assert.equal($('mmJourneyScrim').open,false);assert.equal(a.state.dirty,true);
+ a.setV3Workspace('pipeline');assert.equal(a.state.selectedRequestId,r.id);a.setV3Workspace('dashboard');a.openJourney();assert.equal(a.journey.step,2);assert.equal($('mmOfInstructions').value,'Keep my current instructions');assert.equal(calls.persist.length,0);assert.equal(calls.send.length,0);
+ assert.ok([...w.document.querySelectorAll('[data-journey-progress]')].every(e=>e.tagName==='BUTTON'));
 });

@@ -28,7 +28,7 @@ check('pipeline reflects same queue in four exact lanes and preserves exceptiona
 });
 check('cancelled case switch does not enter Journey or replace existing case',async({a,w,$})=>{
  a.selectRequest('synthetic-0');a.state.dirty=true;w.confirm=()=>false;await a.openV3Case('synthetic-1',true);assert.equal(a.state.selectedRequestId,'synthetic-0');assert.equal($('mmJourneyScrim').open,false);
- await a.openV3Case('synthetic-0',true);assert.equal($('mmJourneyScrim').open,false);
+ await a.openV3Case('synthetic-0',true);assert.equal($('mmJourneyScrim').open,true);assert.equal(a.state.dirty,true);
 });
 check('responded offer card opens the case without entering editable Journey',async({a,$})=>{
  a.state.liveOffersByRequest['synthetic-3']={id:'offer-synthetic',requestId:'synthetic-3',status:'ACCEPTED',detailsLoaded:true,months:['Oct 2026']};
@@ -40,9 +40,10 @@ check('Journey retains unique existing controls, top save and six-step rail',asy
  assert.match(html,/width:100vw;height:100dvh/);assert.match(html,/max-height:650px/);
 });
 
-check('workspace navigation asks once and preserves cancelled dirty case',async({a,w,$})=>{
- a.selectRequest('synthetic-0');a.state.dirty=true;let prompts=0;w.confirm=()=>{prompts++;return false};a.setV3Workspace('pipeline');assert.equal(prompts,1);assert.equal(a.state.selectedRequestId,'synthetic-0');
- prompts=0;w.confirm=()=>{prompts++;return true};a.setV3Workspace('pipeline');assert.equal(prompts,1);assert.equal(a.state.selectedRequestId,null);assert.equal($('mmCx').dataset.workspace,'pipeline');
+check('workspace navigation retains current-case dirty work without discard prompts',async({a,w,$})=>{
+ a.selectRequest('synthetic-0');a.state.dirty=true;$('mmOfInstructions').value='Keep this draft';let prompts=0;w.confirm=()=>{prompts++;return false};
+ a.setV3Workspace('pipeline');assert.equal(prompts,0);assert.equal(a.state.selectedRequestId,'synthetic-0');assert.equal(a.state.dirty,true);assert.equal($('mmCx').dataset.workspace,'pipeline');
+ a.setV3Workspace('dashboard');w.document.querySelector('[data-sf-nav="overview"]').click();assert.equal($('mmOfInstructions').value,'Keep this draft');assert.equal(a.state.selectedRequestId,'synthetic-0');assert.equal(a.state.dirty,true);
 });
 
 check('foundation sidebar Pipeline survives Journey exit and Dashboard return',async({a,w,$})=>{
