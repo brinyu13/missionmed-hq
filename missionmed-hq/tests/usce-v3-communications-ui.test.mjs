@@ -126,3 +126,10 @@ check('global Write Message resumes the last student draft even when the open ca
  $('mmMailComposeNew').click();input('mmMailStudentSearch','second');w.document.querySelector('.mm-student-result').click();input('mmMailSubject','Second student subject');input('mmMailBody','Second student words');$('mmMailCancel').click();
  assert.equal(a.state.selectedRequestId,CASE);$('mmMailComposeNew').click();assert.equal($('mmMailCase').value,other.id);assert.equal($('mmMailSubject').value,'Second student subject');assert.equal($('mmMailBody').value,'Second student words');assert.equal(a.mail.preview,null);assert.equal($('mmMailApproval').checked,false);
 });
+
+check('Review focuses the exact proof and Edit returns safely without losing message text',async({a,w,$,input})=>{
+ await a.loadMailConfig();a.startMailComposer(CASE);input('mmMailSubject','My subject');input('mmMailBody','My complete text');await a.reviewMailDraft();
+ assert.equal(w.document.activeElement,$('mmMailReviewTitle'));assert.equal($('mmMailExactPreview').hidden,false);
+ $('mmMailApproval').checked=true;$('mmMailApproval').dispatchEvent(new w.Event('change'));$('mmMailReviewEdit').click();
+ assert.equal(a.mail.preview,null);assert.equal($('mmMailApproval').checked,false);assert.equal($('mmMailSend').hidden,true);assert.equal($('mmMailSubject').value,'My subject');assert.equal($('mmMailBody').value,'My complete text');assert.equal(w.document.activeElement,$('mmMailSubject'));
+});

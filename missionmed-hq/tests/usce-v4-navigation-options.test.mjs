@@ -69,3 +69,13 @@ check('closing saved Journey refreshes selected status and next action without r
 check('legacy ISO month chips match a valid start date without any false warnings',async(h)=>{
  const {a,$,r}=h;r.months=['2027-03'];a.openJourney();h.input('mmOfStart','2027-03-01');a.updateJourneyDates();assert.equal($('mmJourneyDateWarning').classList.contains('is-warning'),false);assert.match($('mmJourneyDateWarning').textContent,/Select the month/);
 });
+
+check('Build offer and history without a student lead to selection with plain instructions',async({a,w,$})=>{
+ a.state.selectedRequestId=null;a.setV3Workspace('dashboard');
+ for(const name of ['offer','audit']){const button=w.document.querySelector('[data-sf-nav="'+name+'"]');assert.equal(button.disabled,false);button.click();assert.equal($('mmCx').dataset.workspace,'overview');assert.match($('mmAdapterBanner').textContent,/First choose a student/);assert.equal(a.state.selectedRequestId,null);}
+});
+
+check('a busy operation cannot strand the rail after detail tab navigation',async({a,w,$,r})=>{
+ a.setV3Workspace('dashboard');a.state.busy=true;w.document.querySelector('#mmDetTabs [data-tab="audit"]').click();a.state.busy=false;
+ assert.ok([...w.document.querySelectorAll('[data-sf-nav]')].every(button=>!button.disabled));w.document.querySelector('[data-sf-nav="pipeline"]').click();assert.equal($('mmCx').dataset.workspace,'pipeline');assert.equal(a.state.selectedRequestId,r.id);
+});
