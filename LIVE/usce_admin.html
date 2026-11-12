@@ -3855,8 +3855,8 @@ CONFIG.gmailMailboxes[0];
 
   function rememberMailComposer(){
     if(!mail.composerStarted)return;
-    if(mail.attempted){mail.working.delete($('#mmMailCase').value||'__unselected__');return;}
-    const key=$('#mmMailCase').value||'__unselected__';
+    if(mail.attempted){const key=$('#mmMailCase').value||'__unselected__';mail.working.delete(key);if(mail.lastComposerCase===key)mail.lastComposerCase=null;return;}
+    const key=$('#mmMailCase').value||'__unselected__';mail.lastComposerCase=key;
     mail.working.set(key,{subject:$('#mmMailSubject').value,body:$('#mmMailBody').value,draft:mail.draft,reply:mail.reply,linkedCase:mail.linkedCase,dirty:mail.dirty});
   }
   function renderStudentPicker(){
@@ -3879,6 +3879,7 @@ CONFIG.gmailMailboxes[0];
     if(!confirmed&&previous&&previous!==id&&($('#mmMailSubject').value||$('#mmMailBody').value)){
       mail.pendingRecipient=id;$('#mmMailRecipientPromptText').textContent='Change the recipient to '+r.name+'? Your message is kept. Check its name and details before sending.';$('#mmMailRecipientPrompt').hidden=false;$('#mmMailStudentResults').hidden=true;$('#mmMailRecipientConfirm').focus();return;
     }
+    if(!$('#mmMailSubject').value&&!$('#mmMailBody').value&&mail.working.has(id)){startMailComposer(id);return;}
     rememberMailComposer();fillMailCases(id);
     if($('#mmMailCase').value!==id)return;
     $('#mmMailCase').dispatchEvent(new Event('change',{bubbles:true}));
@@ -3916,7 +3917,7 @@ CONFIG.gmailMailboxes[0];
   async function sendReviewedMail(){const proof=mail.preview;if(mail.config?.sender?.ready!==true||!proof||proof.snapshot!==composerSnapshot()||mail.dirty||mail.attempted||!$('#mmMailApproval').checked)throw new Error('Review and approve the exact saved message first.');mail.attempted=true;mailControls();try{const data=await mailRequest('/messages/'+proof.message_id+'/send',{method:'POST',body:{revision:proof.revision,preview_hash:proof.preview_hash,idempotency_key:mail.key,confirm_send:true}});mail.dispatch=data.dispatch_id;mailStatus(data.outcome==='provider_accepted'?'Message accepted by the provider. Delivery is not confirmed.':'Send outcome: '+(data.outcome||'unconfirmed')+'. Do not resend before reconciliation.');$('#mmMailSendOutcome').textContent=$('#mmMailStatus').textContent;$('#mmMailReconcile').hidden=!mail.dispatch||data.outcome==='provider_accepted';}catch(error){mail.dispatch=error?.payload?.dispatch_id||null;$('#mmMailSendOutcome').textContent=mailError(error)+' Do not resend.';$('#mmMailReconcile').hidden=!mail.dispatch;throw error;}finally{mail.preview=null;$('#mmMailApproval').checked=false;loadMailList();if(mail.draft?.intake_request_id)loadCaseMail(mail.draft.intake_request_id);}}
   async function loadCaseMail(id,append=false){if(!MAIL_UUID.test(id))return;const cached=mail.caseHistory[id];const params=new URLSearchParams({folder:'all',intake_request_id:id});if(append&&cached?.cursor){params.set('before',cached.cursor.before);params.set('before_id',cached.cursor.before_id);}try{const data=await mailRequest('?'+params);mail.caseHistory[id]={items:append?(cached?.items||[]).concat(data.items||[]):data.items||[],cursor:data.has_more?data.next_cursor:null};if(currentReq()?.id===id)renderCaseMail(id);}catch(error){if(currentReq()?.id===id)$('#mmCaseMailHistory').textContent=mailError(error);}}
   function renderCaseMail(id){const host=$('#mmCaseMailHistory');host.replaceChildren();const data=mail.caseHistory[id];if(!data){host.textContent='Loading correspondence…';return;}for(const item of data.items){const button=document.createElement('button');button.type='button';button.className='mm-case-mail-record';button.textContent=(item.subject||'(No subject)')+' · '+item.state+' · '+fmtDateTime(Date.parse(item.received_at||item.created_at));button.addEventListener('click',()=>{setV3Workspace('communications');if(root.dataset.workspace==='communications')openMailThread(item.id);});host.append(button);}if(!data.items.length)host.textContent='No correspondence recorded for this case.';if(data.cursor){const more=document.createElement('button');more.type='button';more.textContent='Older correspondence';more.addEventListener('click',()=>loadCaseMail(id,true));host.append(more);}}
-  $('#mmMailComposeNew').addEventListener('click',()=>{startMailComposer(currentReq()?.id||null);});
+  $('#mmMailComposeNew').addEventListener('click',()=>{const kept=mail.working.get(mail.lastComposerCase);const id=kept&&(kept.dirty||kept.draft)?mail.lastComposerCase:currentReq()?.id||null;startMailComposer(id==='__unselected__'?null:id);});
   $$('[data-mail-folder]').forEach(button=>button.addEventListener('click',()=>{if(!mailNavigate())return;mail.folder=button.dataset.mailFolder;loadMailList();}));
   let mailSearchTimer;$('#mmMailSearch').addEventListener('input',()=>{clearTimeout(mailSearchTimer);mailSearchTimer=setTimeout(()=>{if(!mailNavigate())return;mail.query=$('#mmMailSearch').value.trim();loadMailList();},250);});
   $('#mmMailRefresh').addEventListener('click',()=>{loadMailConfig();loadMailList();});$('#mmMailMore').addEventListener('click',()=>loadMailList(true));$('#mmMailThreadMore').addEventListener('click',()=>openMailThread(mail.selected,true));

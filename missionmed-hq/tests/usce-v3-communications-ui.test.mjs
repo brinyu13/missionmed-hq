@@ -120,3 +120,9 @@ check('Review stays unavailable until a verified student and complete message ar
  await a.loadMailConfig();a.startMailComposer(null);assert.equal($('mmMailPreview').disabled,true);input('mmMailSubject','Subject');input('mmMailBody','Body');assert.equal($('mmMailPreview').disabled,true);
  a.startMailComposer(CASE);input('mmMailSubject','Subject');input('mmMailBody','Body');assert.equal($('mmMailPreview').disabled,false);
 });
+
+check('global Write Message resumes the last student draft even when the open case is different',async({a,w,$,r,input})=>{
+ const other={...r,id:'44444444-4444-4444-8444-444444444444',name:'Second Student',email:'second@example.test'};a.state.requests.push(other);a.state.selectedRequestId=CASE;await a.loadMailConfig();
+ $('mmMailComposeNew').click();input('mmMailStudentSearch','second');w.document.querySelector('.mm-student-result').click();input('mmMailSubject','Second student subject');input('mmMailBody','Second student words');$('mmMailCancel').click();
+ assert.equal(a.state.selectedRequestId,CASE);$('mmMailComposeNew').click();assert.equal($('mmMailCase').value,other.id);assert.equal($('mmMailSubject').value,'Second student subject');assert.equal($('mmMailBody').value,'Second student words');assert.equal(a.mail.preview,null);assert.equal($('mmMailApproval').checked,false);
+});
