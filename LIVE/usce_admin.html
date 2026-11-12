@@ -864,6 +864,11 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 .mm-cx.mm-v3 #mmMailExactPreview h3{margin:0}
 @media(max-height:650px) and (min-width:1025px){.mm-cx.mm-v3 .mm-journey{grid-template-rows:56px minmax(0,1fr) auto}}
 @media(max-width:600px){.mm-cx.mm-v3 .mm-journey{grid-template-rows:62px minmax(0,1fr) auto}.mm-cx.mm-v3 #mmJourneyState{flex-basis:100%;order:2}.mm-cx.mm-v3 #mmJourneyApprovalBar{order:-1}}
+
+.mm-cx.mm-v3 #mmMailCompose[open]{grid-template-rows:56px minmax(0,1fr) auto}
+.mm-cx.mm-v3 .mm-mail-compose-foot{flex-wrap:wrap}
+.mm-cx.mm-v3 #mmMailApprovalBar{flex:1 0 100%;min-height:44px;padding:8px 12px;background:#102e4c;color:#fff;border-color:#d7b55b;margin:0}
+.mm-cx.mm-v3 #mmMailApprovalBar input{width:20px;height:20px;flex:none}
 </style></head>
 <body>
 
@@ -1281,10 +1286,10 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 <label class="mm-label" for="mmMailSubject">Subject</label><input id="mmMailSubject" class="mm-input" maxlength="240">
 <label class="mm-label" for="mmMailBody">Message</label><textarea id="mmMailBody" class="mm-textarea" maxlength="20000" rows="8"></textarea>
 <p class="mm-hint">For an Offer and its secure link, use Build Offer. This message does not change the Offer.</p>
-<section id="mmMailExactPreview" hidden><div class="mm-mail-preview-heading"><h3 id="mmMailReviewTitle" tabindex="-1">Check your message before sending</h3><button id="mmMailReviewEdit" type="button" class="mm-btn mm-btn-ghost">Edit message</button></div><pre id="mmMailPreviewText"></pre><label class="mm-journey-approval"><input id="mmMailApproval" type="checkbox">I approve this exact message and recipient.</label></section>
+<section id="mmMailExactPreview" hidden><div class="mm-mail-preview-heading"><h3 id="mmMailReviewTitle" tabindex="-1">Check your message before sending</h3><button id="mmMailReviewEdit" type="button" class="mm-btn mm-btn-ghost">Edit message</button></div><pre id="mmMailPreviewText"></pre></section>
 <p id="mmMailSendOutcome" role="status" aria-live="polite"></p><button id="mmMailReconcile" type="button" class="mm-btn mm-btn-ghost" hidden>Check send status</button>
 </section></div>
-<footer class="mm-mail-compose-foot"><span id="mmMailComposeStatus" role="status" aria-live="polite">Find the student, write your message, then review it.</span><button id="mmMailSave" type="button" class="mm-btn mm-btn-ghost">Save draft</button><button id="mmMailPreview" type="button" class="mm-btn mm-btn-primary">REVIEW MESSAGE</button><button id="mmMailSend" type="button" class="mm-btn mm-btn-primary" disabled hidden>SEND MESSAGE</button></footer></dialog>
+<footer class="mm-mail-compose-foot"><label class="mm-journey-approval" id="mmMailApprovalBar" hidden><input id="mmMailApproval" type="checkbox">I approve this exact message and recipient.</label><span id="mmMailComposeStatus" role="status" aria-live="polite">Find the student, write your message, then review it.</span><button id="mmMailSave" type="button" class="mm-btn mm-btn-ghost">Save draft</button><button id="mmMailPreview" type="button" class="mm-btn mm-btn-primary">REVIEW MESSAGE</button><button id="mmMailSend" type="button" class="mm-btn mm-btn-primary" disabled hidden>SEND MESSAGE</button></footer></dialog>
 <dialog id="mmMailDispatchDialog" aria-labelledby="mmMailDispatchTitle"><header class="mm-mail-compose-head"><h2 id="mmMailDispatchTitle">Delivery attention</h2><button id="mmMailDispatchClose" type="button" class="mm-btn mm-btn-ghost">Close</button></header><p>Provider acceptance and delivery are separate. Ambiguous attempts require provider readback. Retry appears only when the server records confirmed-unsent failure.</p><div id="mmMailDispatchList"></div></dialog>
 <dialog id="mmMailAssignment" aria-labelledby="mmMailAssignmentTitle"><h2 id="mmMailAssignmentTitle">Assign this message to a verified student case</h2><p>Verify the sender and message before assigning. No case is selected automatically.</p><select id="mmMailAssignCase" class="mm-select" aria-label="Verified case"></select><div class="mm-quickact"><button id="mmMailAssignCancel" type="button" class="mm-btn mm-btn-ghost">Cancel</button><button id="mmMailAssignConfirm" type="button" class="mm-btn mm-btn-primary">Confirm assignment</button></div></dialog>
 
@@ -3846,7 +3851,7 @@ CONFIG.gmailMailboxes[0];
   function mailControls(){
     const ready=mail.config?.sender?.ready===true,reviewed=!!mail.preview&&!mail.dirty,approved=reviewed&&$('#mmMailApproval').checked;
     $('#mmMailPreview').disabled=mail.busy||!ready||!mailRequestCase()||!$('#mmMailSubject').value.trim()||!$('#mmMailBody').value.trim();
-    $('#mmMailPreview').hidden=reviewed;
+    $('#mmMailPreview').hidden=reviewed;$('#mmMailApprovalBar').hidden=!reviewed;
     $('#mmMailSend').disabled=mail.busy||!ready||!approved||mail.attempted;
     $('#mmMailSend').hidden=!approved;
     $('#mmMailSave').disabled=mail.busy;$('#mmMailCancel').disabled=mail.busy;$('#mmMailReviewEdit').disabled=mail.busy||mail.attempted;

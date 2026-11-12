@@ -128,8 +128,8 @@ check('global Write Message resumes the last student draft even when the open ca
 });
 
 check('Review focuses the exact proof and Edit returns safely without losing message text',async({a,w,$,input})=>{
- await a.loadMailConfig();a.startMailComposer(CASE);input('mmMailSubject','My subject');input('mmMailBody','My complete text');await a.reviewMailDraft();
- assert.equal(w.document.activeElement,$('mmMailReviewTitle'));assert.equal($('mmMailExactPreview').hidden,false);
+ await a.loadMailConfig();a.startMailComposer(CASE);input('mmMailSubject','My subject');input('mmMailBody','My complete text');$('mmMailPreview').click();await tick();
+ assert.equal(w.document.activeElement,$('mmMailReviewTitle'));assert.equal($('mmMailExactPreview').hidden,false);assert.equal($('mmMailApprovalBar').hidden,false);
  $('mmMailApproval').checked=true;$('mmMailApproval').dispatchEvent(new w.Event('change'));$('mmMailReviewEdit').click();
- assert.equal(a.mail.preview,null);assert.equal($('mmMailApproval').checked,false);assert.equal($('mmMailSend').hidden,true);assert.equal($('mmMailSubject').value,'My subject');assert.equal($('mmMailBody').value,'My complete text');assert.equal(w.document.activeElement,$('mmMailSubject'));
+ assert.equal(a.mail.preview,null);assert.equal($('mmMailApproval').checked,false);assert.equal($('mmMailApprovalBar').hidden,true);assert.equal($('mmMailSend').hidden,true);assert.equal($('mmMailSubject').value,'My subject');assert.equal($('mmMailBody').value,'My complete text');assert.equal(w.document.activeElement,$('mmMailSubject'));
 });
