@@ -77,6 +77,8 @@ Hash-verified original admin rollback: `f3ddeca644fcdbab4adae3e71682a225cb266891
 
 Use the existing conditional admin-only publisher with fresh BOOT/authority/native custody and a new healthy fence. No database/runtime rollback or destructive operation is needed. No rollback was executed. The local writer fence is disabled after release; native lease release is the custody proof.
 
+Closeout audit: the first local governance staging process outlived its released lease by about3.7seconds. Publication was held; no canonical/provider change occurred during that gap, and the native overlap audit found zero other writers. The same five record bytes were requalified under fresh Registry lease2f936048-4bb0-4684-9e53-1501d1657819, epoch6555; all requalification writes were within21:03:46–21:03:52UTC custody. Independent review precedes final canonical commit. This incident did not affect the live application.
+
 ## 10. Remaining limits
 
 No human-only blocker remains for the November 12 scoped deliverable. Broader prior DR-413 closure is kept separate: fresh delivered **Offer HTML** contrast and intro playback were not newly accepted by this plaintext correspondence QA; independent authenticated browser replay is also unverified. Phil's notification is provider-accepted, not proof of personal-inbox delivery or reading.

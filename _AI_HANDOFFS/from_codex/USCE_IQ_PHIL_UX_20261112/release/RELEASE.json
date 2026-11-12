@@ -73,5 +73,22 @@
   "phase1_status": "LIVE_ACCEPTED_WITH_LIMITS",
   "broader_DR413_closure": "OPEN_SEPARATE_VERIFICATION_LIMITS",
   "review_evidence_mode": "Read-only actual-live captured screens and source; no independent interactive authenticated replay",
-  "recorded_at": "2026-11-12T20:53:12.316401+00:00"
+  "recorded_at": "2026-11-12T20:53:12.316401+00:00",
+  "registry_stage_incident": {
+    "scope": "unpublished five-file local closeout only",
+    "first_lease": "e3d27146-4bc9-4193-bc19-e5edc68331ab",
+    "released_at": "2026-11-12T20:57:09.148034Z",
+    "local_writes_last_at": "2026-11-12T20:57:12.896141Z",
+    "overlapping_other_writers": 0,
+    "canonical_or_provider_publication_during_gap": false,
+    "requalification_lease": "2f936048-4bb0-4684-9e53-1501d1657819",
+    "requalification_fencing_epoch": 6555,
+    "requalification_custody": [
+      "2026-11-12T21:03:46.411075Z",
+      "2026-11-12T21:03:52.660316Z"
+    ],
+    "all_requalification_file_mtimes_within_custody": true,
+    "same_five_hashes_verified": true,
+    "remediation": "Fully drain protected exec processes under healthy heartbeat before release; exact five-file independent review before canonical commit."
+  }
 }
