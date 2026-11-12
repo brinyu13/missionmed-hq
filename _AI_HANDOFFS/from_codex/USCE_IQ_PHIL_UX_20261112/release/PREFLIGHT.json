@@ -6,7 +6,7 @@
   "baseline_runtime": "3fcfdde0-299e-49d9-8a97-2588af74ee86",
   "baseline_image": "sha256:0011f640d27ea1327a03ccc874146e9d8199c681cc89c73dfb360f2d5c70437f",
   "baseline_admin_sha256": "f3ddeca644fcdbab4adae3e71682a225cb2668914645ff7125a7c95111a64919",
-  "candidate_admin_sha256": "3f93ed721a5028aab2a424ab87db058f14003bfe73bef2c3cbd3f97d39d3685e",
+  "candidate_admin_sha256": "28aa37856e9293b434dd5eff620ea037f157782e5616a0eb237ed188083940f2",
   "focused_ui_tests": 70,
   "mail_backend_contract_tests": 47,
   "independent_security_review": "APPROVE /root/nov12_independent_review",
