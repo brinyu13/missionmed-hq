@@ -88,7 +88,7 @@ test('tracker shows sign-in, empty, unavailable, and recorded review states with
     try {await tick();assert.equal(a.el('#trackerHeading').textContent,heading);}finally{a.dom.window.close();}
   };
   const auth={mm_usce_student_bearer_session:'synthetic-fixture'};
-  await check(null,401,{},'Sign in to view your request');
+  await check(null,401,{},'View your rotation request');
   await check({ok:true,authenticated:true,items:[],current:null},200,auth,'No request found');
   await check({},503,auth,'Status temporarily unavailable');
   for (const [status,heading] of [['new','Request received'],['reviewed','Under review']]) {

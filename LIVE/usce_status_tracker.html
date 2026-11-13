@@ -48,8 +48,8 @@
     <section class="mm-hero">
       <div>
         <span class="mm-eyebrow">USCE request tracker</span>
-        <h1 id="trackerHeading">Sign in to view your request</h1>
-        <p id="trackerIntro" role="status">Use your MissionMed account to see your clinical rotation request.</p>
+        <h1 id="trackerHeading">View your rotation request</h1>
+        <p id="trackerIntro" role="status">Access your MissionMed account or contact Clinicals to check your request.</p>
       </div>
     </section>
 
@@ -71,7 +71,7 @@
 
     <section class="mm-card mm-gate" id="authGate">
       <div class="mm-actions">
-        <a class="mm-btn mm-btn-primary" id="accountLink" href="https://missionmedinstitute.com/my-account/">Sign in to MissionMed</a>
+        <a class="mm-btn mm-btn-primary" id="accountLink" href="https://missionmedinstitute.com/my-account/">Open my MissionMed account</a>
         <button class="mm-btn mm-btn-primary" type="button" id="retryStatus" hidden>Try again</button>
         <a class="mm-btn mm-btn-ghost" id="requestLink" href="https://missionmedinstitute.com/usce/">Request a rotation</a>
         <a class="mm-btn mm-btn-ghost" href="mailto:clinicals@missionmedinstitute.com">Contact Clinicals</a>
@@ -113,7 +113,6 @@
     version: 'USCE-IQ-20261113',
     apiBase: String(window.MM_USCE_API_BASE || 'https://missionmed-hq-production.up.railway.app').replace(/\/+$/,''),
     statusEndpoint: '/api/usce/student/status',
-    authRelayEndpoint: '/api/usce/student/auth/relay',
     authCodeEndpoint: '/api/usce/student/auth/code',
     authAudience: 'usce_student',
     trackerPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html',
@@ -126,19 +125,6 @@
   const HANDOFF_HASH_KEY = 'mmhq_handoff_token';
   const HANDOFF_CODE_HASH_KEY = 'mmhq_handoff_code';
   const $ = selector => document.querySelector(selector);
-
-  function currentTrackerUrl() {
-    const url = new URL(CONFIG.trackerPageUrl);
-    const ref = new URL(location.href).searchParams.get('ref');
-    if (ref && /^(?:[a-f0-9-]{36}|USCE-[a-f0-9]{8})$/i.test(ref)) url.searchParams.set('ref', ref);
-    return url.href;
-  }
-
-  function buildAccountUrl() {
-    const url = new URL(CONFIG.wpAccountUrl);
-    url.searchParams.set('redirect_to', currentTrackerUrl());
-    return url.href;
-  }
 
   function readAccessToken(){
     try { return sessionStorage.getItem(AUTH_BEARER_KEY) || ''; } catch (_) { return ''; }
@@ -202,7 +188,7 @@
     $('#trackerIntro').textContent = message;
     $('#progressBoard').hidden = state !== 'loaded';
     $('#requestDetails').hidden = state !== 'loaded';
-    $('#accountLink').hidden = state === 'empty' || state === 'loaded';
+    $('#accountLink').hidden = state === 'loaded';
     $('#requestLink').hidden = state === 'loaded';
     $('#retryStatus').hidden = state !== 'unavailable';
     $('#authGate').hidden = state === 'loaded';
@@ -212,7 +198,7 @@
   }
 
   function showSignIn() {
-    showMessage('Sign in to view your request', 'Use the MissionMed account with the email you entered on your rotation request.', 'signed-out');
+    showMessage('View your rotation request', 'This tracker needs a connected student session. If you can’t see your request, contact Clinicals using the email on your form.', 'signed-out');
   }
 
   function showUnavailable() {
@@ -333,7 +319,7 @@
     return new Date(parsed).toLocaleString([], { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
   }
 
-  $('#accountLink').href = buildAccountUrl();
+  $('#accountLink').href = CONFIG.wpAccountUrl;
   $('#retryStatus').addEventListener('click', loadStatus);
   wireContactLinks();
 
