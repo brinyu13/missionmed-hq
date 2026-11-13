@@ -15,7 +15,7 @@ const KEYS=[FLAG,'MMHQ_SUPABASE_URL','MMHQ_SUPABASE_SERVICE_ROLE_KEY','POSTMARK_
 const LABEL='[USCE QA TEST]';
 const session={user:{id:42,login:'synthetic_admin',email:'synthetic-admin@example.test',roles:['administrator']}};
 
-function fixture({policy=ALIAS,recipient=ALIAS,onClaim,forceIntakeDryRun=false}={}) {
+function fixture({policy=ALIAS,recipient=ALIAS,onClaim,forceIntakeDryRun=false,firstStorageFails=false,storedAlready=false,receiptOwnerMatches=true}={}) {
  const old=new Map(KEYS.map(k=>[k,process.env[k]])),originalFetch=globalThis.fetch;
  const values={
   MMHQ_SUPABASE_URL:'https://fglyvdykwgbuivikqoah.supabase.co',
@@ -31,13 +31,14 @@ function fixture({policy=ALIAS,recipient=ALIAS,onClaim,forceIntakeDryRun=false}=
  const offerId=crypto.randomUUID(),claimId=crypto.randomUUID(),rawToken='usce_'+crypto.randomBytes(32).toString('base64url');
  const offer={id:offerId,revision:2,status:'ready',intake:{email:recipient},specialty:'QA',location:'QA',timing:'QA',duration_weeks:4,format:'QA',expires_at:'2099-01-01T00:00:00Z'};
  const calls={rpc:0,claims:0,provider:0,finishes:0,intakeWrites:0};
+ const notifications=[];let storedRow;
  let bound,claim,lastProvider,lastFinish;
  const message={category:'offer_ready',variant:'coordinator_clear',to_email:recipient,subject:LABEL+' Controlled synthetic offer',
  body:LABEL+' Synthetic case. No payment, reservation, enrollment or business obligation. https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html?offer='+rawToken};
  globalThis.fetch=async(input,options={})=>{
   const url=new URL(String(input)),payload=JSON.parse(options.body||'{}');
   if(url.origin==='https://api.postmarkapp.com'&&url.pathname==='/email'){
-   calls.provider++;lastProvider=payload;return Response.json({ErrorCode:0,MessageID:crypto.randomUUID()});
+   calls.provider++;lastProvider=payload;notifications.push(payload);return Response.json({ErrorCode:0,MessageID:crypto.randomUUID()});
   }
   assert.equal(url.origin,'https://fglyvdykwgbuivikqoah.supabase.co','Unexpected network host blocked');
   assert.ok(url.pathname.startsWith('/rest/v1/rpc/'),'Unexpected non-RPC network operation blocked');
@@ -53,12 +54,13 @@ function fixture({policy=ALIAS,recipient=ALIAS,onClaim,forceIntakeDryRun=false}=
    return Response.json({ok:true,data:{claimed:true,claim,preview:bound}});
   }
   if(name==='usce_finish_send'){calls.finishes++;lastFinish=payload;claim={...claim,state:payload.p_state};return Response.json({ok:true,item:{...offer,status:payload.p_state==='provider_accepted'?'sent':'ready'},dry_run:payload.p_state==='dry_run',data:{claim}});}
-  if(name==='create_usce_public_intake_request'){calls.intakeWrites++;return Response.json({id:crypto.randomUUID(),status:'new',was_existing:false});}
+  if(name==='create_usce_public_intake_request'){calls.intakeWrites++;if(firstStorageFails&&calls.intakeWrites===1)throw Error('Mock network failure');storedRow={id:crypto.randomUUID(),email:receiptOwnerMatches?payload.p_request.email:'different@example.invalid'};return Response.json({id:storedRow.id,status:'new',was_existing:storedAlready});}
+  if(name==='list_usce_public_intake_requests')return Response.json({items:[storedRow]});
   throw Error('Unexpected RPC blocked: '+name);
  };
  async function request(handler,url,body,method='POST'){
   const req=Readable.from([Buffer.from(JSON.stringify(body))]);req.method=method;
-  req.headers={'content-type':'application/json',origin:'https://missionmedinstitute.com','x-mm-usce-idempotency-key':crypto.randomUUID()};
+  req.headers={'content-type':'application/json',origin:'https://missionmedinstitute.com','x-mm-usce-idempotency-key':body.idempotency_key || crypto.randomUUID()};
   req.socket={remoteAddress:'192.0.2.'+(1+crypto.randomInt(240))};
   let status,reply;const res={writeHead(code){status=code},end(data){reply=JSON.parse(data)}};
   assert.equal(await handler(req,res,new URL(url),{session}),true);return{status,reply};
@@ -69,12 +71,13 @@ function fixture({policy=ALIAS,recipient=ALIAS,onClaim,forceIntakeDryRun=false}=
    const p=await api('message-preview',message);assert.equal(p.status,200);
    return{...message,preview_hash:p.reply.data.preview_hash,revision:p.reply.data.revision,idempotency_key:crypto.randomUUID(),approve_live_send:true};
   },
-  async intake(email){
+  async intake(email,key=crypto.randomUUID()){
    const body={student_name:LABEL+' Synthetic Intake',email,training_level_or_school:'Synthetic QA only',
     preferred_specialties:['Synthetic QA'],preferred_locations:['Synthetic QA'],preferred_months_or_dates:['Synthetic QA'],
-    duration_weeks:4,source_url:'https://missionmedinstitute.com/mission-clinicals/',consent:true,notes:LABEL+' No business obligation',idempotency_key:crypto.randomUUID()};
+    duration_weeks:4,source_url:'https://missionmedinstitute.com/mission-clinicals/',consent:true,notes:LABEL+' No business obligation',idempotency_key:key};
    return request(handleUscePublicRoute,'https://local.invalid/api/usce/public/requests',body);
   },
+  get notifications(){return notifications},
   get lastProvider(){return lastProvider},get lastFinish(){return lastFinish},
   restore(){globalThis.fetch=originalFetch;for(const[k,v]of old){if(v===undefined)delete process.env[k];else process.env[k]=v}}
  };
@@ -160,12 +163,12 @@ test('absent policy does not alter legacy recipient or label validation contract
 });
 test('public intake cannot send admin or unlabeled acknowledgement emails during QA',async()=>{
  const f=fixture();try{const r=await f.intake(ALIAS);assert.equal(r.status,202);assert.equal(f.calls.intakeWrites,1);
-  assert.equal(f.calls.provider,0);assert.equal(r.reply.notification_status,'partial_or_failed');
+  assert.equal(f.calls.provider,0);assert.equal(r.reply.notification_status,'partial_or_unknown');
  }finally{f.restore()}
 });
 test('invalid QA configuration blocks every intake provider attempt',async()=>{
  const f=fixture({policy:''});try{const r=await f.intake('synthetic-'+crypto.randomUUID()+'@example.invalid');
-  assert.equal(r.status,202);assert.equal(f.calls.provider,0);assert.equal(r.reply.notification_status,'partial_or_failed');
+  assert.equal(r.status,202);assert.equal(f.calls.provider,0);assert.equal(r.reply.notification_status,'partial_or_unknown');
  }finally{f.restore()}
 });
 test('public intake force-dry-run remains an independent outbound fence',async()=>{
@@ -175,6 +178,43 @@ test('public intake force-dry-run remains an independent outbound fence',async()
 });
 test('intentional variable deletion preserves ordinary public-intake notification behavior',async()=>{
  const f=fixture({policy:null});try{const r=await f.intake('synthetic-'+crypto.randomUUID()+'@example.invalid');
-  assert.equal(r.status,202);assert.equal(f.calls.provider,4);assert.equal(r.reply.notification_status,'sent');
+  assert.equal(r.status,202);assert.equal(f.calls.provider,4);assert.equal(r.reply.notification_status,'provider_accepted');
  }finally{f.restore()}
+});
+
+test('uncertain storage result can retry the same submission and sends once after persistence',async()=>{
+ const f=fixture({policy:null,firstStorageFails:true});
+ const email='synthetic-'+crypto.randomUUID()+'@example.invalid', key=crypto.randomUUID();
+ try {
+   assert.equal((await f.intake(email,key)).status,503);
+   assert.equal(f.calls.provider,0);
+   const saved=await f.intake(email,key);
+   assert.equal(saved.status,202);
+   const replay=await f.intake(email,key);
+   assert.equal(replay.status,200);assert.equal(replay.reply.dry_run,false);
+   assert.equal(replay.reply.request_id,saved.reply.request_id);
+   assert.equal(f.calls.intakeWrites,2);assert.equal(f.calls.provider,4);
+   const personal=f.notifications.filter(m=>m.To==='philaperri@gmail.com');
+   assert.equal(personal.length,1);
+   assert.equal(personal[0].HtmlBody,undefined);
+   assert.ok(!personal[0].TextBody.includes(email) && !personal[0].TextBody.includes(key));
+   assert.ok(!f.notifications.some(m=>m.To.toLowerCase()==='philperri@gmail.com'));
+   assert.equal((await f.intake(email,crypto.randomUUID())).status,429);
+ } finally{f.restore();}
+});
+test('a database replay after restart does not repeat applicant or coordinator mail',async()=>{
+ const f=fixture({policy:null,storedAlready:true});
+ try {
+   const r=await f.intake('synthetic-'+crypto.randomUUID()+'@example.invalid');
+   assert.equal(r.status,200);assert.equal(r.reply.dry_run,false);
+   assert.equal(r.reply.notification_status,'previously_recorded');assert.equal(f.calls.provider,0);
+ } finally{f.restore();}
+});
+
+test('a persistent replay from a different email never receives an existing request ID',async()=>{
+ const f=fixture({policy:null,storedAlready:true,receiptOwnerMatches:false});
+ try {
+   const r=await f.intake('synthetic-'+crypto.randomUUID()+'@example.invalid');
+   assert.equal(r.status,503);assert.equal(r.reply.request_id,undefined);assert.equal(f.calls.provider,0);
+ } finally{f.restore();}
 });

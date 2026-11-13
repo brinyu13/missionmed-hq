@@ -9,13 +9,12 @@ const ADMIN_PUBLIC_INTAKE_ACTION_PREFIX = `${ADMIN_PUBLIC_INTAKE_LIST_PATH}/`;
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const IP_LIMIT = 3;
-const EMAIL_LIMIT = 1;
 const ADMIN_LIST_MAX_LIMIT = 100;
 const ADMIN_NOTE_MAX_LENGTH = 4000;
 const ADMIN_NOTIFICATION_RECIPIENTS = [
   'info@missionmedinstitute.com',
   'clinicals@missionmedinstitute.com',
-  'Philperri@gmail.com',
+  'philaperri@gmail.com',
 ];
 const POSTMARK_TOKEN_FLAGS = ['POSTMARK_SERVER_TOKEN', 'USCE_POSTMARK_SERVER_TOKEN', 'MMHQ_POSTMARK_SERVER_TOKEN'];
 const POSTMARK_FROM_FLAGS = ['USCE_POSTMARK_FROM_EMAIL', 'POSTMARK_FROM_EMAIL', 'MMHQ_POSTMARK_FROM_EMAIL'];
@@ -313,21 +312,20 @@ async function handlePublicRequestCreate(request, response, corsHeaders) {
     request.headers['x-mm-usce-idempotency-key'] || validation.data.idempotency_key,
     validation.data,
   );
-  const priorRequestId = getIdempotentRequestId(idempotencyKey);
-  if (priorRequestId) {
-    sendPublicJson(response, 200, {
-      success: true,
-      request_id: priorRequestId,
-    }, corsHeaders);
+  const replay = getStoredReceipt(idempotencyKey, emailKey);
+  if (replay === false) {
+    sendPublicJson(response, 409, {error:'request_key_conflict', message:'This reference belongs to a different request. Start a new request.'}, corsHeaders);
+    return;
+  }
+  if (replay) {
+    sendPublicJson(response, 200, replay, corsHeaders);
     return;
   }
 
-  if (!takeRateLimit(emailHits, emailKey, EMAIL_LIMIT)) {
-    logSafeEvent('email_throttled_success', { requestId, emailHash: hashForLog(emailKey) });
-    rememberIdempotentRequest(idempotencyKey, requestId);
-    sendPublicJson(response, 200, {
-      success: true,
-      request_id: requestId,
+  if (!allowEmailAttempt(emailKey, idempotencyKey)) {
+    sendPublicJson(response, 429, {
+      error: 'too_many_requests',
+      message: 'Please wait before submitting again. Contact Clinicals if you need to check an earlier request.',
     }, corsHeaders);
     return;
   }
@@ -352,12 +350,12 @@ async function handlePublicRequestCreate(request, response, corsHeaders) {
   }
 
   if (writeMode === 'supabase') {
-    const persistence = await persistSupabasePublicIntake({
-      data: validation.data,
-      request,
-      requestId,
-      idempotencyKey,
-    });
+    let persistence;
+    try {
+      persistence = await persistSupabasePublicIntake({data: validation.data, request, requestId, idempotencyKey});
+    } catch {
+      persistence = {ok:false, reason:'storage_result_unknown', statusCode:503, publicError:'usce_public_intake_storage_unavailable'};
+    }
 
     if (!persistence.ok) {
       logSafeEvent('supabase_write_failed', {
@@ -372,8 +370,12 @@ async function handlePublicRequestCreate(request, response, corsHeaders) {
       return;
     }
 
-    rememberIdempotentRequest(idempotencyKey, persistence.requestId);
-    const notification = await sendPublicIntakeNotifications({
+    const receipt = {
+      success: true, request_id: persistence.requestId,
+      status: persistence.status || 'new', dry_run: false
+    };
+    rememberStoredReceipt(idempotencyKey, emailKey, receipt);
+    const notification = persistence.wasExisting ? { status: 'previously_recorded', dryRun: false } : await sendPublicIntakeNotifications({
       requestId: persistence.requestId,
       data: validation.data,
       request,
@@ -390,10 +392,7 @@ async function handlePublicRequestCreate(request, response, corsHeaders) {
     });
 
     sendPublicJson(response, persistence.wasExisting ? 200 : 202, {
-      success: true,
-      request_id: persistence.requestId,
-      status: persistence.status || 'new',
-      dry_run: false,
+      ...receipt,
       notification_dry_run: notification.dryRun,
       notification_status: notification.status,
     }, corsHeaders);
@@ -409,7 +408,6 @@ async function handlePublicRequestCreate(request, response, corsHeaders) {
     return;
   }
 
-  rememberIdempotentRequest(idempotencyKey, requestId);
   logSafeEvent('accepted_dry_run', {
     requestId,
     emailHash: hashForLog(emailKey),
@@ -471,9 +469,11 @@ async function sendPublicIntakeNotifications({ requestId, data, request, status,
     sendPostmarkEmailWithRetry({
       ...config,
       to: recipient,
-      subject: adminMessage.subject,
-      textBody: adminMessage.textBody,
-      htmlBody: adminMessage.htmlBody,
+      subject: recipient === 'philaperri@gmail.com' ? 'A new clinical rotation request needs review' : adminMessage.subject,
+      textBody: recipient === 'philaperri@gmail.com'
+        ? 'Open Clinicals HQ to review the new rotation request: https://missionmedinstitute.com/usce-admin/'
+        : adminMessage.textBody,
+      htmlBody: recipient === 'philaperri@gmail.com' ? undefined : adminMessage.htmlBody,
       tag: 'usce-request-admin',
       metadata: {
         usce_request_id: requestId,
@@ -503,7 +503,7 @@ async function sendPublicIntakeNotifications({ requestId, data, request, status,
 
   return {
     ok: failed.length === 0,
-    status: failed.length ? 'partial_or_failed' : 'sent',
+    status: failed.length ? 'partial_or_unknown' : 'provider_accepted',
     dryRun: false,
     sent: settled.filter((item) => item.ok).length,
     failed: failed.length,
@@ -783,7 +783,6 @@ function buildFullTrackerEmailHtml({
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
     emailResourceCard('Malpractice insurance checklist', 'Ask the hospital or coordinator whether coverage is included, whether proof is required, and what minimum limits are expected before onboarding.', 'Ask Clinicals', 'mailto:clinicals@missionmedinstitute.com'),
     emailResourceCard('Rotation readiness tips', 'Keep your immunizations, ID, school letter, CV, and any hospital onboarding forms ready so the final step can move quickly.', 'MissionMed dashboard', CANONICAL_LEARNDASH_COURSE_URL),
-    emailResourceCard('Rotation essentials store', "Recommended clinical rotation items can live here. When an affiliate store is configured, proceeds can be directed to St. Jude's charity.", 'View essentials', 'https://www.amazon.com/s?k=medical+student+clinical+rotation+essentials'),
     '</tr></table>',
     `<p style="margin:20px 0 0;text-align:center;color:rgba(255,255,255,.66);font-size:12px;line-height:1.65;">${escapeHtml(footer || 'Need help? Contact MissionMed Clinicals.')}</p>`,
     '</td></tr>',
@@ -881,7 +880,7 @@ async function sendPostmarkEmail({ token, fromEmail, replyTo, to, subject, textB
       }),
     });
   } catch {
-    return { ok: false, reason: 'postmark_network_error', retryable: true };
+    return { ok: false, reason: 'postmark_acceptance_unknown', retryable: false };
   }
 
   const payload = await readSupabaseJson(response);
@@ -889,16 +888,15 @@ async function sendPostmarkEmail({ token, fromEmail, replyTo, to, subject, textB
     return {
       ok: false,
       reason: sanitizeText(payload?.ErrorCode || payload?.Message || response.status, 160),
-      retryable: response.status === 429 || response.status >= 500,
+      retryable: response.status === 429,
       statusCode: response.status,
     };
   }
 
-  return {
-    ok: true,
-    messageId: sanitizeText(payload?.MessageID || payload?.MessageId || '', 180),
-    retryable: false,
-  };
+  if (payload?.ErrorCode !== 0 || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(payload?.MessageID || '')) {
+    return {ok:false, reason:'postmark_acceptance_unknown', retryable:false};
+  }
+  return {ok:true, messageId:payload.MessageID, retryable:false};
 }
 
 function sleep(ms) {
@@ -1109,6 +1107,16 @@ async function createSupabasePublicIntakeViaRpc(config, record) {
 
   const payload = await readSupabaseJson(response);
   if (response.ok && payload?.id) {
+    if (payload.was_existing === true) {
+      // Legacy database keys are global. Verify the owner before disclosing a stored receipt after restart.
+      const match = await listSupabasePublicIntakeViaRpc(config, {
+        limit: 100, offset: 0, status: null, search: record.email
+      });
+      if (!match.ok) return {ok:false, reason:'receipt_owner_unavailable'};
+      const rows = Array.isArray(match.payload?.items) ? match.payload.items : [];
+      const verified = rows.some(row => row.id === payload.id && sanitizeEmail(row.email) === sanitizeEmail(record.email));
+      if (!verified) return {ok:false, reason:'receipt_owner_unverified'};
+    }
     return {
       ok: true,
       row: {
@@ -1415,17 +1423,34 @@ function pruneRateStore(store, now = Date.now()) {
   }
 }
 
-function getIdempotentRequestId(key, now = Date.now()) {
+// Limit new requests per email while permitting retries of the same request.
+function allowEmailAttempt(email, key, now = Date.now()) {
+  if (emailHits.size >= 1000) {
+    for (const [address, attempt] of emailHits) {
+      if (attempt.expiresAt <= now) emailHits.delete(address);
+    }
+  }
+  const attempt = emailHits.get(email);
+  if (attempt && attempt.expiresAt > now) return attempt.key === key;
+  emailHits.set(email, {key, expiresAt: now + RATE_WINDOW_MS});
+  return true;
+}
+
+function getStoredReceipt(key, email, now = Date.now()) {
   const record = idempotencyHits.get(key);
   if (!record || now - record.createdAt > RATE_WINDOW_MS) {
     idempotencyHits.delete(key);
-    return '';
+    return null;
   }
-  return record.requestId;
+  return record.emailHash === hashForLog(email) ? record.receipt : false;
 }
 
-function rememberIdempotentRequest(key, requestId) {
-  idempotencyHits.set(key, { requestId, createdAt: Date.now() });
+function rememberStoredReceipt(key, email, receipt) {
+  const now = Date.now();
+  for (const [cachedKey, record] of idempotencyHits) {
+    if (now - record.createdAt > RATE_WINDOW_MS) idempotencyHits.delete(cachedKey);
+  }
+  idempotencyHits.set(key, {receipt, emailHash: hashForLog(email), createdAt: now});
 }
 
 function buildPublicCorsHeaders(request = null) {
