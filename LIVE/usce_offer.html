@@ -552,7 +552,7 @@ a,button,input,select,textarea{touch-action:manipulation}
             <p>Your request for another option is recorded for Clinicals. A different option is not guaranteed; the team can review what is available. No payment is taken by this response.</p>
           </div>
         </div>
-        <div class="info" style="margin-top:14px"><small>Your note to the coordinator</small><b id="altEcho">No additional details provided.</b></div>
+        <div class="info" style="margin-top:14px" hidden><small>Your note to the coordinator</small><b id="altEcho"></b></div>
         <div class="next-steps">
           <div class="step"><div class="num">1</div><div><b>Coordinator review</b><span>Your coordinator reviews the request and looks for an option that matches better.</span></div></div>
           <div class="step"><div class="num">2</div><div><b>New offer</b><span>You will receive a new offer link by email when a fresh option is ready.</span></div></div>
@@ -1070,7 +1070,9 @@ a,button,input,select,textarea{touch-action:manipulation}
       setBadge('Declined', 'declined');
       target = els.stateDeclined;
     } else if (action === 'alternate_requested') {
-      setText(els.altEcho, note || 'No additional details provided.');
+      var recordedNote = typeof note === 'string' ? note.trim() : '';
+      setText(els.altEcho, recordedNote);
+      els.altEcho.parentElement.hidden = !recordedNote;
       show(els.stateAlternate);
       setBadge('Alternate requested', 'alt');
       target = els.stateAlternate;

@@ -45,7 +45,7 @@ function applicant(){
  w.fetch=()=>{throw Error('No network')};w.HTMLElement.prototype.scrollIntoView=()=>{};
  const script=[...w.document.querySelectorAll('script')].map(x=>x.textContent).find(s=>s.includes('function mapApiOfferToView'));
  w.__MISSIONMED_USCE_OFFER_CONFIG={};
- w.eval(script.replace("document.addEventListener('DOMContentLoaded', init);","window.TEST={state,cacheEls,applyOffer,mapApiOfferToView,showConfirmBar,respondToOffer};"));
+ w.eval(script.replace("document.addEventListener('DOMContentLoaded', init);","window.TEST={state,cacheEls,applyOffer,mapApiOfferToView,handlePreExistingResponse,showConfirmBar,respondToOffer};"));
  const t=w.TEST;t.cacheEls();return {dom,w,t};
 }
 test('applicant requires explicit option, safely renders text, reviews chosen dates and resets stale choice',()=>{
@@ -71,4 +71,23 @@ test('applicant requires explicit option, safely renders text, reviews chosen da
 test('non-proposal message categories retain prior neutral rendering without false offer progress',async()=>{
  const offer={id,revision:2,intake:{email:'qa@example.invalid'},options:[]};const restore=mocked((name,b)=>name==='get_usce_offer_draft_admin'?{ok:true,item:offer}:{ok:true,data:b.p_message});
  try{for(const category of ['request_received','declined_response','accepted_offer_next_steps','payment_reminder','availability_confirmed']){const a=await route('/api/usce/admin/offers/'+id+'/message-preview',{category,subject:'TEST status',body:'Controlled factual message',to_email:'qa@example.invalid'},'POST');assert.equal(a.status,200,category);assert.doesNotMatch(a.reply.data.rendered_email.html_body,/Request Tracker|Your MissionMed Clinicals offer is ready|Your response is the next step/);assert.match(a.reply.data.rendered_email.html_body,/Controlled factual message/);}}finally{restore();}
+});
+
+test('alternate confirmation only displays a note returned by the student API',()=>{
+ const {dom,w,t}=applicant();
+ try {
+  const echo=w.document.getElementById('altEcho');
+  const show=payload=>{
+   const view=t.mapApiOfferToView({offer:{id,status:'alternate_requested',...payload}});
+   t.applyOffer(view);
+   assert.equal(t.handlePreExistingResponse(view),true);
+   assert.equal(w.document.getElementById('stateAlternate').hidden,false);
+  };
+  show({response_note:'Please consider a different month.'});
+  assert.equal(echo.parentElement.hidden,false);
+  assert.equal(echo.textContent,'Please consider a different month.');
+  show({});
+  assert.equal(echo.parentElement.hidden,true);
+  assert.equal(echo.textContent,'');
+ } finally { dom.window.close(); }
 });
