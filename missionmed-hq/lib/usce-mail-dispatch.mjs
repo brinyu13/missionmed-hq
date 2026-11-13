@@ -14,9 +14,9 @@ export function makeMailRpc({env=process.env,fetchImpl=fetch}={}){
  let origin;try{const u=new URL(raw);if(u.protocol==='https:'&&u.hostname===PROJECT+'.supabase.co'&&!u.username&&!u.password)origin=u.origin;}catch{}
  return async(name,body)=>{
   if(!origin||!key)return {ok:false,error:'mail_storage_not_configured'};
-  if(!/^usce_mail_(sync|ingest|read|edit|claim_send|dispatch)$/.test(name))return {ok:false,error:'invalid_rpc'};
+  if(!['usce_tracker_issue','usce_tracker_record_delivery'].includes(name) && !/^usce_mail_(sync|ingest|read|edit|claim_send|dispatch)$/.test(name))return {ok:false,error:'invalid_rpc'};
   try{const r=await fetchImpl(origin+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(15000)});
-   const j=await r.json();return r.ok&&j&&typeof j==='object'?j:{ok:false,error:'mail_storage_unavailable'};
+   const j=await r.json();return r.ok && (typeof j==='object' && j || (name==='usce_tracker_record_delivery' && typeof j==='boolean')) ? j : {ok:false,error:'mail_storage_unavailable'};
   }catch{return {ok:false,error:'mail_storage_unavailable'};}
  };
 }
@@ -120,4 +120,21 @@ export async function retryDispatch(id,{rpc=makeMailRpc(),env=process.env,...opt
   if(!bound.ok)return bound;claim.dispatch=bound.dispatch;
  }
  return dispatchClaim(claim,{rpc,env,...options});
+}
+
+/** Issue one pending tracker proof. A consumed delivery reservation is never retried automatically. */
+export async function deliverTrackerCode({rpc=makeMailRpc(),env=process.env,fetchImpl=fetch}={}) {
+  if (!getMailSender(env).ok) return;
+  const code=crypto.randomBytes(12).toString('hex').toUpperCase();
+  const job=await rpc('usce_tracker_issue',{p_hash:sha256(code)});
+  if (!UUID.test(job?.id) || !UUID.test(job.reference) || !email(job.email)) return;
+  const display=code.match(/.{1,4}/g).join('-');
+  const result=await submitMail({
+    from_email:CLINICALS_MAILBOX,reply_to:CLINICALS_MAILBOX,to_email:job.email,
+    subject:'Verify your MissionMed rotation request',
+    body_text:'Your verification code is '+display+'.\n\nEnter it in your signed-in student tracker for request '+job.reference+'. It expires 15 minutes after you requested it. If you did not request this code, you can ignore this email.',
+    rfc_message_id:'<usce-mail-'+job.id+'@missionmedinstitute.com>'
+  },job.id,{env,fetchImpl});
+  await rpc('usce_tracker_record_delivery',{p_job:job.id,p_outcome:result.outcome,p_mid:result.provider_message_id||null});
+  return result;
 }

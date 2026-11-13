@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import {readGmailDwdConfig,mintDelegatedAccessToken,GMAIL_API_ROOT} from '../routes/gmail-metadata-proof.mjs';
-import {CLINICALS_MAILBOX,makeMailRpc,dispatchNextNotification,email} from './usce-mail-dispatch.mjs';
+import {CLINICALS_MAILBOX,makeMailRpc,dispatchNextNotification,deliverTrackerCode,email} from './usce-mail-dispatch.mjs';
 const messageId=value=>typeof value==='string'&&/^[a-f\d]{1,40}$/i.test(value)?value:null;
 const headerIds=value=>[...String(value||'').matchAll(/<[^<>\s\r\n]{1,500}>/g)].map(x=>x[0]).slice(-32);
 const address=value=>{const matches=String(value||'').match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig)||[];return matches.length===1?email(matches[0]):null;};
@@ -92,7 +92,18 @@ export async function syncMailboxOnce({rpc=makeMailRpc(),gmail=createGmailReader
 export function startUsceMailWorker({env=process.env,rpc=makeMailRpc({env}),gmail=createGmailReader(),intervalMs=30000,dispatchOptions={}}={}){
  if(env.MMHQ_USCE_GATEWAY_CHILD!=='1'||env.USCE_MAIL_SYNC_ENABLED!=='true')return {started:false,stop(){}};
  let running=false,stopped=false;
- const tick=async()=>{if(running||stopped)return;running=true;try{await syncMailboxOnce({rpc,gmail});if(env.USCE_MAIL_NOTIFICATIONS_ENABLED==='true')await dispatchNextNotification({rpc,env,...dispatchOptions});}catch{/* No content or provider diagnostics in logs. */}finally{running=false;}};
+ const tick=async()=>{
+   if(running || stopped) return;
+   running=true;
+   try {
+     try {
+       await syncMailboxOnce({rpc,gmail});
+       if(env.USCE_MAIL_NOTIFICATIONS_ENABLED==='true') await dispatchNextNotification({rpc,env,...dispatchOptions});
+     } catch { /* Keep mailbox and provider diagnostics out of logs. */ }
+     if(!stopped) await deliverTrackerCode({rpc,env,...dispatchOptions});
+   } catch { /* Each reserved verification message has a single delivery attempt. */ }
+   finally {running=false;}
+ };
  const timer=setInterval(tick,Math.max(5000,intervalMs));timer.unref?.();void tick();
  return {started:true,stop(){stopped=true;clearInterval(timer);},tick};
 }

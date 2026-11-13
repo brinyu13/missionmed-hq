@@ -97,3 +97,19 @@ test('public entry forwards only a case reference to the canonical signed-in tra
     } finally {w.close();}
   }
 });
+
+test('a full session store stops the intake before the first network write', async () => {
+  let sends=0;
+  const a=open(form,{},async()=>{sends++;throw new Error('unreachable');});
+  try {
+    a.set('#student_name','QA Storage');a.set('#email','qa@example.test');a.set('#training_level_or_school','QA school');
+    a.click('#nextBtn');
+    for(const kind of ['specialty','location']){
+      const field='[data-rank="'+kind+'"]';a.set(field,Array.from(a.el(field).options).find(o=>o.value&&!o.disabled).value,'change');
+    }
+    a.click('#nextBtn');a.click('[data-month]');a.click('#nextBtn');a.click('#consent');
+    a.w.Storage.prototype.setItem=function(){throw new Error('Storage unavailable');};
+    a.click('#nextBtn'); await tick();
+    assert.equal(sends,0);assert.match(a.el('#formAlert').textContent,/safe retry/);
+  } finally {a.dom.window.close();}
+});

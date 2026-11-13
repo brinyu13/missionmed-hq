@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
-import {getMailSender,previewMessage,submitMail,sendDraft,notificationMessage,reconcileDispatch,dispatchNextNotification,retryDispatch,makeMailRpc,sha256} from '../lib/usce-mail-dispatch.mjs';
+import {getMailSender,previewMessage,submitMail,sendDraft,notificationMessage,reconcileDispatch,dispatchNextNotification,deliverTrackerCode,retryDispatch,makeMailRpc,sha256} from '../lib/usce-mail-dispatch.mjs';
 import {handleUsceCommunicationsRoute} from '../routes/usce-communications.mjs';
 const ID='11111111-1111-4111-8111-111111111111',DIS='22222222-2222-4222-8222-222222222222',PROVIDER='33333333-3333-4333-8333-333333333333';
 const env={POSTMARK_SERVER_TOKEN:'synthetic-token',USCE_POSTMARK_FROM_EMAIL:'clinicals@missionmedinstitute.com',USCE_POSTMARK_REPLY_TO_EMAIL:'clinicals@missionmedinstitute.com',USCE_POSTMARK_LIVE_SEND_ENABLED:'true',USCE_POSTMARK_DRY_RUN:'false'};
@@ -36,3 +36,26 @@ test('retry never reaches provider unless database proves prior non-acceptance',
 test('dispatch recovery routes require explicit retry confirmation and expose only RPC projection',async()=>{let called;const deps={rpc:async(n,p)=>{called=p;return {ok:true,items:[]}}};assert.equal((await route('/dispatches','GET',null,undefined,deps)).code,200);assert.equal(called.p_action,'list');called=null;const r=await route('/dispatches/'+DIS+'/retry','POST',{},undefined,deps);assert.equal(r.code,400);assert.equal(called,null);});
 
 test('unexpected 4xx/3xx without explicit Postmark rejection remains reconcilable ambiguity',async()=>{for(const status of [302,400,422,429]){let calls=0;const r=await submitMail(payload(),DIS,{env,fetchImpl:async()=>{calls++;return response(status,{})}});assert.equal(r.outcome,'ambiguous');assert.equal(r.proven_unsent,false);assert.equal(calls,1);}});
+
+test('a tracker proof is delivered only to the reserved case address and only its hash goes to storage', async () => {
+  let digest, recipient, body;
+  const rpc=async(name,args)=>{
+    if(name==='usce_tracker_record_delivery'){assert.deepEqual(args,{p_job:ID,p_outcome:'provider_accepted',p_mid:PROVIDER});return true;}
+    assert.equal(name,'usce_tracker_issue');
+    assert.deepEqual(Object.keys(args),['p_hash']);
+    digest=args.p_hash;
+    return {id:ID,reference:DIS,email:'case@example.test'};
+  };
+  const fetchImpl=async(url,options)=>{
+    assert.equal(url,'https://api.postmarkapp.com/email');
+    const sent=JSON.parse(options.body);
+    recipient=sent.To;body=sent.TextBody;
+    return {ok:true,json:async()=>({ErrorCode:0,MessageID:PROVIDER})};
+  };
+  const outcome=await deliverTrackerCode({rpc,env,fetchImpl});
+  assert.equal(outcome.outcome,'provider_accepted');assert.equal(recipient,'case@example.test');
+  const code=body.match(/[A-F0-9]{4}(?:-[A-F0-9]{4}){5}/)[0].replaceAll('-','');
+  assert.equal(sha256(code),digest);assert.ok(body.includes(DIS));
+  let calls=0;await deliverTrackerCode({rpc:async()=>({}),env,fetchImpl:async()=>{calls++;}});
+  assert.equal(calls,0);
+});

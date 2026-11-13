@@ -427,6 +427,35 @@ button,input,select,textarea{font-family:inherit}
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
   const app = $('#app');
+  const wpOrigin='https://missionmedinstitute.com';
+  const needsAccountBridge = location.origin==='https://cdn.missionmedinstitute.com';
+  if (needsAccountBridge && window.top===window) {
+    location.replace(wpOrigin+'/rotation-request/');
+    return;
+  }
+  const accountRequests=new Map();
+  let formAccount={signed_in:false};
+  function askAccount(operation, fields={}) {
+    if (!needsAccountBridge) return Promise.resolve({signed_in:false});
+    const id=crypto.randomUUID();
+    return new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{accountRequests.delete(id);reject(new Error('We couldn’t check your account. Reopen the request form or try again.'));},10000);
+      accountRequests.set(id,result=>{clearTimeout(timer);if(result.error)reject(new Error(result.error==='email_mismatch'?'Use the email shown on your signed-in MissionMed account.':'We couldn’t connect your account. Please try again.'));else resolve(result);});
+      window.parent.postMessage({type:'mmi-usce-account',operation,id,...fields},wpOrigin);
+    });
+  }
+  window.addEventListener('message',event=>{
+    if(event.origin!==wpOrigin || event.source!==window.parent || event.data?.type!=='mmi-usce-account-result')return;
+    const {id,result}=event.data;
+    if(!result || !accountRequests.has(id))return;
+    const finish=accountRequests.get(id);accountRequests.delete(id);finish(result);
+  });
+  function applyAccount(result) {
+    formAccount=result;
+    if(result.signed_in && result.email){
+      $('#email').value=result.email; $('#email').readOnly=true;
+    }
+  }
   let heightFrame = 0;
   let parallaxFrame = 0;
   let audioCtx = null;
@@ -807,7 +836,7 @@ button,input,select,textarea{font-family:inherit}
     try{const h=JSON.parse(storageGet('mm_usce_last_request_hint')||'null');if(!h||!Number.isFinite(h.expires_at)||h.expires_at<=now)storageRemove('mm_usce_last_request_hint');}catch(_){storageRemove('mm_usce_last_request_hint');}
     if(expiredRecovery){storageRemove(KEY_KEY);state.idempotencyKey='';}
   }
-  function storeReceipt(r){ state.receipt=r; storageSet(RECEIPT_KEY,JSON.stringify(r)); }
+  function storeReceipt(r){ state.receipt=r; const text=JSON.stringify(r); return storageSet(RECEIPT_KEY,text) && storageGet(RECEIPT_KEY)===text; }
   function snapshotForm(){
     const fields={}; ['student_name','email','phone','training_level_or_school','duration_weeks','flexibility','notes'].forEach(id=>fields[id]=$('#'+id).value);
     fields.consent=$('#consent').checked;
@@ -836,8 +865,10 @@ button,input,select,textarea{font-family:inherit}
   }
   window.addEventListener('pagehide', saveInProgress);
   function savePending(payload){
-    const r={expires_at:Date.now()+RECOVERY_TTL,idempotency_key:payload.idempotency_key,payload,snapshot:snapshotForm()};
-    state.pending=r; storageSet(RECOVERY_KEY,JSON.stringify(r));
+    const r={expires_at:Date.now()+RECOVERY_TTL,idempotency_key:getIdempotencyKey(),payload,snapshot:snapshotForm()};
+    state.pending=r;
+    const serialized=JSON.stringify(r);
+    if(!storageSet(RECOVERY_KEY,serialized) || storageGet(RECOVERY_KEY)!==serialized) throw new Error('Your browser couldn’t save this request for a safe retry. Allow session storage in this tab, then submit again.');
   }
   function showConfirmed(r){
     $('#requestRef').textContent=r.request_id; $('#confirmedEmail').textContent='Email for follow-up: '+r.email;
@@ -869,17 +900,30 @@ button,input,select,textarea{font-family:inherit}
     clearConsentAttention(); state.submitting=true; $('#nextBtn').disabled=true; $('#backBtn').disabled=true;
     showAlert('Submitting your request securely...','info'); let payload=collectPayload();
     if(state.pending){if(JSON.stringify(snapshotForm())!==JSON.stringify(state.pending.snapshot)){restoreForm(state.pending.snapshot);showAlert('We restored the original request so a retry uses the same details and reference. Submit again to check its saved status.','info');state.submitting=false;$('#nextBtn').disabled=false;$('#backBtn').disabled=state.step===1;return;} payload=state.pending.payload;}
-    savePending(payload);
     try {
+      if(needsAccountBridge){
+        const now=await askAccount('context');
+        if(formAccount.signed_in!==now.signed_in || (now.signed_in && (now.email!==formAccount.email || now.partition!==formAccount.partition))) throw new Error('Your signed-in account changed. Reload the form before submitting.');
+        if(now.signed_in){
+          if(payload.email.toLowerCase()!==now.email.toLowerCase())throw new Error('Your request email must match your signed-in account.');
+          const original=getIdempotencyKey();
+          const prepared=await askAccount('prepare',{key:original,email:payload.email});
+          if(!prepared.signed_in || !/^mmwp1-[0-9a-f]{64}$/.test(prepared.key))throw new Error('Your account connection expired. Reload the form and try again.');
+          if(state.pending && payload.idempotency_key!==prepared.key && payload.idempotency_key!==original)throw new Error('This saved submission belongs to a different account. Reopen it using the original account.');
+          // Existing pre-release guest retries must retain their original key, even after login.
+          if (!state.pending || payload.idempotency_key.startsWith('mmwp1-')) payload={...payload,idempotency_key:prepared.key};
+        } else if(payload.idempotency_key.startsWith('mmwp1-'))throw new Error('Sign in with the original account to retry this request.');
+      }
+      savePending(payload);
       const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-MM-USCE-Idempotency-Key':payload.idempotency_key},body:JSON.stringify(payload),credentials:'omit'});
       let data={}; try{data=await res.json();}catch(_){}
       const verified=!!(res.ok && data && data.success===true && data.dry_run===false && UUID_RE.test(String(data.request_id||'')) && typeof data.status==='string' && data.status.trim());
       if(!verified){throw new Error(data && data.dry_run===true ? 'The service did not confirm a saved request. Your details are kept briefly on this page; please retry or contact Clinicals.' : (data && data.message) || 'We could not verify that your request was saved. Your details are kept briefly for a safe retry.');}
       const receipt={request_id:data.request_id,email:payload.email,status:data.status,submitted_at:Date.now(),expires_at:Date.now()+RECEIPT_TTL};
-      storeReceipt(receipt); state.pending=null; storageRemove(RECOVERY_KEY); storageRemove('mm_usce_last_request_hint');
+      const savedReceipt=storeReceipt(receipt); state.pending=null; if(savedReceipt)storageRemove(RECOVERY_KEY); storageRemove('mm_usce_last_request_hint');
 
       $('#successCopy').textContent='Your request is confirmed as saved. MissionMed Clinicals will review it and follow up at the email shown below.';
-      showConfirmed(receipt); rotateIdempotencyKey();
+      showConfirmed(receipt); if(!savedReceipt)$('#successCopy').textContent='Your request was saved. Keep the reference above or open your tracker. This browser could not keep a receipt after refresh.'; rotateIdempotencyKey();
     } catch(err) {
       const message = err instanceof TypeError ? 'We couldn’t reach Clinicals. Your entries are still here. Check your connection and retry this request.' : err.message;
       showAlert(message || 'We couldn’t verify your request. Retry here using the same details.', 'error');
@@ -925,7 +969,19 @@ button,input,select,textarea{font-family:inherit}
   renderMonths();
   $('#monthOtherInput').addEventListener('input', e=>{state.otherDates=e.target.value;});
   setStep(1);
-  restoreSession();
+  if(needsAccountBridge){
+    $('#nextBtn').disabled=true;
+    const initializeAccount=()=>askAccount('context').then(result=>{
+      const partition=result.signed_in ? result.partition : 'guest';
+      if(!partition)throw new Error('Please reload the form to reconnect your account.');
+      const previous=storageGet('mm_usce_account_partition');
+      if(previous!==partition && (previous || result.signed_in)){storageRemove(RECOVERY_KEY);storageRemove(RECEIPT_KEY);storageRemove(KEY_KEY);}
+      storageSet('mm_usce_account_partition',partition);restoreSession();applyAccount(result);ready=true;setStep(state.step);$('#nextBtn').disabled=false;
+    }).catch(error=>{showAlert(error.message,'error');$('#nextBtn').disabled=false;$('#nextBtn').textContent='Reconnect to MissionMed';});
+    let ready=false;
+    $('#nextBtn').addEventListener('click',event=>{if(ready)return;event.preventDefault();event.stopImmediatePropagation();$('#nextBtn').disabled=true;initializeAccount();},true);
+    initializeAccount();
+  } else restoreSession();
 
 })();
 </script>
