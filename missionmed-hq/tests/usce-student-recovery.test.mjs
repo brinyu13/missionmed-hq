@@ -71,6 +71,7 @@ test('retry preserves request and key, rejects an unverified success and restore
     a.click('#nextBtn'); await tick();
     assert.equal(bodies.length,2);assert.deepEqual(bodies[0],bodies[1]);
     assert.equal(a.el('#successState').classList.contains('is-on'),true);
+    const receiptTarget=new URL(a.el('#trackerBtn').href); assert.equal(receiptTarget.searchParams.get('ref'),id); assert.equal(receiptTarget.searchParams.get('action'),'mmi_usce_student_tracker'); assert.equal(receiptTarget.pathname,'/wp-admin/admin-post.php');
     const saved=a.snapshot();
     assert.equal(saved.mm_usce_request_recovery_v1,undefined);
     assert.notEqual(saved.mm_usce_request_idempotency_key,bodies[0].idempotency_key);
@@ -82,17 +83,17 @@ test('retry preserves request and key, rejects an unverified success and restore
   } finally {a.dom.window.close();}
 });
 
-test('tracker shows sign-in, empty, unavailable, and recorded review states without a timer', async () => {
-  const check=async (data,status,storage,heading)=>{
-    const a=open(tracker,storage,async()=>({ok:status===200,status,json:async()=>data}));
-    try {await tick();assert.equal(a.el('#trackerHeading').textContent,heading);}finally{a.dom.window.close();}
-  };
-  const auth={mm_usce_student_bearer_session:'synthetic-fixture'};
-  await check(null,401,{},'View your rotation request');
-  await check({ok:true,authenticated:true,items:[],current:null},200,auth,'No request found');
-  await check({},503,auth,'Status temporarily unavailable');
-  for (const [status,heading] of [['new','Request received'],['reviewed','Under review']]) {
-    const current={request:{id,status,submitted_at:'2025-01-01T12:00:00Z'},decision:{status:'pending'}};
-    await check({ok:true,authenticated:true,current,items:[current]},200,auth,heading);
+test('public entry forwards only a case reference to the canonical signed-in tracker', () => {
+  for (const query of ['?ref='+id+'&email=wrong@example.test&redirect_to=https://example.test/#old','?ref=invalid','']) {
+    const dom = new JSDOM(tracker,{url:'https://synthetic.invalid/'+query,runScripts:'outside-only'});
+    const w=dom.window; w.sessionStorage.setItem('mm_usce_student_bearer_session','retired-fixture');
+    try {
+      w.eval(w.document.querySelector('script').textContent);
+      const href=new URL(w.document.querySelector('#accountLink').href);
+      assert.equal(href.origin+href.pathname,'https://missionmedinstitute.com/wp-admin/admin-post.php');
+      assert.deepEqual([...href.searchParams],query.startsWith('?ref='+id) ? [['action','mmi_usce_student_tracker'],['ref',id]] : [['action','mmi_usce_student_tracker']]);
+      assert.equal(w.sessionStorage.getItem('mm_usce_student_bearer_session'),null);
+      assert.equal(w.location.hash,''); assert.doesNotMatch(w.document.body.textContent,/Request received/i);
+    } finally {w.close();}
   }
 });

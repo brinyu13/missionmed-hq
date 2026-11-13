@@ -384,7 +384,7 @@ button,input,select,textarea{font-family:inherit}
         <p id="confirmedEmail" class="mm-confirmed-email" aria-live="polite"></p>
         <div class="mm-success-actions">
           <a class="mm-btn mm-primary" id="trackerBtn" href="#">Open tracker</a>
-          <a class="mm-btn mm-dark" id="accountBtn" href="#">Create / login to account</a>
+
           <button class="mm-btn mm-ghost" type="button" id="newRequestBtn">Submit another request</button>
         </div>
       </section>
@@ -764,25 +764,11 @@ button,input,select,textarea{font-family:inherit}
     showAlert('Almost done: check the green confirmation box, then submit your request.', 'success');
   }
 
-  function buildTrackerUrl(requestRef, submitted){
-    const url = new URL(CONFIG.trackerPageUrl);
-    if (submitted) url.searchParams.set('request_submitted', '1');
-    if (requestRef) url.searchParams.set('ref', String(requestRef).slice(0, 80));
-    return url.toString();
-  }
-
-  function buildAccountUrl(target){
-    const url = new URL(CONFIG.wpAccountUrl);
-    url.searchParams.set('redirect_to', target || CONFIG.trackerPageUrl);
-    return url.toString();
-  }
-
   function wireTrackerSuccessLinks(receipt) {
-    const trackerUrl = buildTrackerUrl(receipt.request_id, true);
-    $('#trackerBtn').href = trackerUrl;
+    const url = new URL('https://missionmedinstitute.com/wp-admin/admin-post.php?action=mmi_usce_student_tracker');
+    url.searchParams.set('ref', receipt.request_id);
+    $('#trackerBtn').href = url.href;
     $('#trackerBtn').target = '_top';
-    $('#accountBtn').href = buildAccountUrl(trackerUrl);
-    $('#accountBtn').target = '_top';
   }
 
   function showAlert(message, type, on=true){
