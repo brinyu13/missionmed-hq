@@ -2767,16 +2767,23 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 
     const ofMonths = $('#mmOfMonths'); ofMonths.innerHTML='';
     const studentMonths = r.months || [];
-    const pool = Array.from(new Set(studentMonths.concat(existing?.months||[],MONTHS)));
-    const preselected = new Set(existing && existing.months && existing.months.length ? existing.months : (studentMonths[0] ? [studentMonths[0]] : []));
-    pool.forEach(m => {
+    const savedMonths = existing?.months || [];
+    const selected = savedMonths.length ? savedMonths : studentMonths.slice(0,1);
+    const savedValues = new Map(savedMonths.map(value => [offeredMonthKey(value), value]));
+    const preselected = new Set(selected.map(offeredMonthKey));
+    const pool = new Map();
+    for (const value of [...studentMonths, ...savedMonths, ...MONTHS]) {
+      const key = offeredMonthKey(value);
+      if (!pool.has(key)) pool.set(key, savedValues.get(key) || value);
+    }
+    pool.forEach((m, key) => {
       const b = document.createElement('button');
       b.type='button'; b.className='mm-month'; b.dataset.val=m;
-      const prefIdx = studentMonths.indexOf(m);
+      const prefIdx = studentMonths.findIndex(value => offeredMonthKey(value) === key);
       const prefTag = prefIdx > -1 ? '<span class="mm-pref-tag">#'+(prefIdx+1)+'</span>' : '';
-      b.innerHTML = '<span>'+esc(m)+'</span>' + prefTag;
+      b.innerHTML = '<span>'+esc(monthDisplay(m))+'</span>' + prefTag;
       if (prefIdx > -1) b.classList.add('is-preferred');
-      if (preselected.has(m)) b.classList.add('is-on');
+      if (preselected.has(key)) b.classList.add('is-on');
       b.setAttribute('aria-pressed', String(b.classList.contains('is-on')));
       b.addEventListener('click', ()=> { b.classList.toggle('is-on'); b.setAttribute('aria-pressed', String(b.classList.contains('is-on'))); updatePreflight(); });
       ofMonths.appendChild(b);
@@ -2826,7 +2833,8 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     const locRank = loc ? r.locations.findIndex(value => preferenceKey(value) === preferenceKey(loc)) : -1;
     items.push({ ok: specRank > -1, msg: specRank > -1 ? ('Matches student preference #' + (specRank+1) + ' for specialty') : 'Specialty is OUTSIDE student ranked list', warn: specRank < 0 });
     items.push({ ok: locRank > -1, msg: locRank > -1 ? ('Matches student preference #' + (locRank+1) + ' for location') : 'Location is OUTSIDE student ranked list', warn: locRank < 0 });
-    const monthMatch = months.some(m => (r.months||[]).indexOf(m) > -1);
+    const requestedMonthKeys = new Set((r.months || []).map(offeredMonthKey));
+    const monthMatch = months.some(m => requestedMonthKeys.has(offeredMonthKey(m)));
     items.push({ ok: monthMatch, msg: monthMatch ? 'At least one offered month matches student preference' : 'No offered month matches student preference', warn: months.length && !monthMatch });
     pf.innerHTML = '<b style="font-size:11px; color:var(--mm-navy); text-transform:uppercase; letter-spacing:0.08em;">Pre-flight checks</b><ul>' +
       items.map(i => '<li class="'+(i.ok?'ok':'warn')+'">'+esc(i.msg)+'</li>').join('') + '</ul>';
@@ -3780,13 +3788,25 @@ CONFIG.gmailMailboxes[0];
     $('#mmJourneyApproval').checked=false;$('#mmJourneySendNow').disabled=true;
     journey.result=null;renderOfferSummary();
   }
+  function offeredMonthKey(value) {
+    const text = String(value || '').trim();
+    const exactMonth = /^(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{4}$/i;
+    if (/^\d{4}-\d{2}$/.test(text) || exactMonth.test(text)) return monthKey(text) || text;
+    return text;
+  }
+  function monthDisplay(value) {
+    const text = String(value || '').trim();
+    const m = text.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+    if (!m) return text;
+    return new Intl.DateTimeFormat('en-US', {month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(text+'-01T00:00:00Z'));
+  }
   function monthKey(value){
     const text=String(value||'').trim();const iso=text.match(/^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/);if(iso)return iso[1]+'-'+iso[2];
     const human=text.match(/^([a-z]+)\.?\s+(\d{4})$/i);if(!human)return null;const names=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];const index=names.indexOf(human[1].slice(0,3).toLowerCase());return index<0?null:human[2]+'-'+String(index+1).padStart(2,'0');
   }
   function updateJourneyDates(){
     const r=currentReq();if(!r)return;
-    $('#mmJourneyDatePrefs').textContent='Student requested: '+r.months.join(' · ')+' · '+r.length;
+    $('#mmJourneyDatePrefs').textContent='Student requested: '+r.months.map(monthDisplay).join(' · ')+' · '+r.length;
     const requested=r.months.map(monthKey).filter(Boolean),canonical=journey.options.length>0;
     const options=canonical?collectJourneyOptions():[{month_label:$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val),date_window_start:$('#mmOfStart').value}];
     const warnings=[];

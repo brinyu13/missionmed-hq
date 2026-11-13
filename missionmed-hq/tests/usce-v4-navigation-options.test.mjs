@@ -79,3 +79,19 @@ check('a busy operation cannot strand the rail after detail tab navigation',asyn
  a.setV3Workspace('dashboard');a.state.busy=true;w.document.querySelector('#mmDetTabs [data-tab="audit"]').click();a.state.busy=false;
  assert.ok([...w.document.querySelectorAll('[data-sf-nav]')].every(button=>!button.disabled));w.document.querySelector('[data-sf-nav="pipeline"]').click();assert.equal($('mmCx').dataset.workspace,'pipeline');assert.equal(a.state.selectedRequestId,r.id);
 });
+
+check('ISO request month and January menu choice render once and retain the stored Offer value',async({a,w,$,r})=>{
+ r.months=['2027-01'];a.openJourney();
+ const chips=()=>[...w.document.querySelectorAll('#mmOfMonths .mm-month')];
+ const january=()=>chips().filter(b=>/Jan(?:uary)? 2027/.test(b.textContent));
+ assert.equal(january().length,1);
+ assert.equal(january()[0].dataset.val,'2027-01');
+ assert.match(january()[0].textContent,/January 2027.*#1/);
+ assert.equal(january()[0].getAttribute('aria-pressed'),'true');
+ a.state.liveOffersByRequest[r.id]={...a.readOfferForm(),id:'offer-a',revision:1,status:'DRAFT',detailsLoaded:true,months:['Jan 2027','2027-01-15','Januaryflexible 2027']};
+ $('mmJourneyScrim').close();a.journey.resumeAvailable=false;a.openJourney();
+ assert.equal(january().length,1);
+ assert.equal(january()[0].dataset.val,'Jan 2027');
+ assert.ok(chips().some(b=>b.dataset.val==='2027-01-15' && b.classList.contains('is-on')));
+ assert.deepEqual(Array.from(a.readOfferForm().months),['Jan 2027','2027-01-15','Januaryflexible 2027']);
+});
