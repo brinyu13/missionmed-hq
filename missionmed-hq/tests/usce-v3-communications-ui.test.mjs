@@ -121,10 +121,38 @@ check('Review stays unavailable until a verified student and complete message ar
  a.startMailComposer(CASE);input('mmMailSubject','Subject');input('mmMailBody','Body');assert.equal($('mmMailPreview').disabled,false);
 });
 
-check('global Write Message resumes the last student draft even when the open case is different',async({a,w,$,r,input})=>{
- const other={...r,id:'44444444-4444-4444-8444-444444444444',name:'Second Student',email:'second@example.test'};a.state.requests.push(other);a.state.selectedRequestId=CASE;await a.loadMailConfig();
- $('mmMailComposeNew').click();input('mmMailStudentSearch','second');w.document.querySelector('.mm-student-result').click();input('mmMailSubject','Second student subject');input('mmMailBody','Second student words');$('mmMailCancel').click();
- assert.equal(a.state.selectedRequestId,CASE);$('mmMailComposeNew').click();assert.equal($('mmMailCase').value,other.id);assert.equal($('mmMailSubject').value,'Second student subject');assert.equal($('mmMailBody').value,'Second student words');assert.equal(a.mail.preview,null);assert.equal($('mmMailApproval').checked,false);
+check('Write Message keeps the current case and restores drafts only for their owner', async ({a,w,$,r,input}) => {
+  const other = {...r,id:'44444444-4444-4444-8444-444444444444',name:'Second Student',email:'second@example.test'};
+  a.state.requests.push(other);
+  a.state.selectedRequestId = CASE;
+  await a.loadMailConfig();
+  $('mmMailComposeNew').click();
+  input('mmMailStudentSearch','second');
+  w.document.querySelector('.mm-student-result').click();
+  input('mmMailSubject','Second student subject');
+  input('mmMailBody','Second student words');
+  $('mmMailCancel').click();
+  $('mmMailComposeNew').click();
+  assert.equal($('mmMailCase').value, CASE);
+  assert.equal($('mmMailBody').value, '');
+  $('mmMailCancel').click();
+  a.startMailComposer(other.id);
+  assert.equal($('mmMailBody').value,'Second student words');
+  assert.equal(a.mail.preview,null);
+  assert.equal($('mmMailApproval').checked,false);
+});
+
+check('Unassigned puts possible replies above intake notices without changing any associations', async ({a,w,$,calls,override}) => {
+  const notice = {id:MSG, direction:'IN',from_email:'info@missionmedinstitute.com',to_email:'clinicals@missionmedinstitute.com',subject:'New MissionMed USCE request: Synthetic',needs_triage:true};
+  const reply = {...notice,id:DIS,subject:'Re: USCE Offer',from_email:'applicant@example.test'};
+  override(path => path.includes('folder=unassigned') ? {ok:true,items:[notice,reply],counts:{unassigned:2},has_more:false} : undefined);
+  w.document.querySelector('[data-sf-nav="comms"]').click();
+  await tick();
+  w.document.querySelector('[data-mail-folder="unassigned"]').click();
+  await tick();await tick();
+  assert.deepEqual(Array.from($('mmMailList').querySelectorAll('h3'),n=>n.textContent), ['Possible student replies (1)','Intake notices (1)']);
+  assert.deepEqual(Array.from($('mmMailList').querySelectorAll('button'),n=>n.dataset.messageId),[DIS,MSG]);
+  assert.ok(calls.every(c=>c.options?.method!=='POST'));
 });
 
 check('Review focuses the exact proof and Edit returns safely without losing message text',async({a,w,$,input})=>{

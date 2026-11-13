@@ -870,7 +870,11 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 .mm-cx.mm-v3 #mmMailApprovalBar{flex:1 0 100%;min-height:44px;padding:8px 12px;background:#102e4c;color:#fff;border-color:#d7b55b;margin:0}
 .mm-cx.mm-v3 #mmMailApprovalBar input{width:20px;height:20px;flex:none}
 @media(max-width:600px){.mm-cx.mm-v3 .mm-journey{grid-template-rows:auto minmax(0,1fr) auto}.mm-cx.mm-v3 .mm-journey-head{min-height:62px}}
-</style></head>
+</style><style>
+.mm-cx.mm-v3 .mm-triage-heading{font:700 15px/1.4 var(--mm-sans);color:#173e66;margin:14px 8px 6px}
+.mm-cx.mm-v3 #mmMailComposeStatus{font-size:14px;line-height:1.4}
+</style>
+</head>
 <body>
 
 <div class="mm-cx" id="mmCx">
@@ -3858,13 +3862,63 @@ CONFIG.gmailMailboxes[0];
     $('#mmMailSave').disabled=mail.busy;$('#mmMailCancel').disabled=mail.busy;$('#mmMailReviewEdit').disabled=mail.busy||mail.attempted;
     ['mmMailCase','mmMailSubject','mmMailBody','mmMailTemplate','mmMailUseTemplate','mmMailEdit','mmMailBlank'].forEach(id=>$('#'+id).disabled=mail.busy);
     $('#mmMailCase').disabled=mail.busy||!!mail.draft||!!mail.reply;
-    $('#mmMailComposeStatus').textContent=mail.busy?'Working...':mail.composeError?mail.composeError:mail.attempted?'Send attempted. Check its recorded status before trying again.':!ready?'The Clinicals sender is not ready. You can keep or save your draft.':reviewed?(approved?'Ready to send this approved message.':'Check the message, then tick the approval box.'):(mail.dirty?'Your message is kept in this workspace. Review it before sending.':'Find the student, write your message, then review it.');
+    $('#mmMailComposeStatus').textContent=mail.busy?'Working...':mail.composeError?mail.composeError:mail.attempted?'Send attempted. Check its recorded status before trying again.':!ready?'The Clinicals sender is not ready. You can keep or save your draft.':reviewed?(approved?'Ready to send this approved message.':'Check the message, then tick the approval box.'):(mail.dirty?'Unsaved changes. Choose Save draft to keep this message after closing the page.':'Find the student, write your message, then review it.');
     renderStudentPicker();
   }
   function mailInvalidate(){mail.composeError=null;mail.preview=null;$('#mmMailApproval').checked=false;$('#mmMailExactPreview').hidden=true;mailControls();}
   async function mailRequest(tail='',options={method:'GET'}){return adminFetch(MAIL_API+tail,{},options);}
   async function loadMailConfig(){try{mail.config=await mailRequest('/config');$('#mmMailSender').textContent=mail.config.sender?.from_email||'Clinicals sender unavailable';}catch(error){mail.config=null;mailStatus(mailError(error));}mailControls();}
-  function renderMailList(){const list=$('#mmMailList');list.replaceChildren();for(const item of mail.items){const button=document.createElement('button');button.type='button';button.className='mm-mail-item'+(item.unread?' is-unread':'')+(item.id===mail.selected?' is-active':'');button.dataset.messageId=item.id;button.innerHTML='<b>'+esc(item.student_name||item.from_email||item.to_email||'Needs review')+'</b><span>'+esc(item.subject||'(No subject)')+'</span><small>'+esc(item.state||'Recorded')+' · '+esc(fmtDateTime(Date.parse(item.received_at||item.created_at)))+'</small>';button.addEventListener('click',()=>openMailThread(item.id));list.append(button);}if(!mail.items.length){const p=document.createElement('p');p.className='mm-hint';p.textContent='No messages match this folder and search.';list.append(p);}$('#mmMailMore').hidden=!mail.cursor;$$('[data-mail-folder]').forEach(button=>button.setAttribute('aria-current',button.dataset.mailFolder===mail.folder?'page':'false'));}
+  function reviewGroup(item) {
+    const from = String(item.from_email || '').trim().toLowerCase();
+    const to = String(item.to_email || '').trim().toLowerCase();
+    const subject = String(item.subject || '').trim();
+    const notice = item.direction === 'IN' && from === 'info@missionmedinstitute.com' &&
+      to === 'clinicals@missionmedinstitute.com' && /^New MissionMed USCE request: .+/i.test(subject);
+    if (notice) return 'Intake notices';
+    if (item.association === 'unverified_reference' || /^re:/i.test(subject)) return 'Possible student replies';
+    return 'Other messages to review';
+  }
+
+  function renderMailList() {
+    const list = $('#mmMailList');
+    list.replaceChildren();
+    const appendItem = item => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mm-mail-item' + (item.unread ? ' is-unread' : '') + (item.id === mail.selected ? ' is-active' : '');
+      button.dataset.messageId = item.id;
+      const sender = document.createElement('b');
+      sender.textContent = item.student_name || item.from_email || item.to_email || 'Needs review';
+      const subject = document.createElement('span');
+      subject.textContent = item.subject || '(No subject)';
+      const details = document.createElement('small');
+      details.textContent = (item.state || 'Recorded') + ' · ' + fmtDateTime(Date.parse(item.received_at || item.created_at));
+      button.append(sender, subject, details);
+      button.addEventListener('click', () => openMailThread(item.id));
+      list.append(button);
+    };
+    if (mail.folder === 'unassigned') {
+      for (const group of ['Possible student replies', 'Other messages to review', 'Intake notices']) {
+        const items = mail.items.filter(item => reviewGroup(item) === group);
+        if (!items.length) continue;
+        const title = document.createElement('h3');
+        title.className = 'mm-triage-heading';
+        title.textContent = group + ' (' + items.length + ')';
+        list.append(title);
+        items.forEach(appendItem);
+      }
+    } else {
+      mail.items.forEach(appendItem);
+    }
+    if (!mail.items.length) {
+      const empty = document.createElement('p');
+      empty.className = 'mm-hint';
+      empty.textContent = 'No messages match this folder and search.';
+      list.append(empty);
+    }
+    $('#mmMailMore').hidden = !mail.cursor;
+    $$('[data-mail-folder]').forEach(button => button.setAttribute('aria-current', button.dataset.mailFolder === mail.folder ? 'page' : 'false'));
+  }
   async function loadMailList(append=false){const generation=++mail.generation;mailStatus('Loading messages…');const params=new URLSearchParams({folder:mail.folder,search:mail.query});if(append&&mail.cursor){params.set('before',mail.cursor.before);params.set('before_id',mail.cursor.before_id);}try{const data=await mailRequest('?'+params);if(generation!==mail.generation)return;const rows=Array.isArray(data.items)?data.items:[];mail.items=append?Array.from(new Map(mail.items.concat(rows).map(item=>[item.id,item])).values()):rows;mail.cursor=data.has_more?data.next_cursor:null;for(const folder of ['inbox','sent','drafts','unread','unassigned'])$('#mmMailCount_'+folder).textContent=Number.isFinite(data.counts?.[folder])?data.counts[folder]:'';renderMailList();const sync=data.sync;mailStatus(sync?.last_error_code?'Mailbox sync requires attention; showing recorded messages.':sync?.recovering?'Mailbox sync is recovering; showing recorded messages.':sync?.backfill_complete===false?'First mailbox sync is incomplete; showing recorded messages.':'Messages are up to date.');}catch(error){if(generation!==mail.generation)return;mailStatus(mailError(error));if(!append){mail.items=[];renderMailList();$('#mmMailList').firstElementChild.textContent='Messages could not be loaded. Refresh to retry.';}}}
   function renderMailThread(){const host=$('#mmMailThreadMessages');host.replaceChildren();for(const item of mail.thread.slice().reverse()){const article=document.createElement('article');article.className='mm-mail-message';article.dataset.messageId=item.id;article.innerHTML='<header><b>'+esc(item.from_email||'Recorded message')+'</b><small>'+esc(item.state||'Recorded')+' · '+esc(fmtDateTime(Date.parse(item.received_at||item.created_at)))+'</small></header><h3>'+esc(item.subject||'(No subject)')+'</h3><small>To: '+esc(item.to_email||'Not recorded')+'</small>';const body=document.createElement('pre');body.textContent=item.body_unavailable?'The full body could not be retrieved. Open the Clinicals mailbox to read the message.':item.body_text||'(No text body recorded)';article.append(body);if(item.body_unavailable){const gmail=document.createElement('a');gmail.href='https://mail.google.com/mail/u/?authuser=clinicals%40missionmedinstitute.com';gmail.target='_blank';gmail.rel='noopener noreferrer';gmail.textContent='Open Clinicals in Gmail';article.append(gmail);}if(item.attachment_count){const note=document.createElement('small');note.textContent=item.attachment_count+' attachment(s) recorded. Attachment download is unavailable here.';article.append(note);}if(item.body_truncated){const note=document.createElement('small');note.textContent='Stored body was truncated by the mailbox importer.';article.append(note);}host.append(article);}$('#mmMailThreadMore').hidden=!mail.threadCursor;const selected=mailSelected();$('#mmMailComposeNew').classList.toggle('is-secondary',!!selected?.intake_request_id&&!selected?.needs_triage);$('#mmMailReply').disabled=!selected?.intake_request_id||selected?.needs_triage;$('#mmMailEditDraft').hidden=selected?.state!=='draft';$('#mmMailAssign').hidden=!selected?.needs_triage;$('#mmMailCaseOpen').disabled=!selected?.intake_request_id;$('#mmMailThreadTitle').textContent=selected?.subject||'Conversation';focusSelectedMailMessage();}
   function focusSelectedMailMessage(){const host=$('#mmMailThreadMessages'),target=Array.from(host.children).find(article=>article.dataset.messageId===mail.selected);if(!target)return;host.scrollTop=Math.max(0,host.scrollTop+target.getBoundingClientRect().top-host.getBoundingClientRect().top);target.tabIndex=-1;target.focus({preventScroll:true});}
@@ -3935,7 +3989,13 @@ CONFIG.gmailMailboxes[0];
   async function sendReviewedMail(){const proof=mail.preview;if(mail.config?.sender?.ready!==true||!proof||proof.snapshot!==composerSnapshot()||mail.dirty||mail.attempted||!$('#mmMailApproval').checked)throw new Error('Review and approve the exact saved message first.');mail.attempted=true;mailControls();try{const data=await mailRequest('/messages/'+proof.message_id+'/send',{method:'POST',body:{revision:proof.revision,preview_hash:proof.preview_hash,idempotency_key:mail.key,confirm_send:true}});mail.dispatch=data.dispatch_id;mailStatus(data.outcome==='provider_accepted'?'Message accepted by the provider. Delivery is not confirmed.':'Send outcome: '+(data.outcome||'unconfirmed')+'. Do not resend before reconciliation.');$('#mmMailSendOutcome').textContent=$('#mmMailStatus').textContent;$('#mmMailReconcile').hidden=!mail.dispatch||data.outcome==='provider_accepted';}catch(error){mail.dispatch=error?.payload?.dispatch_id||null;$('#mmMailSendOutcome').textContent=mailError(error)+' Do not resend.';$('#mmMailReconcile').hidden=!mail.dispatch;throw error;}finally{mail.preview=null;$('#mmMailApproval').checked=false;loadMailList();if(mail.draft?.intake_request_id)loadCaseMail(mail.draft.intake_request_id);}}
   async function loadCaseMail(id,append=false){if(!MAIL_UUID.test(id))return;const cached=mail.caseHistory[id];const params=new URLSearchParams({folder:'all',intake_request_id:id});if(append&&cached?.cursor){params.set('before',cached.cursor.before);params.set('before_id',cached.cursor.before_id);}try{const data=await mailRequest('?'+params);mail.caseHistory[id]={items:append?(cached?.items||[]).concat(data.items||[]):data.items||[],cursor:data.has_more?data.next_cursor:null};if(currentReq()?.id===id)renderCaseMail(id);}catch(error){if(currentReq()?.id===id)$('#mmCaseMailHistory').textContent=mailError(error);}}
   function renderCaseMail(id){const host=$('#mmCaseMailHistory');host.replaceChildren();const data=mail.caseHistory[id];if(!data){host.textContent='Loading correspondence…';return;}for(const item of data.items){const button=document.createElement('button');button.type='button';button.className='mm-case-mail-record';button.textContent=(item.subject||'(No subject)')+' · '+item.state+' · '+fmtDateTime(Date.parse(item.received_at||item.created_at));button.addEventListener('click',()=>{setV3Workspace('communications');if(root.dataset.workspace==='communications')openMailThread(item.id);});host.append(button);}if(!data.items.length)host.textContent='No correspondence recorded for this case.';if(data.cursor){const more=document.createElement('button');more.type='button';more.textContent='Older correspondence';more.addEventListener('click',()=>loadCaseMail(id,true));host.append(more);}}
-  $('#mmMailComposeNew').addEventListener('click',()=>{const kept=mail.working.get(mail.lastComposerCase);const id=kept&&(kept.dirty||kept.draft)?mail.lastComposerCase:currentReq()?.id||null;startMailComposer(id==='__unselected__'?null:id);});
+  $('#mmMailComposeNew').addEventListener('click', () => {
+    const selected = mail.selected ? mailSelected() : null;
+    const id = mail.selected
+      ? (selected?.id === mail.selected && !selected.needs_triage ? selected.intake_request_id : null)
+      : currentReq()?.id || null;
+    startMailComposer(id);
+  });
   $$('[data-mail-folder]').forEach(button=>button.addEventListener('click',()=>{if(!mailNavigate())return;mail.folder=button.dataset.mailFolder;loadMailList();}));
   let mailSearchTimer;$('#mmMailSearch').addEventListener('input',()=>{clearTimeout(mailSearchTimer);mailSearchTimer=setTimeout(()=>{if(!mailNavigate())return;mail.query=$('#mmMailSearch').value.trim();loadMailList();},250);});
   $('#mmMailRefresh').addEventListener('click',()=>{loadMailConfig();loadMailList();});$('#mmMailMore').addEventListener('click',()=>loadMailList(true));$('#mmMailThreadMore').addEventListener('click',()=>openMailThread(mail.selected,true));
