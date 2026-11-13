@@ -66,7 +66,8 @@ function mmi_usce_tracker_page($items, $error = false, $ref = '') {
 
 function mmi_usce_tracker_entry() {
     nocache_headers(); header('Cache-Control: private, no-store, max-age=0, must-revalidate'); header('Vary: Cookie',false);
-    header('Referrer-Policy: no-referrer'); header('X-Robots-Tag: noindex, nofollow'); header('X-Content-Type-Options: nosniff');
+    // Preserve the same-site Origin on native claim POSTs and omit referrers off site.
+    header('Referrer-Policy: same-origin'); header('X-Robots-Tag: noindex, nofollow'); header('X-Content-Type-Options: nosniff');
     header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') { status_header(405); header('Allow: GET'); exit; }
     $ref = isset($_GET['ref']) && is_string($_GET['ref']) ? wp_unslash($_GET['ref']) : '';
