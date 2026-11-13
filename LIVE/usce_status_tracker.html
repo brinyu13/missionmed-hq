@@ -74,7 +74,7 @@
         <a class="mm-btn mm-btn-primary" id="accountLink" href="https://missionmedinstitute.com/my-account/">Open my MissionMed account</a>
         <button class="mm-btn mm-btn-primary" type="button" id="retryStatus" hidden>Try again</button>
         <a class="mm-btn mm-btn-ghost" id="requestLink" href="https://missionmedinstitute.com/usce/">Request a rotation</a>
-        <a class="mm-btn mm-btn-ghost" href="mailto:clinicals@missionmedinstitute.com">Contact Clinicals</a>
+        <a class="mm-btn mm-btn-ghost" id="gateContactLink" href="https://missionmedinstitute.com/contact/">Contact Clinicals</a>
       </div>
     </section>
 
@@ -309,6 +309,7 @@
   function wireContactLinks(){
     const malpractice = $('#malpracticeContactLink');
     const footer = $('#footerContactLink');
+    $('#gateContactLink').href = clinicalContactHref('USCE request question');
     if (malpractice) malpractice.href = clinicalContactHref('USCE malpractice insurance question');
     if (footer) footer.href = clinicalContactHref('');
   }
