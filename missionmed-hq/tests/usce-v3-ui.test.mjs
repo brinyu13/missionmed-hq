@@ -27,7 +27,10 @@ check('pipeline reflects same queue in four exact lanes and preserves exceptiona
  a.state.query='Synthetic 1';a.renderRequestList();assert.equal(w.document.querySelectorAll('.mm-pipeline-card').length,1);assert.equal(w.document.querySelector('.mm-pipeline-card').dataset.id,'synthetic-1');
 });
 check('cancelled case switch does not enter Journey or replace existing case',async({a,w,$})=>{
- a.selectRequest('synthetic-0');a.state.dirty=true;w.confirm=()=>false;await a.openV3Case('synthetic-1',true);assert.equal(a.state.selectedRequestId,'synthetic-0');assert.equal($('mmJourneyScrim').open,false);
+ a.selectRequest('synthetic-0');a.state.dirty=true;w.confirm=()=>{throw Error('Native confirmation used')};
+ const change=a.openV3Case('synthetic-1',true);
+ assert.equal($('mmActionDialog').open,true);assert.equal(w.document.activeElement,$('mmActionCancel'));
+ $('mmActionCancel').click();await change;assert.equal(a.state.selectedRequestId,'synthetic-0');assert.equal($('mmJourneyScrim').open,false);
  await a.openV3Case('synthetic-0',true);assert.equal($('mmJourneyScrim').open,true);assert.equal(a.state.dirty,true);
 });
 check('responded offer card opens the case without entering editable Journey',async({a,$})=>{
@@ -91,4 +94,20 @@ check('authenticated bootstrap preserves bearer/CSRF and does not show login; ex
  assert.equal(new URL(a.adminAuthRelayUrl()).searchParams.get('action'),'mmhq_usce_admin_auth_relay');
  assert.equal(new URL(a.adminAuthRelayUrl()).origin,'https://missionmedinstitute.com');
  a.clearAdminLogin();assert.equal($('mmAdminLogin').open,false);
+});
+
+check('changing a form while discard is pending cancels the old choice',async({a,$})=>{
+ await a.selectRequest('synthetic-0');a.state.dirty=true;
+ const choice=a.selectRequest('synthetic-1');
+ assert.equal($('mmActionDialog').open,true);
+ $('mmOfInstructions').value='Later edit';
+ $('mmActionAccept').click();
+ assert.equal(await choice,false);assert.equal(a.state.selectedRequestId,'synthetic-0');
+ assert.equal(a.state.dirty,true);assert.equal($('mmOfInstructions').value,'Later edit');
+});
+check('opening the chosen case after accepting discard preserves the navigation continuation',async({a,$})=>{
+ await a.selectRequest('synthetic-0');a.state.dirty=true;
+ const move=a.openV3Case('synthetic-1',true);
+ $('mmActionAccept').click();await move;
+ assert.equal(a.state.selectedRequestId,'synthetic-1');assert.equal($('mmJourneyScrim').open,true);
 });

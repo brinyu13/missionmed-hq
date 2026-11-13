@@ -33,9 +33,12 @@ check('exact older deep-linked message remains the reply target outside newest t
 
 check('delivery attention offers readback for ambiguous and retry only for confirmed-unsent failure',async({a,w,$,calls,override})=>{
  const failed='55555555-5555-4555-8555-555555555555';override(path=>path.endsWith('/dispatches')?{ok:true,items:[{id:DIS,entity_id:MSG,action:'usce_v3_notify',state:'ambiguous',attempts:1,can_reconcile:true,can_retry:false},{id:failed,entity_id:MSG,action:'usce_v3_correspondence',state:'failed',attempts:1,can_reconcile:false,can_retry:true}],has_more:false}:undefined);
- await a.loadMailDispatches();assert.equal(w.document.querySelectorAll('[data-dispatch-retry]').length,1);assert.equal(w.document.querySelector('[data-dispatch-retry]').dataset.dispatchRetry,failed);assert.equal(w.document.querySelector('[data-dispatch-reconcile]').dataset.dispatchReconcile,DIS);
- w.confirm=()=>false;w.document.querySelector('[data-dispatch-retry]').click();await tick();assert.equal(calls.filter(c=>c.path.endsWith('/retry')).length,0);
- w.confirm=()=>true;w.document.querySelector('[data-dispatch-retry]').click();await tick();const retry=calls.find(c=>c.path.endsWith('/retry'));assert.equal(retry.options.body.confirm_retry,true);assert.match(retry.path,new RegExp(failed));
+ $('mmMailDispatchDialog').showModal();await a.loadMailDispatches();assert.equal(w.document.querySelectorAll('[data-dispatch-retry]').length,1);assert.equal(w.document.querySelector('[data-dispatch-retry]').dataset.dispatchRetry,failed);assert.equal(w.document.querySelector('[data-dispatch-reconcile]').dataset.dispatchReconcile,DIS);
+ w.confirm=()=>{throw Error('Native prompt used')};w.document.querySelector('[data-dispatch-retry]').click();$('mmActionCancel').click();await tick();assert.equal(calls.filter(c=>c.path.endsWith('/retry')).length,0);
+ w.document.querySelector('[data-dispatch-retry]').click();
+ await a.loadMailDispatches();
+ $('mmActionAccept').click();await tick();assert.equal(calls.filter(c=>c.path.endsWith('/retry')).length,0);
+ w.document.querySelector('[data-dispatch-retry]').click();$('mmActionAccept').click();await tick();const retry=calls.find(c=>c.path.endsWith('/retry'));assert.equal(retry.options.body.confirm_retry,true);assert.match(retry.path,new RegExp(failed));
 });
 check('unavailable inbound body is marked incomplete and links to Clinicals Gmail',async({a,$,override})=>{
  override(path=>path.endsWith('/messages/'+MSG)?{ok:true,item:{id:MSG,intake_request_id:CASE,state:'received',subject:'Large reply',body_unavailable:true,created_at:'2026-10-09T12:00:00Z'}}:path.endsWith('/thread')?{ok:true,items:[{id:MSG,intake_request_id:CASE,state:'received',subject:'Large reply',body_unavailable:true,created_at:'2026-10-09T12:00:00Z'}],has_more:false}:undefined);

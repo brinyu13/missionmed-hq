@@ -116,7 +116,7 @@ check('completed Offer data can jump directly to Review; jumping to Send never g
  approve();await a.navigateJourney(5);assert.equal(a.journey.step,5);assert.equal(calls.send.length,0);
 });
 check('missing Program information blocks a forward jump without saving, previewing or sending',async({a,$,calls})=>{
- a.openJourney();$('mmOfSpecialty').value='';await a.navigateJourney(4);assert.equal(a.journey.step,0);assert.match($('mmJourneyState').textContent,/program, specialty and location/);assert.equal(calls.persist.length,0);assert.equal(calls.preview.length,0);assert.equal(calls.send.length,0);
+ a.openJourney();$('mmOfSpecialty').value='';await a.navigateJourney(4);assert.equal(a.journey.step,1);assert.match($('mmJourneyProblem').textContent,/specialty/);assert.equal($('mmJourneyProblem').hidden,false);assert.equal($('mmOfSpecialty').getAttribute('aria-invalid'),'true');assert.equal($('mmOfSpecialty').ownerDocument.activeElement,$('mmOfSpecialty'));assert.equal(calls.persist.length,0);assert.equal(calls.preview.length,0);assert.equal(calls.send.length,0);
 });
 check('clickable earlier Offer steps preserve personalized text and edits still invalidate Send approval',async({a,$,calls,input,approve})=>{
  a.openJourney();await a.navigateJourney(3);input('mmJourneySubject','My personal subject');input('mmJourneyMessage','My personal message');await a.navigateJourney(4);approve();
@@ -132,4 +132,28 @@ check('Journey close and workspace navigation retain current-case unsaved work a
 check('expired Offer returns to Dates with clear recovery and no network writes',async({a,$,r,calls})=>{
  a.openJourney();a.state.liveOffersByRequest[r.id]={...a.readOfferForm(),id:'expired-offer',detailsLoaded:true,status:'READY',revision:1,expiresAt:Date.now()-60000};
  await a.navigateJourney(4);assert.equal(a.journey.step,2);assert.match($('mmJourneyState').textContent,/Change the response deadline in Dates/);assert.equal(calls.persist.length,0);assert.equal(calls.preview.length,0);assert.equal(calls.send.length,0);assert.equal($('mmJourneyApproval').checked,false);
+});
+
+check('Dates identifies the exact incomplete option and keeps the edit in the wizard',async({a,w,$,calls})=>{
+ a.openJourney();await a.navigateJourney(1);$('mmAddOption').click();
+ const field=key=>w.document.querySelector('[data-option-field="'+key+'"]');
+ for(const [key,value] of Object.entries({program_type:'Elective',specialty:'Medicine',location:'Boston'})){
+   field(key).value=value;field(key).dispatchEvent(new w.Event('input',{bubbles:true}));
+ }
+ await a.navigateJourney(4);
+ assert.equal(a.journey.step,2);assert.equal(w.document.activeElement,field('month_label'));
+ assert.match($('mmJourneyProblem').textContent,/Option 2.*month/);
+ field('month_label').setAttribute('aria-describedby','existing-help mmJourneyProblem');
+ field('month_label').value='June';field('month_label').dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.equal($('mmJourneyProblem').hidden,true);assert.equal(field('month_label').hasAttribute('aria-invalid'),false);assert.equal(field('month_label').getAttribute('aria-describedby'),'existing-help');
+ await a.saveAndCloseJourney();assert.equal($('mmJourneyScrim').open,true);
+ assert.equal(w.document.activeElement,field('duration_weeks'));assert.equal(field('month_label').value,'June');
+ assert.deepEqual(calls,{persist:[],preview:[],send:[]});
+});
+check('failed save leaves the message and a persistent error inside the open dialog',async({a,$,input,send,calls})=>{
+ a.openJourney();a.journeyStep(3);input('mmJourneyMessage','Keep this draft');
+ a.mocks({persist:async()=>{throw new Error('Connection interrupted. Try saving again.');},send});
+ await a.saveAndCloseJourney();assert.equal($('mmJourneyProblem').hidden,false);
+ assert.match($('mmJourneyProblem').textContent,/Connection interrupted/);assert.equal($('mmJourneyScrim').open,true);
+ assert.equal($('mmJourneyMessage').value,'Keep this draft');assert.equal(calls.send.length,0);
 });

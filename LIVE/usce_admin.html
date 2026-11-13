@@ -643,6 +643,8 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 .mm-cx.mm-v2 .mm-journey-progress .is-active{color:var(--mm-navy);font-weight:700}.mm-cx.mm-v2 .mm-journey-progress .is-active b{background:var(--mm-gold);color:var(--mm-navy)}
 .mm-cx.mm-v2 .mm-journey-progress .is-complete b{background:#163c65;color:#fff}
 .mm-cx.mm-v2 .mm-journey-body{min-height:0;overflow:auto;padding:12px 18px;overscroll-behavior:contain}
+.mm-cx .mm-field-problem{border-left:4px solid #963d2a;background:#fff3ef;color:#742b1f;padding:10px 14px;font:600 15px/1.45 var(--mm-sans);margin:0 0 12px}
+.mm-cx [aria-invalid="true"]{outline:2px solid #963d2a;outline-offset:2px}
 .mm-cx.mm-v2 .mm-journey-body>section{min-height:0}
 .mm-cx.mm-v2 .mm-journey-body h3{margin:0 0 7px;font-size:19px;color:var(--mm-navy)}
 .mm-cx.mm-v2 .mm-journey .mm-builder-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
@@ -873,6 +875,14 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
 </style><style>
 .mm-cx.mm-v3 .mm-triage-heading{font:700 15px/1.4 var(--mm-sans);color:#173e66;margin:14px 8px 6px}
 .mm-cx.mm-v3 #mmMailComposeStatus{font-size:14px;line-height:1.4}
+</style>
+<style>
+#mmActionDialog{box-sizing:border-box;width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;border:1px solid #becddd;border-radius:12px;padding:22px;color:#193954;background:#fff}
+#mmActionDialog::backdrop{background:rgba(8,28,49,.55)}
+#mmActionTitle{font-size:22px;line-height:1.25;margin:0 0 12px}
+#mmActionDescription{font-size:16px;line-height:1.45;margin:0 0 18px}
+.mm-action-choices{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#mmActionDialog .mm-action-choices button{min-height:44px;min-width:44px;font-size:14px}
 </style>
 </head>
 <body>
@@ -1303,6 +1313,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   <header class="mm-journey-head"><div><span class="mm-eyebrow">YOUR OFFER JOURNEY</span><h2 id="mmJourneyTitle">Let's build this offer together</h2><small id="mmJourneyContext"></small></div><button type="button" class="mm-btn mm-btn-ghost" id="mmJourneyOpenCase">Student details</button><button type="button" class="mm-btn mm-btn-ghost" id="mmJourneyOpenMessages">Messages</button><button type="button" class="mm-btn mm-btn-ghost" id="mmJourneyClose" aria-label="Close offer builder">×</button></header>
   <aside class="mm-journey-rail"><img src="https://missionmedinstitute.com/wp-content/uploads/2026/09/missionmed-institute-logo-email-dark.png" alt="MissionMed Institute"><nav class="mm-journey-progress" aria-label="Offer steps"><button type="button" data-journey-progress="0" aria-label="Go to Student step"><b>1</b> Student</button><button type="button" data-journey-progress="1" aria-label="Go to Program step"><b>2</b> Program</button><button type="button" data-journey-progress="2" aria-label="Go to Dates step"><b>3</b> Dates</button><button type="button" data-journey-progress="3" aria-label="Go to Email step"><b>4</b> Email</button><button type="button" data-journey-progress="4" aria-label="Go to Review step"><b>5</b> Review</button><button type="button" data-journey-progress="5" aria-label="Go to Send step"><b>6</b> Send</button></nav><div class="mm-journey-motto">Students Today.<br>Physicians Tomorrow.</div></aside>
   <div class="mm-journey-body">
+    <p id="mmJourneyProblem" class="mm-field-problem" role="alert" tabindex="-1" hidden></p>
    <section id="mmJourneyStudent"><h3>First, the right student.</h3><p class="mm-hint">Review their request. We'll use these preferences to help you prepare an offer.</p><div id="mmJourneyStudentFacts"></div><button id="mmJourneyWriteMessage" type="button" class="mm-btn mm-btn-ghost mm-btn-sm">Save offer and write a separate message</button><p class="mm-hint">A proposed offer does not reserve a rotation. Confirm availability with the program before sending.</p></section>
    <section id="mmJourneyProgramHost" hidden><h3>Which rotation are you proposing?</h3><p class="mm-hint" id="mmJourneyProgramPrefs"></p><div class="mm-builder-grid" id="mmJourneyProgramFields"></div><details class="mm-journey-extra"><summary>Instructions and internal notes</summary><div id="mmJourneyNotesFields"></div></details></section>
    <section id="mmJourneyDatesHost" hidden><h3>When should the rotation happen?</h3><p id="mmJourneyDatePrefs" class="mm-preference-callout"></p><div class="mm-builder-grid" id="mmJourneyDateFields"></div><div id="mmJourneyMonthsHost"></div><p id="mmJourneyDateWarning" class="mm-hint" role="status"></p></section>
@@ -1314,7 +1325,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
  </div>
 </dialog>
 <dialog id="mmCaseFactsDialog" aria-labelledby="mmCaseFactsTitle"><h2 id="mmCaseFactsTitle">Student request</h2><div id="mmCaseFactsContent"></div><button type="button" class="mm-btn mm-btn-primary" id="mmCaseFactsClose">Close</button></dialog>
-<dialog id="mmOpsDialog" aria-labelledby="mmOpsTitle"><h2 id="mmOpsTitle">Coordinator records</h2><div id="mmOpsHost"></div><button type="button" class="mm-btn mm-btn-ghost" id="mmOpsClose">Close</button></dialog>
+<dialog id="mmOpsDialog" aria-labelledby="mmOpsTitle"><h2 id="mmOpsTitle">Coordinator records</h2><p id="mmOpsProblem" class="mm-field-problem" role="alert" tabindex="-1" hidden></p><div id="mmOpsHost"></div><button type="button" class="mm-btn mm-btn-ghost" id="mmOpsClose">Close</button></dialog>
 
   <!-- ============== STUDENT PORTAL ============== -->
   <section hidden class="mm-panel" data-panel="portal">
@@ -1390,6 +1401,14 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
  <p>Sign in on the secure MissionMed login page. Your password stays there.</p>
  <div class="mm-login-actions"><button type="button" id="mmAdminContinue">LOGIN / CONTINUE AS ADMIN →</button><a id="mmAdminRecovery" href="https://missionmedinstitute.com/wp-login.php?action=lostpassword" target="_top">Forgot your password? Recover access</a><button type="button" id="mmAdminLoginClose">Close — sign in later</button></div>
  <p id="mmAdminLoginStatus" role="status" aria-live="polite"></p>
+</dialog>
+<dialog id="mmActionDialog" aria-labelledby="mmActionTitle" aria-describedby="mmActionDescription">
+  <h2 id="mmActionTitle"></h2>
+  <p id="mmActionDescription"></p>
+  <div class="mm-action-choices">
+    <button type="button" class="mm-btn mm-btn-ghost" id="mmActionCancel" autofocus>Go back</button>
+    <button type="button" class="mm-btn mm-btn-primary" id="mmActionAccept"></button>
+  </div>
 </dialog>
 <div class="mm-toast-wrap" id="mmToasts" aria-live="polite"></div>
 </div>
@@ -1613,6 +1632,40 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     if (hrs >= SLA_RED_HRS) return 'red';
     if (hrs >= SLA_AMBER_HRS) return 'amber';
     return 'green';
+  }
+  let pendingChoice = null;
+  function askBeforeAction(title, description, actionLabel, cancelLabel = 'Go back') {
+    const dialog = $('#mmActionDialog');
+    if (pendingChoice || dialog.open) return Promise.resolve(false);
+    const trigger = document.activeElement;
+    $('#mmActionTitle').textContent = title;
+    $('#mmActionDescription').textContent = description;
+    $('#mmActionAccept').textContent = actionLabel;
+    $('#mmActionCancel').textContent = cancelLabel;
+    return new Promise(resolve => {
+      pendingChoice = {resolve, trigger};
+      try { dialog.showModal(); $('#mmActionCancel').focus(); }
+      catch { finishChoice(false); }
+    });
+  }
+  function finishChoice(accepted) {
+    const pending = pendingChoice;
+    if (!pending) return;
+    const dialog = $('#mmActionDialog');
+    pendingChoice = null;
+    if (dialog.open) dialog.close();
+    if (pending.trigger?.isConnected) pending.trigger.focus({preventScroll:true});
+    pending.resolve(accepted);
+  }
+  $('#mmActionCancel').addEventListener('click', () => finishChoice(false));
+  $('#mmActionAccept').addEventListener('click', () => finishChoice(true));
+  $('#mmActionDialog').addEventListener('cancel', event => { event.preventDefault(); finishChoice(false); });
+  $('#mmActionDialog').addEventListener('close', () => { if (!$('#mmActionDialog').open) finishChoice(false); });
+
+  function confirmationContext() {
+    const r = currentReq();
+    const offer = r && getOfferForRequest(r);
+    return JSON.stringify([state.selectedRequestId,state.queueLoad,offer?.id,offer?.revision,state.dirty,offerFormSnapshot()]);
   }
   function toast(msg){
     const wrap = $('#mmToasts');
@@ -1947,7 +2000,12 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
   }
 
   async function loadLiveQueue(){
-    if (state.busy || (state.dirty && !window.confirm('Discard unsaved offer changes and refresh cases?'))) return;
+    if (state.busy) return;
+    if (state.dirty) {
+      const context = confirmationContext();
+      if (!await askBeforeAction('Refresh the case list?', 'Refreshing discards unsaved Offer edits for this student.', 'Discard and refresh', 'Keep editing')) return;
+      if (state.busy || context !== confirmationContext()) return;
+    }
     state.dirty = false;mail.authReady=false;
     const generation = ++state.queueLoad;
     state.adapter = 'live';
@@ -2231,7 +2289,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     return o?'Continue →':'Build Offer →';
   }
   async function openV3Case(id,build){
-    if(selectRequest(id)!==true||state.selectedRequestId!==id||state.busy)return;
+    if(await selectRequest(id)!==true||state.selectedRequestId!==id||state.busy)return;
     const r=currentReq();if(!build||v3ActionLabel(r)==='View →')return;
     // Existing hydration owns the request; wait for its verified result, never fetch or save a parallel draft.
     if(state.offerHydrating){toast('Loading the saved offer…');const generation=state.queueLoad;for(let n=0;n<150&&state.offerHydrating&&!r.offerHydrationFailed;n++){await new Promise(resolve=>setTimeout(resolve,100));if(state.selectedRequestId!==id||state.queueLoad!==generation)return;}}
@@ -2319,11 +2377,16 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     }catch(_error){}
   }
 
-  function selectRequest(id){
+  async function selectRequest(id){
     if(!mailNavigate())return false;
     if (state.busy) { toast('Wait for the current action to finish.'); return false; }
     if(id===state.selectedRequestId){root.classList.add('mm-case-open');switchTab('overview');return true;}
-    if (state.dirty && !window.confirm('Your current student has unsaved changes. Discard those changes and open another student?')) return false;
+    if (state.dirty) {
+      const next = state.requests.find(r => r.id === id);
+      const context = confirmationContext();
+      if (!next || !await askBeforeAction('Open '+next.name+'?', 'Opening this case discards the unsaved Offer edits for the current student.', 'Discard and open case', 'Keep editing')) return false;
+      if (state.busy || context !== confirmationContext() || !state.requests.includes(next)) return false;
+    }
     journey.resumeAvailable=false;
     state.dirty = false; state.draftEmail = null;
     state.selectedRequestId = id; state.activeTab = 'overview';
@@ -2507,10 +2570,11 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     } finally { state.busy = false; }
   }
 
-  function archiveRequest(r){
+  async function archiveRequest(r){
     if (!r) return;
-    const label = 'Archive this case and hide it from the active queue?';
-    if (!window.confirm(label + '\n\nIts history will be kept. No message will be sent.')) return;
+    const context = confirmationContext(), status = r.status;
+    if (!await askBeforeAction('Archive '+r.name+'?', 'Archiving removes this case from the active queue and keeps its history.', 'Archive case', 'Keep case active')) return;
+    if (state.busy || r !== currentReq() || r.status !== status || context !== confirmationContext()) return;
     updateRequestStatus(r, 'ARCHIVED', {
       reason: COORDINATOR + ' archived request from active queue',
       toast: 'Request removed from active queue'
@@ -2728,7 +2792,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     $('#mmOpsPayment').value = (existing && existing.paymentStatus) || 'pending';
     $('#mmOpsPaperwork').value = (existing && existing.paperworkStatus) || 'not_started';
     $('#mmOpsLearndash').value = (existing && existing.learndashStatus) || 'locked';
-    if($('#mmOpsPanel').dataset.caseId!==r.id){$('#mmOpsEvidenceSource').value='';$('#mmOpsReason').value='';$('#mmOpsNote').value='';$('#mmOpsPanel').dataset.caseId=r.id;}
+    if($('#mmOpsPanel').dataset.caseId!==r.id){clearProblem($('#mmOpsProblem'));$('#mmOpsEvidenceSource').value='';$('#mmOpsReason').value='';$('#mmOpsNote').value='';$('#mmOpsPanel').dataset.caseId=r.id;}
     renderLiveOfferBox(r);
 
     showOtherOfferFields();
@@ -2773,7 +2837,7 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     const r = currentReq(); if (!r) return null;
     const saved=getOfferForRequest(r);if(saved&&!saved.detailsLoaded){toast('Wait for verified saved offer details, or refresh to retry.');return null;}
     const options=collectJourneyOptions();
-    if(options.length&&!validateJourneyOptions(options)){return null;}
+    if(options.length){const problem=optionIssue(options,true);if(problem){toast(problem.message);return null;}}
     const months = options.length?[options[0].month_label]:$$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
     const specialty = offerSpecialtyValue();
     const location = offerLocationValue();
@@ -3010,13 +3074,18 @@ html:has(#mmCx.mm-v2),body:has(#mmCx.mm-v2){height:100%;min-height:0;overflow:hi
     }
   }
 
-  function applySelectedMessageTemplate(){
+  async function applySelectedMessageTemplate(){
     if(state.busy||offerTermsReadOnly())return;
     const r=currentReq(),existing=getOfferForRequest(r);if(!r||(existing&&!existing.detailsLoaded))return;
     const choice=$('#mmMessageChoice').value;
     const templates={availability:'Please review the proposed rotation details and response deadline. Contact Clinicals before responding if any detail needs clarification.',alternate:'Please review this alternate rotation option. Contact Clinicals if the specialty, location or dates do not meet your needs.',urgent:'Please review the response deadline shown in your offer. Contact Clinicals if you need more time.'};
     if(!Object.prototype.hasOwnProperty.call(templates,choice)){toast('Manual message selected. Edit the instructions directly.');return;}
-    const field=$('#mmOfInstructions');if(field.value&&field.value!==templates[choice]&&!window.confirm('Replace these instructions with the selected template? The replacement will be unsaved until you save the draft.'))return;
+    const field = $('#mmOfInstructions'), original = field.value;
+    if (original && original !== templates[choice]) {
+      const context = confirmationContext();
+      if (!await askBeforeAction('Replace the current instructions?', 'The selected template will replace the instructions. Save the draft to keep the change.', 'Use template', 'Keep instructions')) return;
+      if (state.busy || context !== confirmationContext() || field.value !== original || choice !== $('#mmMessageChoice').value || offerTermsReadOnly()) return;
+    }
     field.value=templates[choice];state.dirty=true;if(state.draftEmail){state.draftEmail.approved=false;state.draftEmail.approvedContent=null;}
     $('#mmDraftState').textContent='Unsaved template change — review and save before previewing.';
   }
@@ -3256,21 +3325,29 @@ CONFIG.gmailMailboxes[0];
   $$('[data-ops-save]').forEach(button => {
     button.addEventListener('click', async () => {
       const r = currentReq(); if (!r || state.busy || state.adapter !== 'live') return;
-      const offer = getOfferForRequest(r); if (!offer) { toast('Save an offer draft before recording next-step status.'); return; }
+      const alert=$('#mmOpsProblem');
+      clearProblem(alert);
+      const offer = getOfferForRequest(r); if (!offer) { showProblem(alert,'Save an offer draft before recording next-step status.'); return; }
       const action = button.dataset.opsSave;
       const evidenceSource=$('#mmOpsEvidenceSource').value.trim(), reason=$('#mmOpsReason').value.trim();
-      if(!evidenceSource){toast('Add the evidence source for this manual record.');$('#mmOpsEvidenceSource').focus();return;}
-      if(!reason){toast('Explain why the evidence supports this recorded status.');$('#mmOpsReason').focus();return;}
-      if(!Number.isSafeInteger(offer.revision)||offer.revision<1){toast('Refresh the case to verify its current version before recording a status.');return;}
+      if(!evidenceSource){showProblem(alert,'Add the evidence source for this manual record.',$('#mmOpsEvidenceSource'));return;}
+      if(!reason){showProblem(alert,'Explain why the evidence supports this recorded status.',$('#mmOpsReason'));return;}
+      if(!Number.isSafeInteger(offer.revision)||offer.revision<1){showProblem(alert,'Refresh the case to verify its current version before recording a status.');return;}
       const note=$('#mmOpsNote').value.trim();
-      if(evidenceSource.length>240||reason.length>1000||note.length>1000){toast('Keep evidence source within 240 characters and reason/additional note within 1000 each.');return;}
+      if(evidenceSource.length>240||reason.length>1000||note.length>1000){showProblem(alert,'Use up to 240 characters for the evidence source and up to 1000 for the reason or note.');return;}
       const body = {evidence_source:evidenceSource,reason,note,expected_revision:offer.revision};
       if (action === 'payment') body.payment_status = $('#mmOpsPayment').value;
       if (action === 'paperwork') body.paperwork_status = $('#mmOpsPaperwork').value;
       if (action === 'learndash') body.learndash_status = $('#mmOpsLearndash').value;
       const previous=action==='payment'?offer.paymentStatus:action==='paperwork'?offer.paperworkStatus:offer.learndashStatus;
       const next=action==='payment'?body.payment_status:action==='paperwork'?body.paperwork_status:body.learndash_status;
-      if(!window.confirm('Record '+action+' status: '+String(previous||'unknown')+' → '+next+'? This is a manual coordinator record supported by the evidence source and reason you entered. It does not take payment, reserve a place, approve documents or grant access.'))return;
+      const context = confirmationContext();
+      const control = action === 'payment' ? $('#mmOpsPayment') : action === 'paperwork' ? $('#mmOpsPaperwork') : $('#mmOpsLearndash');
+      const display = action === 'learndash' ? 'course access' : action;
+      if (!await askBeforeAction('Record '+display+' status?', 'Change the recorded status from '+String(previous || 'unknown').replace(/_/g,' ')+' to '+String(next).replace(/_/g,' ')+'. This saves your evidence and reason in the case history.', 'Record status', 'Keep editing')) return;
+      if (state.busy || context !== confirmationContext() || offer !== getOfferForRequest(r) ||
+          control.value !== next || $('#mmOpsEvidenceSource').value.trim() !== evidenceSource ||
+          $('#mmOpsReason').value.trim() !== reason || $('#mmOpsNote').value.trim() !== note) return;
       const path = action === 'payment' ? CONFIG.offerPaymentEndpoint : action === 'paperwork' ? CONFIG.offerPaperworkEndpoint : CONFIG.offerLearndashEndpoint;
       state.busy = true;
       try {
@@ -3280,7 +3357,7 @@ CONFIG.gmailMailboxes[0];
         if(item.id!==offer.id||returnedStatus!==next||!Number.isInteger(item.revision))throw new Error('Recorded state could not be verified.');
         if (!mergeLiveOffer(item,r.id)) throw new Error('Recorded state could not be verified.');
         renderLiveOfferBox(r); renderAdminTracker(r); toast('Coordinator status recorded. No payment, reservation or enrollment performed.');
-      } catch(error) { toast('Status record could not be confirmed. Keep the evidence and reason; refresh before retrying.'); }
+      } catch(error) { if(currentReq()===r)showProblem(alert,'The status update could not be confirmed. Keep your evidence and reason, then refresh the case before retrying.'); }
       finally { state.busy = false; }
     });
   });
@@ -3574,12 +3651,90 @@ CONFIG.gmailMailboxes[0];
   const journeySections=['mmJourneyStudent','mmJourneyProgramHost','mmJourneyDatesHost','mmJourneyEmailHost','mmJourneyReview','mmJourneySend'];
   function optionFirst(){return {id:journey.options[0]?.id||crypto.randomUUID(),program_type:$('#mmOfProgram').value.trim(),specialty:offerSpecialtyValue(),location:offerLocationValue(),month_label:journey.options.length?$('#mmOfMonthLabel').value.trim():$$('#mmOfMonths .mm-month.is-on').map(b=>b.dataset.val).join(' or '),duration_weeks:parseInt($('#mmOfLength').value,10)||null,date_window_start:$('#mmOfStart').value||null,date_window_end:$('#mmOfEnd').value||null};}
   function collectJourneyOptions(){if(!journey.options.length)return [];journey.options[0]=optionFirst();return journey.options.map(o=>({...o}));}
-  function validateJourneyOptions(options){
-    const ids=new Set();for(const o of options){if(!/^[0-9a-f-]{36}$/i.test(o.id)||ids.has(o.id)||!o.program_type||o.program_type.length>160||!o.specialty||o.specialty.length>160||!o.location||o.location.length>180||!o.month_label||o.month_label.length>180||!Number.isInteger(o.duration_weeks)||o.duration_weeks<1||o.duration_weeks>24){toast('Complete every option: program, specialty, location, month / date label and duration (1–24 weeks).');return false;}ids.add(o.id);if(o.date_window_end&&(!o.date_window_start||o.date_window_end<o.date_window_start)){toast('Each end date needs its own start date and must be on or after it.');return false;}}
-    if(options.length>5){toast('Offer up to five rotation options.');return false;}return true;
+  function journeyIssue(message, step, field) {
+    return Object.assign(new Error(message), {step, field});
+  }
+  function clearProblem(alert) {
+    const scope = alert.closest('dialog');
+    scope.querySelectorAll('[aria-describedby~="'+alert.id+'"]').forEach(field => {
+      const refs = field.getAttribute('aria-describedby').split(/\s+/).filter(id => id !== alert.id);
+      if (refs.length) field.setAttribute('aria-describedby', refs.join(' '));
+      else field.removeAttribute('aria-describedby');
+      field.removeAttribute('aria-invalid');
+    });
+    alert.hidden = true;
+    alert.textContent = '';
+  }
+  function showProblem(alert, message, field) {
+    clearProblem(alert);
+    if (field) {
+      const refs = field.getAttribute('aria-describedby');
+      field.setAttribute('aria-describedby', [refs, alert.id].filter(Boolean).join(' '));
+      field.setAttribute('aria-invalid', 'true');
+      const host = field.closest('.mm-field') || field.parentElement;
+      if (field.id === 'mmJourneyApproval') $('#mmJourneyReview').append(alert);
+      else host.after(alert);
+    } else if (alert.id === 'mmJourneyProblem') {
+      $('#mmJourneyScrim .mm-journey-body').prepend(alert);
+    } else {
+      $('#mmOpsHost').before(alert);
+    }
+    alert.textContent = message;
+    alert.hidden = false;
+    (field || alert).focus();
+  }
+  function showJourneyProblem(error) {
+    const alert = $('#mmJourneyProblem');
+    if (Number.isInteger(error.step) && journey.step !== error.step) journeyStep(error.step);
+    const message = errorSummary(error);
+    $('#mmJourneyState').textContent = message;
+    showProblem(alert, message, error.field);
+  }
+  function optionIssue(options, includeDates) {
+    const ids = new Set();
+    if (options.length > 5) return journeyIssue('Offer up to five rotation options.', 1);
+    for (const [index, option] of options.entries()) {
+      const prefix = options.length > 1 ? 'Option '+(index+1)+'. ' : '';
+      const issue = (message, step, key, first) => {
+        const field = index === 0 ? first : $$('[data-option-field]').find(el =>
+          el.dataset.optionId === option.id && el.dataset.optionField === key);
+        return journeyIssue(prefix+message, step, field);
+      };
+      if (!/^[0-9a-f-]{36}$/i.test(option.id) || ids.has(option.id))
+        return journeyIssue('Refresh this case to verify its saved rotation options.', 1);
+      ids.add(option.id);
+      const programFields = [
+        ['program_type', 'program', 160, 'mmOfProgram'],
+        ['specialty', 'specialty', 160, $('#mmOfSpecialty').value === OTHER_OPTION ? 'mmOfSpecialtyOther' : 'mmOfSpecialty'],
+        ['location', 'location', 180, $('#mmOfLocation').value === OTHER_OPTION ? 'mmOfLocationOther' : 'mmOfLocation']
+      ];
+      for (const [key, label, limit, first] of programFields) {
+        const value = String(option[key] || '').trim();
+        if (!value) return issue('Enter the '+label+' for this rotation.', 1, key, $('#'+first));
+        if (value.length > limit) return issue('Shorten the '+label+' to '+limit+' characters.', 1, key, $('#'+first));
+      }
+      if (!includeDates) continue;
+      if (!String(option.month_label || '').trim() || option.month_label.length > 180)
+        return issue('Enter the offered month or dates in 180 characters or fewer.', 2, 'month_label',
+          journey.options.length ? $('#mmOfMonthLabel') : $('#mmOfMonths .mm-month'));
+      if (!Number.isInteger(option.duration_weeks) || option.duration_weeks < 1 || option.duration_weeks > 24)
+        return issue('Choose a duration from 1 to 24 weeks.', 2, 'duration_weeks', $('#mmOfLength'));
+      if (option.date_window_end && !option.date_window_start)
+        return issue('Enter a start date for this end date.', 2, 'date_window_start', $('#mmOfStart'));
+      if (option.date_window_end && option.date_window_end < option.date_window_start)
+        return issue('Choose an end date on or after the start date.', 2, 'date_window_end', $('#mmOfEnd'));
+    }
+    return null;
+  }
+  function checkJourneyTerms(includeDates) {
+    const options = collectJourneyOptions();
+    const issue = optionIssue(options.length ? options : [optionFirst()], includeDates);
+    if (issue) throw issue;
   }
   function exactSelect(id,value){const el=$('#'+id);if(!Array.from(el.options).some(o=>o.value===value)){const o=document.createElement('option');o.value=value;o.textContent=value;el.append(o);}el.value=value;}
   function renderJourneyOptions(hydrate=false){
+    $('#mmJourneyScrim .mm-journey-body').prepend($('#mmJourneyProblem'));
+    clearProblem($('#mmJourneyProblem'));
     const first=journey.options[0];if(hydrate&&first){exactSelect('mmOfProgram',first.program_type);exactSelect('mmOfSpecialty',first.specialty);exactSelect('mmOfLocation',first.location);exactSelect('mmOfLength',first.duration_weeks+' weeks');$('#mmOfStart').value=first.date_window_start||'';$('#mmOfMonthLabel').value=first.month_label||'';$('#mmOfEnd').value=first.date_window_end||'';showOtherOfferFields();}
     if(!first){$('#mmOfMonthLabel').value='';$('#mmOfEnd').value='';}
     $('#mmOfMonthLabel').closest('.mm-field').hidden=!first;$('#mmOfEnd').closest('.mm-field').hidden=!first;$('#mmOfMonths').closest('.mm-field').hidden=!!first;
@@ -3643,6 +3798,7 @@ CONFIG.gmailMailboxes[0];
     const el=$('#mmJourneyDateWarning');el.textContent=warnings.join(' ')||(canonical?'Enter verified timing, duration and optional dates for each option. Each option has its own dates; all options share the response deadline. Preferences do not confirm availability.':'Select the month(s) you can offer. Ranked months are marked; preferences do not confirm availability.');el.classList.toggle('is-warning',!!warnings.length);
   }
   function journeyStep(index){
+    clearProblem($('#mmJourneyProblem'));
     cancelJourneyReplacement();journey.step=index;$('#mmJourneyApprovalBar').hidden=index!==4;
     journeySections.forEach((id,i)=>{$('#'+id).hidden=i!==index;});
     $$('[data-journey-progress]').forEach(el=>{const n=Number(el.dataset.journeyProgress);el.classList.toggle('is-active',n===index);el.classList.toggle('is-complete',n<index);if(n===index)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');});
@@ -3682,7 +3838,8 @@ CONFIG.gmailMailboxes[0];
   function requestJourneyClose(){pauseJourney();}
   async function saveJourneyTerms(){
     if(state.adapter!=='live'||state.busy)throw new Error('Wait for the current action to finish.');
-    const offer=readOfferForm();if(!offer)throw new Error('Set the rotation and offered months before saving.');
+    checkJourneyTerms(true);
+    const offer=readOfferForm();if(!offer)throw new Error('The saved rotation could not be verified. Refresh the case before saving.');
     const current=getOfferForRequest(currentReq());
     if(!state.dirty&&current&&current.detailsLoaded)return current;
     state.busy=true;
@@ -3694,14 +3851,16 @@ CONFIG.gmailMailboxes[0];
   }
   async function prepareJourneyMessage(){
     if(state.adapter!=='live'||state.busy)throw new Error('Wait for the current action to finish.');
-    const offer=readOfferForm();if(!offer)throw new Error('Complete the rotation and dates first.');
+    checkJourneyTerms(true);
+    const offer=readOfferForm();if(!offer)throw new Error('The saved rotation could not be verified. Refresh the case before review.');
     if(journey.generated&&$('#mmJourneySubject').value===journey.generated.subject&&$('#mmJourneyMessage').value===journey.generated.body){
       const fresh=defaultJourneyEmail({...offer,instructions:journey.templateInstructions??offer.instructions});
       $('#mmJourneySubject').value=fresh.subject;$('#mmJourneyMessage').value=fresh.body;
       journey.generated={subject:fresh.subject,body:fresh.body};
     }
     const subject=$('#mmJourneySubject').value.trim(),body=$('#mmJourneyMessage').value.trim();
-    if(!subject||!body)throw new Error('Add a subject and message before review.');
+    if(!subject)throw journeyIssue('Add a subject before reviewing the email.',3,$('#mmJourneySubject'));
+    if(!body)throw journeyIssue('Write the message for the student before review.',3,$('#mmJourneyMessage'));
     const selected=journey.caseId,generation=state.queueLoad,form=offerFormSnapshot();
     journeyInvalidate();state.busy=true;
     try{
@@ -3742,15 +3901,21 @@ CONFIG.gmailMailboxes[0];
       if(target<=journey.step){journeyStep(target);return;}
       if(target===5){
         const d=state.draftEmail;
-        if(!$('#mmJourneyApproval').checked||!d||!d.approved||d.approvedContent!==approvalSnapshot(d)||journey.preparedForm!==offerFormSnapshot())throw new Error('Open Review, check the complete message and tick the approval box before sending.');
+        if(!$('#mmJourneyApproval').checked||!d||!d.approved||d.approvedContent!==approvalSnapshot(d)||journey.preparedForm!==offerFormSnapshot())throw journeyIssue('Open Review, check the complete message and tick the approval box before sending.',journey.step,journey.step===4?$('#mmJourneyApproval'):null);
         $('#mmJourneySendSummary').textContent='Send '+d.subject+' to '+d.to+'. This exact version is approved.';$('#mmJourneySendNow').disabled=false;journeyStep(5);return;
       }
-      if(target>=2){const options=collectJourneyOptions();if(!offerSpecialtyValue()||!offerLocationValue()||options.some(o=>!o.program_type||!o.specialty||!o.location))throw new Error('First choose a program, specialty and location for every rotation option. Open Program to complete them.');}
-      if(target>=3){const terms=readOfferForm();if(!terms)throw new Error('First choose the offered month and complete each rotation option. Open Dates to check the timing.');if(Number.isFinite(terms.expiresAt)&&terms.expiresAt<=Date.now()){journeyStep(2);throw new Error('This offer has expired. Change the response deadline in Dates to start a new deadline, then continue. Nothing has been sent.');}await prepareJourneyMessage();}
+      if(target>=2) checkJourneyTerms(target>=3);
+      if(target>=3){
+        const terms=readOfferForm();
+        if(!terms)throw new Error('The rotation could not be verified. Refresh the case before continuing.');
+        if(Number.isFinite(terms.expiresAt)&&terms.expiresAt<=Date.now())
+          throw journeyIssue('This offer has expired. Change the response deadline in Dates to start a new deadline, then continue.',2,$('#mmOfExpire'));
+        await prepareJourneyMessage();
+      }
       if(target===4)renderJourneyReview();
       journeyStep(target);
       $('#mmJourneyState').textContent=state.dirty?'Your changes are kept here. Save before leaving this browser.':state.draftEmail?'Draft saved. Nothing sent.':'Nothing sent.';
-    }catch(error){$('#mmJourneyState').textContent=errorSummary(error);toast(errorSummary(error));}
+    }catch(error){showJourneyProblem(error);}
     finally{journey.navigating=false;renderJourneyNavigation();}
   }
   async function journeyNext(){return navigateJourney(journey.step+1);}
@@ -3765,7 +3930,7 @@ CONFIG.gmailMailboxes[0];
       $('#mmJourneyState').textContent='Saving…';
       if(journey.messageDirty||journey.step>=3)await prepareJourneyMessage();else await saveJourneyTerms();
       $('#mmJourneyState').textContent='Draft saved — nothing sent';closeJourneyWithoutSave();
-    }catch(error){$('#mmJourneyState').textContent='Not closed: '+errorSummary(error);toast(errorSummary(error));}
+    }catch(error){showJourneyProblem(error);}
   }
   function cancelJourneyReplacement(){journey.replacement=null;$('#mmJourneyReplacePrompt').hidden=true;}
   function requestJourneyReplacement(mode){
@@ -3800,6 +3965,16 @@ CONFIG.gmailMailboxes[0];
     $('#mmActGotoOffer').textContent='Guide me step-by-step';
     $('#mmJourneyLaunch').addEventListener('click',openJourney);
     $('#mmJourneyNext').addEventListener('click',journeyNext);
+    for (const [dialogId, alertId] of [['mmJourneyScrim','mmJourneyProblem'],['mmOpsDialog','mmOpsProblem']]) {
+      const dialog = $('#'+dialogId), alert = $('#'+alertId);
+      const edited = event => {
+        const field = dialog.querySelector('[aria-describedby~="'+alertId+'"]');
+        if (field && (field === event.target || field.closest('#mmOfMonths') && event.target.closest('#mmOfMonths .mm-month'))) clearProblem(alert);
+      };
+      dialog.addEventListener('input', edited);
+      dialog.addEventListener('change', edited);
+      dialog.addEventListener('click', event => { if(event.target.closest('#mmOfMonths .mm-month')) edited(event); });
+    }
     $$('[data-journey-progress]').forEach(button=>button.addEventListener('click',()=>navigateJourney(Number(button.dataset.journeyProgress))));
     $('#mmJourneyOpenCase').addEventListener('click',()=>{if(pauseJourney())showSelectedSection('overview');});
     $('#mmJourneyOpenMessages').addEventListener('click',()=>{if(pauseJourney())setV3Workspace('communications');});
@@ -4011,7 +4186,11 @@ CONFIG.gmailMailboxes[0];
   $('#mmMailReconcile').addEventListener('click',()=>mailMutation(async()=>{if(!mail.dispatch)return;const data=await mailRequest('/dispatches/'+mail.dispatch+'/reconcile',{method:'POST',body:{}});$('#mmMailSendOutcome').textContent=data.dispatch?.state==='provider_accepted'?'Provider acceptance confirmed. Delivery is not confirmed.':'Reconciliation recorded; inspect message status before any further action.';loadMailList();}));
   $('#mmCaseWriteMessage').addEventListener('click',()=>{const r=currentReq();if(r)composeForCase(r.id);});
   $('#mmJourneyWriteMessage').addEventListener('click',async()=>{const r=currentReq();if(!r)return;await saveAndCloseJourney();if(!$('#mmJourneyScrim').open)composeForCase(r.id);});
-  async function loadMailDispatches(){const host=$('#mmMailDispatchList');host.textContent='Loading recorded delivery attention…';try{const data=await mailRequest('/dispatches');host.replaceChildren();for(const item of data.items||[]){if(!MAIL_UUID.test(item.id))continue;const article=document.createElement('article');article.className='mm-mail-message';const title=document.createElement('b');title.textContent=(item.action==='usce_v3_notify'?'Notification to Phil':'Student correspondence')+' · '+item.state;article.append(title);const detail=document.createElement('p');detail.textContent=(item.error?'Recorded issue: '+item.error+'. ':'')+'Attempts: '+(Number.isInteger(item.attempts)?item.attempts:'Not recorded');article.append(detail);const actions=document.createElement('div');actions.className='mm-quickact';if(MAIL_UUID.test(item.entity_id)){const open=document.createElement('button');open.type='button';open.className='mm-btn mm-btn-ghost';open.textContent='Open conversation';open.addEventListener('click',()=>{if(mail.busy)return;$('#mmMailDispatchDialog').close();openMailThread(item.entity_id);});actions.append(open);}if(item.can_reconcile===true){const check=document.createElement('button');check.type='button';check.className='mm-btn mm-btn-ghost';check.textContent='Check provider outcome';check.dataset.dispatchReconcile=item.id;check.addEventListener('click',()=>mailMutation(async()=>{await mailRequest('/dispatches/'+item.id+'/reconcile',{method:'POST',body:{}});await loadMailDispatches();await loadMailList();}));actions.append(check);}if(item.can_retry===true){const retry=document.createElement('button');retry.type='button';retry.className='mm-btn mm-btn-primary';retry.textContent='Retry confirmed-unsent message';retry.dataset.dispatchRetry=item.id;retry.addEventListener('click',()=>{if(!window.confirm('Retry this failed message only after the server confirms no provider acceptance?'))return;mailMutation(async()=>{await mailRequest('/dispatches/'+item.id+'/retry',{method:'POST',body:{confirm_retry:true}});await loadMailDispatches();await loadMailList();});});actions.append(retry);}article.append(actions);host.append(article);}if(!host.children.length)host.textContent='No unresolved delivery attempts were returned.';if(data.has_more){const note=document.createElement('p');note.textContent='Showing the oldest 50 unresolved attempts. Resolve these and refresh to review additional attempts.';host.append(note);}}catch(error){host.textContent=mailError(error);}}
+  async function loadMailDispatches(){const host=$('#mmMailDispatchList');host.textContent='Loading recorded delivery attention…';try{const data=await mailRequest('/dispatches');host.replaceChildren();for(const item of data.items||[]){if(!MAIL_UUID.test(item.id))continue;const article=document.createElement('article');article.className='mm-mail-message';const title=document.createElement('b');title.textContent=(item.action==='usce_v3_notify'?'Notification to Phil':'Student correspondence')+' · '+item.state;article.append(title);const detail=document.createElement('p');detail.textContent=(item.error?'Recorded issue: '+item.error+'. ':'')+'Attempts: '+(Number.isInteger(item.attempts)?item.attempts:'Not recorded');article.append(detail);const actions=document.createElement('div');actions.className='mm-quickact';if(MAIL_UUID.test(item.entity_id)){const open=document.createElement('button');open.type='button';open.className='mm-btn mm-btn-ghost';open.textContent='Open conversation';open.addEventListener('click',()=>{if(mail.busy)return;$('#mmMailDispatchDialog').close();openMailThread(item.entity_id);});actions.append(open);}if(item.can_reconcile===true){const check=document.createElement('button');check.type='button';check.className='mm-btn mm-btn-ghost';check.textContent='Check provider outcome';check.dataset.dispatchReconcile=item.id;check.addEventListener('click',()=>mailMutation(async()=>{await mailRequest('/dispatches/'+item.id+'/reconcile',{method:'POST',body:{}});await loadMailDispatches();await loadMailList();}));actions.append(check);}if(item.can_retry===true){const retry=document.createElement('button');retry.type='button';retry.className='mm-btn mm-btn-primary';retry.textContent='Retry confirmed-unsent message';retry.dataset.dispatchRetry=item.id;retry.addEventListener('click',async()=>{
+      if (mail.busy || !$('#mmMailDispatchDialog').open) return;
+      if (!await askBeforeAction('Retry this message?', 'The delivery record shows the previous attempt was not accepted. A retry makes one new send attempt.', 'Retry message', 'Leave message as is')) return;
+      if (mail.busy || state.busy || !$('#mmMailDispatchDialog').open || !host.contains(retry) || item.can_retry !== true) return;
+      mailMutation(async()=>{await mailRequest('/dispatches/'+item.id+'/retry',{method:'POST',body:{confirm_retry:true}});await loadMailDispatches();await loadMailList();});});actions.append(retry);}article.append(actions);host.append(article);}if(!host.children.length)host.textContent='No unresolved delivery attempts were returned.';if(data.has_more){const note=document.createElement('p');note.textContent='Showing the oldest 50 unresolved attempts. Resolve these and refresh to review additional attempts.';host.append(note);}}catch(error){host.textContent=mailError(error);}}
   $('#mmMailDeliveryAttention').addEventListener('click',()=>{$('#mmMailDispatchDialog').showModal();loadMailDispatches();});$('#mmMailDispatchClose').addEventListener('click',()=>{if(!mail.busy)$('#mmMailDispatchDialog').close();});$('#mmMailDispatchDialog').addEventListener('cancel',event=>{if(mail.busy)event.preventDefault();});
 
   async function openCommunications(){loadMailConfig();await loadMailList();}
