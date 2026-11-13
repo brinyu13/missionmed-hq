@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<!--
+  CX-OFFER-335
+  MissionMed Clinicals Request App
+  Request-first availability intake. Standalone R2/CDN shell.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="missionmed-app" content="usce-request">
+<meta name="missionmed-version" content="CX-OFFER-335">
+<title>Request a Clinical Rotation | MissionMed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0a1628;
+  --navy2:#102844;
+  --navy3:#173655;
+  --gold:#c8a84e;
+  --gold2:#d8bc68;
+  --cream:#faf8f1;
+  --cream2:#eee6d5;
+  --white:#fff;
+  --ink:#111827;
+  --muted:#657184;
+  --line:rgba(10,22,40,.16);
+  --line2:rgba(200,168,78,.38);
+  --danger:#b83232;
+  --success:#1f7a4f;
+  --warn:#a46a00;
+  --shadow:0 34px 86px rgba(3,12,28,.34),0 14px 34px rgba(3,12,28,.18);
+  --glow:0 0 0 1px rgba(216,188,104,.38),0 0 34px rgba(216,188,104,.24),0 24px 76px rgba(3,12,28,.34);
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --bg-photo:url("https://images.pexels.com/photos/4173248/pexels-photo-4173248.jpeg?auto=compress&cs=tinysrgb&w=2400")
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--navy);font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit}
+.mm-app{
+  position:relative;
+  width:100vw;
+  max-width:100vw;
+  min-height:100vh;
+  margin-left:calc(50% - 50vw);
+  margin-right:calc(50% - 50vw);
+  overflow:hidden;
+  isolation:isolate;
+  background:var(--navy);
+}
+@supports(width:100dvw){
+  .mm-app{width:100dvw;max-width:100dvw;margin-left:calc(50% - 50dvw);margin-right:calc(50% - 50dvw)}
+}
+.mm-app::before{
+  content:"";
+  position:fixed;
+  inset:-12vh 0;
+  z-index:-3;
+  background:
+    linear-gradient(180deg,rgba(6,18,32,.24) 0%,rgba(6,18,32,.5) 46%,rgba(6,18,32,.86) 100%),
+    radial-gradient(circle at 22% 18%,rgba(216,188,104,.18),transparent 36%),
+    var(--bg-photo) center 34%/cover no-repeat;
+  transform:translate3d(0,var(--mm-parallax-y,0px),0) scale(1.06);
+  transform-origin:center;
+  will-change:transform;
+}
+.mm-app::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.04) 0 1px,transparent 1px 16px),
+    radial-gradient(circle at 74% 10%,rgba(66,153,130,.12),transparent 28%);
+  opacity:.64;
+  mix-blend-mode:screen;
+}
+.mm-hero{max-width:1180px;margin:0 auto;padding:74px 22px 30px;color:#fff;text-align:center}
+.mm-eyebrow{display:inline-flex;gap:9px;align-items:center;border:1px solid rgba(216,188,104,.62);color:var(--gold2);padding:7px 14px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;background:rgba(6,18,32,.48);box-shadow:0 12px 34px rgba(3,12,28,.2);backdrop-filter:blur(14px)}
+.mm-hero h1{font-family:var(--serif);font-size:clamp(34px,6vw,68px);font-weight:600;line-height:1.02;margin:20px auto 14px;max-width:900px;text-shadow:0 8px 40px rgba(0,0,0,.46)}
+.mm-hero p{max-width:720px;margin:0 auto;color:rgba(255,255,255,.86);font-size:clamp(15px,2vw,18px);line-height:1.7;text-shadow:0 6px 24px rgba(0,0,0,.35)}
+.mm-flow{max-width:980px;margin:30px auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:left}
+.mm-flow-card{
+  position:relative;
+  min-height:128px;
+  overflow:hidden;
+  background:
+    repeating-linear-gradient(135deg,rgba(255,255,255,.08) 0 1px,transparent 1px 8px),
+    radial-gradient(circle at 18% 15%,rgba(216,188,104,.16),transparent 34%),
+    linear-gradient(135deg,rgba(8,18,33,.94),rgba(15,39,66,.82));
+  border:1px solid rgba(216,188,104,.32);
+  padding:16px;
+  border-radius:14px;
+  box-shadow:0 18px 38px rgba(3,12,28,.32),inset 0 1px 0 rgba(255,255,255,.14);
+  backdrop-filter:blur(14px);
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,background .2s ease;
+}
+.mm-flow-card::after{
+  content:"";
+  position:absolute;
+  inset:auto -28% -52% -28%;
+  height:80%;
+  background:radial-gradient(ellipse at center,rgba(216,188,104,.22),transparent 60%);
+  opacity:0;
+  transition:opacity .2s ease;
+}
+.mm-flow-card:hover,.mm-flow-card:focus-within{
+  transform:translateY(-4px);
+  border-color:rgba(216,188,104,.68);
+  box-shadow:0 0 0 1px rgba(216,188,104,.34),0 0 34px rgba(216,188,104,.22),0 24px 52px rgba(3,12,28,.42);
+}
+.mm-flow-card:hover::after,.mm-flow-card:focus-within::after{opacity:1}
+.mm-flow-card b{position:relative;z-index:1;display:block;color:var(--gold2);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.mm-flow-card span{position:relative;z-index:1;font-size:12px;line-height:1.55;color:rgba(255,255,255,.92)}
+.mm-track-cta{width:min(100% - 44px,980px);margin:0 auto 4px;border:1px solid rgba(216,188,104,.42);border-radius:18px;background:linear-gradient(135deg,rgba(8,18,33,.9),rgba(20,56,86,.78));box-shadow:0 18px 46px rgba(3,12,28,.34),inset 0 1px 0 rgba(255,255,255,.14);color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:18px;backdrop-filter:blur(16px)}
+.mm-track-cta b{display:block;font-size:17px;line-height:1.25;color:#fff}
+.mm-track-cta span{display:block;margin-top:4px;color:rgba(255,255,255,.78);font-size:13px;line-height:1.5}
+.mm-track-cta a{flex:0 0 auto;text-decoration:none;border-radius:999px;padding:13px 18px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 12px 24px rgba(216,188,104,.24)}
+.mm-shell{width:min(100%,1120px);margin:0 auto;padding:30px 22px 82px}
+.mm-panel{
+  position:relative;
+  overflow:hidden;
+  background:rgba(255,255,255,.96);
+  border:1px solid rgba(216,188,104,.34);
+  box-shadow:var(--shadow);
+  border-radius:24px;
+  transition:box-shadow .22s ease,border-color .22s ease,transform .22s ease;
+}
+.mm-panel::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 0,rgba(216,188,104,.16),transparent 28%),
+    radial-gradient(circle at 86% 10%,rgba(23,54,85,.1),transparent 30%),
+    repeating-linear-gradient(135deg,rgba(10,22,40,.027) 0 1px,transparent 1px 10px);
+}
+.mm-panel:hover,.mm-panel:focus-within{
+  transform:translateY(-2px);
+  border-color:rgba(216,188,104,.62);
+  box-shadow:var(--glow);
+}
+.mm-panel>*{position:relative;z-index:1}
+.mm-panel-head{padding:30px 32px 28px;border-bottom:1px solid var(--line);display:block;background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(250,248,241,.9))}
+.mm-panel-head h2{font-family:var(--serif);font-size:30px;line-height:1.12;margin:0 0 8px;color:var(--navy)}
+.mm-panel-head p{margin:0;color:var(--muted);line-height:1.6;font-size:14px;max-width:760px}
+.mm-stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--line);background:rgba(250,248,241,.86)}
+.mm-step{appearance:none;padding:15px 12px;text-align:center;border-right:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease}
+.mm-step:last-child{border-right:0}
+.mm-step:hover,.mm-step:focus-visible{background:rgba(255,255,255,.82);color:var(--navy);box-shadow:inset 0 -3px 0 rgba(216,188,104,.45);outline:0}
+.mm-step.is-active{background:#fff;color:var(--navy);box-shadow:inset 0 -3px 0 var(--gold)}
+.mm-step.is-done{color:var(--success)}
+.mm-form{padding:32px}
+.mm-section{display:none}
+.mm-section.is-active{display:block;animation:mmIn .25s ease both}
+@keyframes mmIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.mm-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.mm-field{margin-bottom:18px}
+.mm-field label{display:block;font-size:11px;font-weight:800;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}
+.mm-field input,.mm-field select,.mm-field textarea{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:500 14px/1.4 var(--sans);padding:13px 14px;outline:none;transition:border .18s,box-shadow .18s,background .18s}
+.mm-field textarea{min-height:110px;resize:vertical}
+.mm-field input:focus,.mm-field select:focus,.mm-field textarea:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(200,168,78,.15)}
+.mm-help{font-size:12px;color:var(--muted);line-height:1.6;margin:6px 0 0}
+.mm-rank-list{display:grid;gap:10px}
+.mm-rank{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center}
+.mm-rank-num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:var(--gold);font-family:var(--serif);font-weight:700}
+.mm-rank select option:disabled{color:#9aa3af}
+.mm-rank-extra{display:block}
+.mm-other-input{display:none;width:100%;margin-top:8px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;color:var(--ink);font-size:14px;outline:0}
+.mm-other-input.is-on{display:block}
+.mm-no-seat-note{margin-top:8px;color:var(--warn);font-size:12px;font-weight:700;line-height:1.45}
+.mm-remove,.mm-add{appearance:none;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--muted);font-weight:800;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease,background .18s ease}
+.mm-remove{width:36px;height:36px}
+.mm-remove:hover{border-color:var(--danger);color:var(--danger);box-shadow:0 0 0 4px rgba(184,50,50,.08)}
+.mm-add{padding:10px 13px;color:var(--navy);border-style:dashed}
+.mm-add:hover{transform:translateY(-1px);border-color:var(--gold);box-shadow:0 8px 20px rgba(200,168,78,.14)}
+.mm-months{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.mm-month{appearance:none;border:1px solid var(--line);background:#fff;border-radius:13px;cursor:pointer;padding:13px;text-align:left;font:700 13px var(--sans);color:var(--ink);display:flex;justify-content:space-between;gap:8px;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease}
+.mm-month:hover{transform:translateY(-1px);border-color:rgba(200,168,78,.62);box-shadow:0 9px 22px rgba(3,12,28,.12)}
+.mm-month.is-on{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 13px 24px rgba(10,22,40,.22)}
+.mm-month em{font-style:normal;font-size:10px;color:var(--gold);display:none}
+.mm-month.is-on em{display:inline}
+.mm-note{border:1px solid var(--line2);background:rgba(200,168,78,.12);border-radius:14px;padding:14px 16px;color:var(--navy);font-size:13px;line-height:1.6;margin:0 0 18px}
+.mm-review{display:grid;grid-template-columns:170px 1fr;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 12px 30px rgba(3,12,28,.08)}
+.mm-review dt,.mm-review dd{padding:13px 15px;border-bottom:1px solid var(--line);margin:0}
+.mm-review dt{background:var(--cream);font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.mm-review dd{font-size:14px}
+.mm-review dt:last-of-type,.mm-review dd:last-of-type{border-bottom:0}
+.mm-confirm-card{margin-top:18px;border:2px solid rgba(31,122,79,.34);background:linear-gradient(135deg,rgba(238,250,244,.98),rgba(255,255,255,.98));border-radius:18px;padding:15px 16px;box-shadow:0 14px 34px rgba(31,122,79,.12);transition:border-color .18s,box-shadow .18s,background .18s,transform .18s}
+.mm-confirm-card.is-attention{border-color:#25b46b;background:linear-gradient(135deg,#e5fff0,#f7fff9);box-shadow:0 0 0 4px rgba(37,180,107,.16),0 0 38px rgba(37,180,107,.34);animation:mmConsentPulse 1s ease-in-out 3}
+@keyframes mmConsentPulse{0%,100%{transform:none}50%{transform:translateY(-2px)}}
+.mm-confirm-label{display:grid;grid-template-columns:auto 1fr;gap:13px;align-items:flex-start;margin:0!important;color:var(--navy)!important;text-transform:none!important;letter-spacing:0!important;font-size:14px!important;line-height:1.55!important;cursor:pointer}
+.mm-confirm-label input{position:absolute;opacity:0;pointer-events:none}
+.mm-check-visual{width:30px;height:30px;border-radius:9px;border:2px solid rgba(31,122,79,.42);background:#fff;display:grid;place-items:center;color:transparent;font-weight:900;line-height:1;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
+.mm-confirm-label input:focus-visible + .mm-check-visual{outline:3px solid rgba(37,180,107,.25);outline-offset:2px}
+.mm-confirm-label input:checked + .mm-check-visual{background:#25b46b;border-color:#25b46b;color:#fff}
+.mm-confirm-label strong{display:block;color:var(--navy);font-size:15px;line-height:1.3}
+.mm-confirm-label small{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.55;text-transform:none;letter-spacing:0;font-weight:600}
+.mm-consent-hint{display:none;margin:12px 0 0;padding:10px 12px;border-radius:12px;background:#dffbea;color:#155338;font-size:13px;font-weight:800;line-height:1.45}
+.mm-confirm-card.is-attention .mm-consent-hint{display:block}
+.mm-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:24px;padding-top:20px;border-top:1px solid var(--line);flex-wrap:wrap}
+.mm-btn{appearance:none;border:0;border-radius:999px;padding:13px 19px;font:800 12px var(--sans);letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:transform .18s,box-shadow .18s,opacity .18s,filter .18s}
+.mm-btn:disabled{opacity:.48;cursor:not-allowed}
+.mm-btn:not(:disabled):hover{transform:translateY(-2px);filter:saturate(1.06)}
+.mm-primary{background:var(--gold);color:var(--navy);box-shadow:0 12px 22px rgba(200,168,78,.28)}
+.mm-primary:not(:disabled):hover{box-shadow:0 0 0 1px rgba(216,188,104,.38),0 0 30px rgba(216,188,104,.3),0 16px 30px rgba(200,168,78,.28)}
+.mm-dark{background:var(--navy);color:#fff;box-shadow:0 12px 22px rgba(10,22,40,.22)}
+.mm-dark:not(:disabled):hover{box-shadow:0 0 0 1px rgba(216,188,104,.34),0 0 26px rgba(216,188,104,.18),0 16px 30px rgba(10,22,40,.26)}
+.mm-ghost{background:#fff;border:1px solid var(--line);color:var(--navy)}
+.mm-ghost:not(:disabled):hover{box-shadow:0 10px 24px rgba(3,12,28,.1)}
+.mm-alert{display:none;margin:0 0 18px;border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.6}
+.mm-alert.is-on{display:block}
+.mm-alert.error{background:#fff1f1;border:1px solid rgba(184,50,50,.25);color:#7c2020}
+.mm-alert.info{background:#eef5ff;border:1px solid rgba(23,54,85,.18);color:var(--navy)}
+.mm-alert.success{background:#eefaf4;border:1px solid rgba(31,122,79,.25);color:#155338}
+.mm-success{display:none;text-align:center;padding:46px 30px}
+.mm-success.is-on{display:block}
+.mm-success-ring{width:74px;height:74px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;background:var(--success);color:#fff;font-size:38px;font-family:var(--serif)}
+.mm-success h2{font-family:var(--serif);font-size:34px;color:var(--navy);margin:0 0 10px}
+.mm-success p{max-width:620px;margin:0 auto 18px;color:var(--muted);line-height:1.7}
+.mm-ref{display:inline-block;background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--navy)}
+.mm-login-note{max-width:700px;margin:18px auto 0;padding:15px 16px;border:1px solid var(--line2);border-radius:16px;background:rgba(200,168,78,.12);color:var(--navy);font-size:13px;line-height:1.65;text-align:left}
+.mm-login-note b{display:block;margin-bottom:4px}
+.mm-mini-tracker{max-width:740px;margin:20px auto 0;border:1px solid rgba(216,188,104,.32);border-radius:14px;background:linear-gradient(135deg,rgba(8,18,33,.94),rgba(15,39,66,.86));padding:14px;box-shadow:0 16px 34px rgba(3,12,28,.2),inset 0 1px 0 rgba(255,255,255,.14);color:#fff;text-align:left;backdrop-filter:blur(14px)}
+.mm-mini-tracker b{display:block;text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--gold2);margin-bottom:8px}
+.mm-mini-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:2px solid rgba(255,255,255,.72);border-radius:999px;overflow:hidden;background:#6c7d8d}
+.mm-mini-seg{min-height:42px;display:grid;place-items:center;background:linear-gradient(180deg,#97a7b5,#687988);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.64);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%,11px 50%)}
+.mm-mini-seg:first-child{clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%)}
+.mm-mini-seg:last-child{clip-path:polygon(0 0,100% 0,100% 100%,0 100%,11px 50%)}
+.mm-mini-seg.active{background:linear-gradient(180deg,#ff8a37,#f06b2f);color:#fff;animation:mmMiniBlink 1.08s ease-in-out infinite}
+@keyframes mmMiniBlink{0%,100%{filter:brightness(1)}50%{filter:brightness(1.34)}}
+.mm-mini-tracker span{display:block;margin-top:9px;font-size:13px;line-height:1.55;color:rgba(255,255,255,.82)}
+.mm-success-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:22px}
+.mm-hidden-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}
+.mm-foot{max-width:920px;margin:22px auto 0;text-align:center;color:rgba(255,255,255,.76);font-size:12px;line-height:1.7;text-shadow:0 8px 24px rgba(0,0,0,.32)}
+.mm-foot a{color:var(--gold2)}
+@media(max-width:800px){
+  .mm-flow{grid-template-columns:1fr 1fr}
+  .mm-track-cta{display:block;text-align:center}
+  .mm-track-cta a{margin-top:14px;display:inline-flex}
+  .mm-grid,.mm-stepper{grid-template-columns:1fr}
+  .mm-step{border-right:0}
+  .mm-panel-head{display:block}
+  .mm-form{padding:24px}
+  .mm-review{grid-template-columns:1fr}
+  .mm-review dt{border-bottom:0;padding-bottom:4px}
+  .mm-review dd{padding-top:4px}
+  .mm-app::before{position:absolute;background-attachment:scroll;transform:translate3d(0,var(--mm-parallax-y,0px),0) scale(1.08)}
+}
+@media(max-width:520px){
+  .mm-flow{grid-template-columns:1fr}
+  .mm-track-cta{width:calc(100% - 28px);padding:16px}
+  .mm-hero{padding:48px 18px 24px}
+  .mm-shell{padding:22px 14px 68px}
+  .mm-panel{border-radius:18px}
+  .mm-rank{grid-template-columns:30px 1fr}
+  .mm-remove{grid-column:2;width:auto}
+  .mm-actions{display:grid}
+  .mm-btn{width:100%}
+}
+.mm-month-other{display:none;margin-top:10px;font-size:12px;font-weight:700;color:var(--navy)}
+.mm-month-other:not([hidden]){display:block}
+.mm-month-other input{display:block;width:100%;margin-top:7px;border:1px solid var(--line);border-radius:10px;padding:12px;font:500 14px/1.4 var(--sans)}
+.mm-month:focus-visible,.mm-btn:focus-visible,.mm-add:focus-visible,.mm-remove:focus-visible{outline:3px solid #1768a8;outline-offset:3px}
+[aria-invalid="true"]{outline:2px solid #a32d24;outline-offset:2px}.mm-confirmed-email{overflow-wrap:anywhere;font-weight:700;color:var(--navy)}
+@media(max-width:520px){.mm-months{grid-template-columns:repeat(2,minmax(0,1fr))}.mm-form{padding:18px}.mm-actions{gap:8px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.mm-flow-card:hover,.mm-panel:hover{transform:none!important}.mm-mini-seg.active{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="mm-app" id="app">
+  <section class="mm-hero">
+    <div class="mm-eyebrow">Clinical Rotation Request</div>
+    <h1>Request availability for a US Clinical Rotation</h1>
+    <p>No payment is required to request availability. Submit your preferred specialty, location, and timing so a MissionMed coordinator can review options and follow up.</p>
+    <div class="mm-flow" aria-label="Clinical rotation request flow">
+      <div class="mm-flow-card"><b>1. Request</b><span>Share your school, training level, preferred specialties, locations, and dates.</span></div>
+      <div class="mm-flow-card"><b>2. Review</b><span>Our Clinicals team checks availability with coordinator review.</span></div>
+      <div class="mm-flow-card"><b>3. Offer</b><span>If there is a match, we send placement details and next steps.</span></div>
+      <div class="mm-flow-card"><b>4. Decide</b><span>Payment only happens after MissionMed Clinicals confirms an available offer and you accept it.</span></div>
+    </div>
+  </section>
+
+  <section class="mm-track-cta" aria-label="Track an existing USCE request">
+    <div>
+      <b>Already applied for rotations?</b>
+      <span>Track your USCE request status with the same MissionMed login and email you used on the request form.</span>
+    </div>
+    <a href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html" target="_top" rel="noopener">Track your status</a>
+  </section>
+
+  <main class="mm-shell">
+    <section class="mm-panel" aria-live="polite">
+      <div class="mm-panel-head">
+        <div>
+          <h2>Request availability</h2>
+          <p>No payment is required to request availability. We use this request to find the best available rotation path for you.</p>
+        </div>
+      </div>
+      <div id="stepper" class="mm-stepper" role="tablist" aria-label="Request form steps">
+        <div class="mm-step is-active" data-step-label="1" role="tab" tabindex="0" aria-selected="true">Step 1: Profile</div>
+        <div class="mm-step" data-step-label="2" role="tab" tabindex="0" aria-selected="false">Step 2: Preferences</div>
+        <div class="mm-step" data-step-label="3" role="tab" tabindex="0" aria-selected="false">Step 3: Timing</div>
+        <div class="mm-step" data-step-label="4" role="tab" tabindex="0" aria-selected="false">Step 4: Review</div>
+      </div>
+      <form id="requestForm" class="mm-form" novalidate>
+        <input class="mm-hidden-hp" id="company_name" name="company_name" autocomplete="off" tabindex="-1" aria-hidden="true">
+        <div id="formAlert" class="mm-alert" role="alert"></div>
+
+        <section class="mm-section is-active" data-step="1">
+          <div class="mm-grid">
+            <div class="mm-field"><label for="student_name">Full name</label><input id="student_name" name="student_name" autocomplete="name" required maxlength="200"></div>
+            <div class="mm-field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required maxlength="254"></div>
+          </div>
+          <div class="mm-grid">
+            <div class="mm-field"><label for="phone">Phone optional</label><input id="phone" name="phone" autocomplete="tel" maxlength="40"></div>
+            <div class="mm-field"><label for="training_level_or_school">Training level or school</label><input id="training_level_or_school" name="training_level_or_school" placeholder="MS3, IMG, PA, or school" required maxlength="240"></div>
+          </div>
+          <div class="mm-note">Tip: if you are flexible, say so. Flexible dates and locations usually give the Clinicals team more options.</div>
+        </section>
+
+        <section class="mm-section" data-step="2">
+          <div class="mm-field">
+            <label>Specialty preferences ranked</label>
+            <div id="specialtyRanks" class="mm-rank-list"></div>
+            <p class="mm-help">Choose at least one. Your first choice is reviewed first.</p>
+            <button class="mm-add" type="button" id="addSpecialty">+ Add another specialty</button>
+          </div>
+          <div class="mm-field">
+            <label>Location preferences ranked</label>
+            <div id="locationRanks" class="mm-rank-list"></div>
+            <p class="mm-help">Current active seat markets: Chicago, Miami, Texas, Arizona, and California. Other cities are marked no seats available for now; choose Other if you want us to note a different preference.</p>
+            <button class="mm-add" type="button" id="addLocation">+ Add another location</button>
+          </div>
+        </section>
+
+        <section class="mm-section" data-step="3">
+          <div class="mm-field">
+            <label>Preferred months or dates ranked</label>
+            <div id="monthGrid" class="mm-months"></div>
+            <label class="mm-month-other" id="monthOtherWrap" hidden for="monthOtherInput">Other dates or a flexible window<input id="monthOtherInput" maxlength="27" autocomplete="off" placeholder="Example: Any 4 weeks after July"></label>
+            <p class="mm-help" id="monthHelp">Select one to six windows. Click again to remove.</p>
+          </div>
+          <div class="mm-grid">
+            <div class="mm-field"><label for="duration_weeks">Rotation length</label><select id="duration_weeks" name="duration_weeks" required><option value="2">2 weeks</option><option value="4" selected>4 weeks</option><option value="6">6 weeks</option><option value="8">8 weeks</option><option value="12">12 weeks</option></select></div>
+            <div class="mm-field"><label for="flexibility">Flexibility optional</label><input id="flexibility" name="flexibility" placeholder="Example: Can start one week earlier" maxlength="500"></div>
+          </div>
+          <div class="mm-field"><label for="notes">Notes optional</label><textarea id="notes" name="notes" maxlength="2000" placeholder="Tell us about goals, timeline constraints, visa timing, or coordinator notes."></textarea></div>
+        </section>
+
+        <section class="mm-section" data-step="4">
+          <div class="mm-note">By submitting this request, you authorize MissionMed to contact you by email and phone about clinical rotation availability. This request is free and does not require payment.</div>
+          <dl class="mm-review" id="reviewList"></dl>
+          <div class="mm-confirm-card" id="consentCard">
+            <label class="mm-confirm-label" for="consent">
+              <input id="consent" type="checkbox" required>
+              <span class="mm-check-visual" aria-hidden="true">&#10003;</span>
+              <span>
+                <strong>I confirm this request is accurate.</strong>
+                <small>I agree that MissionMed may contact me by email and phone about clinical placement availability and status updates.</small>
+              </span>
+            </label>
+            <div class="mm-consent-hint" id="consentHint">Almost done: check this confirmation box, then submit your request.</div>
+          </div>
+        </section>
+
+        <div class="mm-actions">
+          <button class="mm-btn mm-ghost" type="button" id="backBtn">Back</button>
+          <button class="mm-btn mm-primary" type="button" id="nextBtn">Continue</button>
+        </div>
+      </form>
+      <section id="successState" class="mm-success">
+        <div class="mm-success-ring">&#10003;</div>
+        <h2>Request received</h2>
+        <p id="successCopy">Thanks. The MissionMed Clinicals team will review your preferences and contact you with availability or alternate options. After accepting an offer, you&apos;ll be directed to the official MissionMed Clinicals payment page.</p>
+        <div class="mm-ref">Reference: <strong id="requestRef">Pending</strong></div>
+        <p id="confirmedEmail" class="mm-confirmed-email" aria-live="polite"></p>
+        <div class="mm-success-actions">
+          <a class="mm-btn mm-primary" id="trackerBtn" href="#">Open tracker</a>
+          <a class="mm-btn mm-dark" id="accountBtn" href="#">Create / login to account</a>
+          <button class="mm-btn mm-ghost" type="button" id="newRequestBtn">Submit another request</button>
+        </div>
+      </section>
+    </section>
+    <p class="mm-foot">Need help? Return to <a href="https://missionmedinstitute.com/usce/">MissionMed USCE</a>. This page only requests availability; after accepting an offer, you&apos;ll be directed to the official MissionMed Clinicals payment page.</p>
+  </main>
+</div>
+<script nonce="MjA4Nzg2MzQ5LDIxNTMyMDk1NjQ=">
+(function(){
+  'use strict';
+  window.__MISSIONMED_USCE_CONFIG = Object.freeze({
+    apiBase: String(window.MM_USCE_API_BASE || 'https://missionmed-hq-production.up.railway.app').replace(/\/+$/,''),
+    requestEndpoint: '/api/usce/public/requests',
+    trackerPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html',
+    wpAccountUrl: 'https://missionmedinstitute.com/my-account/',
+    source: 'usce_request_r2',
+    version: 'CX-OFFER-335',
+    mode: 'request_first_no_payment'
+  });
+  const CONFIG = window.__MISSIONMED_USCE_CONFIG;
+  const VERSION = CONFIG.version;
+  const API_BASE = CONFIG.apiBase;
+  const ENDPOINT = API_BASE + CONFIG.requestEndpoint;
+  const OTHER_OPTION = 'Other / not listed';
+  const SPECIALTIES = ['Internal Medicine','Family Medicine','Pediatrics','Psychiatry','Neurology','Emergency Medicine','Surgery','OB/GYN','Cardiology','Pulmonology','Gastroenterology','Endocrinology',OTHER_OPTION];
+  const LOCATIONS = [
+    'Chicago',
+    'Miami',
+    'Texas',
+    'Arizona',
+    'California',
+    OTHER_OPTION,
+    { value:'New York / New Jersey', label:'New York / New Jersey - No seats available', disabled:true },
+    { value:'Atlanta', label:'Atlanta - No seats available', disabled:true },
+    { value:'Philadelphia', label:'Philadelphia - No seats available', disabled:true },
+    { value:'Open to best available', label:'Open to best available - choose Other and tell us what works', disabled:true }
+  ];
+  const MONTHS = buildMonthOptions(12);
+  const state = { step:1, maxStep:4, specialties:['',''], locations:['',''], specialtyOther:{}, locationOther:{}, months:[], otherDates:'', submitting:false, idempotencyKey:'', receipt:null, pending:null };
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const app = $('#app');
+  let heightFrame = 0;
+  let parallaxFrame = 0;
+  let audioCtx = null;
+
+  function setApiStatus(message){
+    const el = $('#apiStatus');
+    if (el) el.textContent = message;
+  }
+
+  function postEmbedHeight(){
+    if (window.parent === window) return;
+    const height = Math.max(
+      document.documentElement.scrollHeight,
+      document.body ? document.body.scrollHeight : 0,
+      app ? app.scrollHeight : 0
+    );
+    try {
+      window.parent.postMessage({ type:'missionmed-usce-height', height:Math.ceil(height) }, '*');
+    } catch (_) {}
+  }
+
+  function queueEmbedHeight(){
+    if (heightFrame) return;
+    heightFrame = requestAnimationFrame(() => {
+      heightFrame = 0;
+      postEmbedHeight();
+    });
+  }
+
+  function initEmbedHeight(){
+    window.addEventListener('load', queueEmbedHeight);
+    window.addEventListener('resize', queueEmbedHeight, { passive:true });
+    if ('ResizeObserver' in window) {
+      const observer = new ResizeObserver(queueEmbedHeight);
+      observer.observe(document.documentElement);
+      if (document.body) observer.observe(document.body);
+      if (app) observer.observe(app);
+    }
+    queueEmbedHeight();
+  }
+
+  function queueParallax(){
+    if (parallaxFrame) return;
+    parallaxFrame = requestAnimationFrame(() => {
+      parallaxFrame = 0;
+      if (!app) return;
+      const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const mobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
+      const amount = reduceMotion ? 0 : window.scrollY * (mobile ? -0.045 : -0.12);
+      app.style.setProperty('--mm-parallax-y', amount.toFixed(1) + 'px');
+    });
+  }
+
+  function initParallax(){
+    window.addEventListener('scroll', queueParallax, { passive:true });
+    window.addEventListener('resize', queueParallax, { passive:true });
+    queueParallax();
+  }
+
+  function playUiTone(kind){
+    const AudioContextRef = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextRef) return;
+    try {
+      audioCtx = audioCtx || new AudioContextRef();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const start = kind === 'confirm' ? 660 : kind === 'back' ? 360 : 520;
+      const end = kind === 'confirm' ? 920 : kind === 'back' ? 300 : 620;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(start, now);
+      osc.frequency.exponentialRampToValueAtTime(end, now + 0.045);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.035, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.095);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    } catch (_) {}
+  }
+
+  function toneKindFor(el){
+    if (!el) return 'tap';
+    if (el.id === 'backBtn') return 'back';
+    if (el.id === 'nextBtn' && state.step === state.maxStep) return 'confirm';
+    if (el.id === 'newRequestBtn') return 'confirm';
+    return 'tap';
+  }
+
+  function initInteractionAudio(){
+    document.addEventListener('pointerdown', event => {
+      const trigger = event.target.closest('button,.mm-step');
+      if (!trigger || trigger.disabled || trigger.getAttribute('aria-disabled') === 'true') return;
+      playUiTone(toneKindFor(trigger));
+    }, true);
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const trigger = event.target.closest('button,.mm-step');
+      if (!trigger || trigger.disabled || trigger.getAttribute('aria-disabled') === 'true') return;
+      playUiTone(toneKindFor(trigger));
+    }, true);
+  }
+
+  function buildMonthOptions(count){
+    const today = new Date();
+    const out = [];
+    for(let i=1;i<=count;i++){
+      const d = new Date(today.getFullYear(), today.getMonth()+i, 1);
+      const value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      const label = d.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+      out.push({value,label});
+    }
+    return out;
+  }
+
+  function optionValue(option){ return typeof option === 'string' ? option : option.value; }
+  function optionLabel(option){ return typeof option === 'string' ? option : option.label; }
+  function optionDisabled(option){ return typeof option === 'object' && !!option.disabled; }
+
+  function optionHtml(options, selected){
+    return '<option value="">Select one</option>' + options.map(option => {
+      const value = optionValue(option);
+      const disabled = optionDisabled(option);
+      return '<option value="'+esc(value)+'"'+(value===selected?' selected':'')+(disabled?' disabled':'')+'>'+esc(optionLabel(option))+'</option>';
+    }).join('');
+  }
+
+  function compactOtherMap(map, removedIdx){
+    const next = {};
+    Object.keys(map || {}).forEach(key => {
+      const idx = Number(key);
+      if (idx < removedIdx) next[idx] = map[key];
+      else if (idx > removedIdx) next[idx - 1] = map[key];
+    });
+    return next;
+  }
+
+  function normalizedRanks(kind){
+    const values = kind === 'specialty' ? state.specialties : state.locations;
+    const other = kind === 'specialty' ? state.specialtyOther : state.locationOther;
+    return values.map((value, idx) => {
+      if (value !== OTHER_OPTION) return value;
+      const custom = String(other[idx] || '').trim();
+      return custom ? 'Other: ' + custom : '';
+    }).filter(Boolean);
+  }
+
+  function renderRanks(kind){
+    const values = kind === 'specialty' ? state.specialties : state.locations;
+    const options = kind === 'specialty' ? SPECIALTIES : LOCATIONS;
+    const other = kind === 'specialty' ? state.specialtyOther : state.locationOther;
+    const root = kind === 'specialty' ? $('#specialtyRanks') : $('#locationRanks');
+    root.innerHTML = values.map((value, idx) => {
+      const isOther = value === OTHER_OPTION;
+      return '<div class="mm-rank"><div class="mm-rank-num">'+(idx+1)+'</div><div class="mm-rank-extra">' +
+        '<select data-rank="'+kind+'" data-idx="'+idx+'">'+optionHtml(options,value)+'</select>' +
+        '<input class="mm-other-input '+(isOther?'is-on':'')+'" data-other="'+kind+'" data-idx="'+idx+'" placeholder="'+(kind === 'specialty' ? 'Tell us the rotation or specialty' : 'Tell us the city/state or region')+'" value="'+esc(other[idx] || '')+'">' +
+      '</div>'+(values.length>1?'<button type="button" class="mm-remove" data-remove="'+kind+'" data-idx="'+idx+'" aria-label="Remove '+kind+' '+(idx+1)+'">&times;</button>':'<span></span>')+'</div>';
+    }).join('');
+    $$('[data-rank="'+kind+'"]').forEach(el => el.addEventListener('change', () => {
+      const idx = Number(el.dataset.idx);
+      values[idx] = el.value;
+      if (el.value !== OTHER_OPTION) delete other[idx];
+      renderRanks(kind);
+    }));
+    $$('[data-other="'+kind+'"]').forEach(el => el.addEventListener('input', () => {
+      other[Number(el.dataset.idx)] = el.value;
+      queueEmbedHeight();
+    }));
+    $$('[data-remove="'+kind+'"]').forEach(btn => btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.idx);
+      values.splice(idx,1);
+      if (kind === 'specialty') state.specialtyOther = compactOtherMap(state.specialtyOther, idx);
+      else state.locationOther = compactOtherMap(state.locationOther, idx);
+      renderRanks(kind);
+    }));
+    queueEmbedHeight();
+  }
+
+  const OTHER_MONTH = '__other_dates__';
+  function renderMonths(){
+    const all = MONTHS.map(m => ({value:m.value,label:m.label})).concat([{value:OTHER_MONTH,label:'Other dates / flexible'}]);
+    $('#monthGrid').innerHTML = all.map(m => {
+      const idx = state.months.indexOf(m.value);
+      return '<button type="button" class="mm-month '+(idx>-1?'is-on':'')+'" data-month="'+esc(m.value)+'" aria-pressed="'+(idx>-1?'true':'false')+'"><span>'+esc(m.label)+'</span><em>'+(idx>-1?'#'+(idx+1):'Select')+'</em></button>';
+    }).join('');
+    $('#monthOtherWrap').hidden = !state.months.includes(OTHER_MONTH);
+    $('#monthOtherInput').value = state.otherDates || '';
+    $$('.mm-month').forEach(btn => btn.addEventListener('click', () => {
+      const value = btn.dataset.month, idx = state.months.indexOf(value);
+      if (idx > -1) state.months.splice(idx,1);
+      else if (state.months.length < 6) state.months.push(value);
+      else { showAlert('Choose up to six month or date windows.','error'); return; }
+      renderMonths();
+      if (value === OTHER_MONTH && idx < 0) $('#monthOtherInput').focus();
+    }));
+    $('#monthHelp').textContent = state.months.length + ' of 6 selected. Select one to six windows.';
+    queueEmbedHeight();
+  }
+  function selectedMonthValues(){
+    return state.months.map(v => v === OTHER_MONTH ? (state.otherDates.trim() ? 'Other dates: ' + state.otherDates.trim() : '') : v).filter(Boolean);
+  }
+
+  function setStep(next){
+    const changed = next !== state.step;
+    state.step = Math.max(1, Math.min(state.maxStep, next));
+    $$('.mm-section').forEach(sec => sec.classList.toggle('is-active', Number(sec.dataset.step) === state.step));
+    $$('.mm-step').forEach((step, idx) => {
+      const n = idx + 1;
+      step.classList.toggle('is-active', n === state.step);
+      step.classList.toggle('is-done', n < state.step);
+      step.setAttribute('aria-selected', n === state.step ? 'true' : 'false');
+    });
+    $('#backBtn').disabled = state.step === 1 || state.submitting;
+    $('#nextBtn').textContent = state.step === state.maxStep ? 'Submit Request' : 'Continue';
+    if (state.step === 4) renderReview();
+    if (changed) {
+      const focus = document.querySelector('.mm-section.is-active input:not([type="hidden"]), .mm-section.is-active select, .mm-section.is-active button');
+      focus?.focus({preventScroll:true});
+    }
+    showAlert('', 'info', false);
+    queueEmbedHeight();
+  }
+
+  function goToStep(next){
+    const target = Math.max(1, Math.min(state.maxStep, Number(next) || state.step));
+    if (target === state.step) return;
+    if (target > state.step) {
+      for (let step = state.step; step < target; step++) {
+        const message = validateStep(step);
+        if (message) { showAlert(message, 'error'); return; }
+      }
+    }
+    setStep(target);
+  }
+
+  function collectPayload(){
+    return {
+      student_name: $('#student_name').value.trim(),
+      email: $('#email').value.trim(),
+      phone: $('#phone').value.trim(),
+      training_level_or_school: $('#training_level_or_school').value.trim(),
+      preferred_specialties: normalizedRanks('specialty'),
+      preferred_locations: normalizedRanks('location'),
+      preferred_months_or_dates: selectedMonthValues(),
+      duration_weeks: Number($('#duration_weeks').value),
+      flexibility: $('#flexibility').value.trim(),
+      notes: $('#notes').value.trim(),
+      source_url: window.location.href,
+      consent: $('#consent').checked,
+      company_name: $('#company_name').value.trim(),
+      utm: readUtm(),
+      idempotency_key: getIdempotencyKey()
+    };
+  }
+
+  function validateStep(step) {
+    const values = collectPayload();
+    const invalid = (selector, message) => {
+      const node = $(selector);
+      node?.setAttribute('aria-invalid','true');
+      node?.setAttribute('aria-describedby','formAlert');
+      return message;
+    };
+    if (step === 1) {
+      if (values.student_name.length < 2) return invalid('#student_name','Please enter your full name.');
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) return invalid('#email','Please enter a valid email.');
+      if (values.training_level_or_school.length < 2) return invalid('#training_level_or_school','Please enter your training level or school.');
+    }
+    if (step === 2) {
+      for (const [kind,choices,other,selected] of [
+        ['specialty',state.specialties,state.specialtyOther,values.preferred_specialties],
+        ['location',state.locations,state.locationOther,values.preferred_locations]
+      ]) {
+        const missing = choices.findIndex((choice,i) => choice === OTHER_OPTION && !String(other[i] || '').trim());
+        if (missing >= 0) return invalid('[data-other="'+kind+'"][data-idx="'+missing+'"]','Please enter the '+kind+' you want us to consider.');
+        if (!selected.length) return invalid('[data-rank="'+kind+'"]','Choose at least one '+kind+'.');
+      }
+    }
+    if (step === 3) {
+      if (state.months.includes(OTHER_MONTH) && !state.otherDates.trim()) return invalid('#monthOtherInput','Enter the flexible dates you want us to consider.');
+      if (!values.preferred_months_or_dates.length) return invalid('[data-month]','Choose at least one preferred month.');
+      if (values.preferred_months_or_dates.some(v=>v.length>40)) return invalid('#monthOtherInput','Please shorten the custom date window to 28 characters.');
+      if (!values.duration_weeks) return invalid('#duration_weeks','Choose a rotation length.');
+    }
+    if (step === 4 && !values.consent) return invalid('#consent','Confirm the request details before submitting.');
+    return '';
+  }
+  function clearFieldError(event) {
+    const field = event.target.closest('[aria-invalid="true"]');
+    if (field) { field.removeAttribute('aria-invalid'); field.removeAttribute('aria-describedby'); }
+  }
+  $('#requestForm').addEventListener('input',clearFieldError);
+  $('#requestForm').addEventListener('change',clearFieldError);
+
+  function renderReview(){
+    const p = collectPayload();
+    const months = p.preferred_months_or_dates.map(v => (MONTHS.find(m => m.value === v) || {label:v}).label);
+    const rows = [
+      ['Name', p.student_name || 'Not provided'],
+      ['Email', p.email || 'Not provided'],
+      ['Phone', p.phone || 'Not provided'],
+      ['Training / school', p.training_level_or_school || 'Not provided'],
+      ['Specialties', p.preferred_specialties.join(' -> ') || 'Not selected'],
+      ['Locations', p.preferred_locations.join(' -> ') || 'Not selected'],
+      ['Timing', months.join(' -> ') || 'Not selected'],
+      ['Duration', p.duration_weeks ? p.duration_weeks + ' weeks' : 'Not selected'],
+      ['Flexibility', p.flexibility || 'None listed'],
+      ['Notes', p.notes || 'None listed']
+    ];
+    $('#reviewList').innerHTML = rows.map(([k,v]) => '<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('');
+  }
+
+  function clearConsentAttention(){
+    const card = $('#consentCard');
+    if (card) card.classList.remove('is-attention');
+  }
+
+  function flagConsentAttention(){
+    const card = $('#consentCard');
+    if (card) {
+      card.classList.remove('is-attention');
+      void card.offsetWidth;
+      card.classList.add('is-attention');
+      try { card.scrollIntoView({ behavior:'smooth', block:'center' }); } catch (_) {}
+    }
+    const checkbox = $('#consent');
+    if (checkbox) {
+      window.setTimeout(() => {
+        try { checkbox.focus({ preventScroll:true }); } catch (_) { checkbox.focus(); }
+      }, 260);
+    }
+    showAlert('Almost done: check the green confirmation box, then submit your request.', 'success');
+  }
+
+  function buildTrackerUrl(requestRef, submitted){
+    const url = new URL(CONFIG.trackerPageUrl);
+    if (submitted) url.searchParams.set('request_submitted', '1');
+    if (requestRef) url.searchParams.set('ref', String(requestRef).slice(0, 80));
+    return url.toString();
+  }
+
+  function buildAccountUrl(target){
+    const url = new URL(CONFIG.wpAccountUrl);
+    url.searchParams.set('redirect_to', target || CONFIG.trackerPageUrl);
+    return url.toString();
+  }
+
+  function wireTrackerSuccessLinks(receipt) {
+    const trackerUrl = buildTrackerUrl(receipt.request_id, true);
+    $('#trackerBtn').href = trackerUrl;
+    $('#trackerBtn').target = '_top';
+    $('#accountBtn').href = buildAccountUrl(trackerUrl);
+    $('#accountBtn').target = '_top';
+  }
+
+  function showAlert(message, type, on=true){
+    const el = $('#formAlert');
+    el.className = 'mm-alert ' + (type || 'info') + (on && message ? ' is-on' : '');
+    el.textContent = message || '';
+    if (type === 'error' && on && message) { el.tabIndex = -1; requestAnimationFrame(() => { try { const field = document.querySelector('.mm-section.is-active [aria-invalid="true"]') || el; field.focus({preventScroll:true}); field.scrollIntoView({block:'nearest'}); } catch (_) {} }); }
+    queueEmbedHeight();
+  }
+
+  function readUtm(){
+    const p = new URLSearchParams(window.location.search);
+    return { source:p.get('utm_source')||'', medium:p.get('utm_medium')||'', campaign:p.get('utm_campaign')||'', term:p.get('utm_term')||'', content:p.get('utm_content')||'' };
+  }
+
+  const RECOVERY_KEY = 'mm_usce_request_recovery_v1';
+  const RECEIPT_KEY = 'mm_usce_request_receipt_v1';
+  const KEY_KEY = 'mm_usce_request_idempotency_key';
+  const RECOVERY_TTL = 30 * 60 * 1000;
+  const RECEIPT_TTL = 30 * 60 * 1000;
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  function makeKey(){ return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'usce-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2); }
+  function storageGet(k){ try { return sessionStorage.getItem(k); } catch (_) { return null; } }
+  function storageSet(k,v){ try { sessionStorage.setItem(k,v); return true; } catch (_) { return false; } }
+  function storageRemove(k){ try { sessionStorage.removeItem(k); } catch (_) {} }
+  function getIdempotencyKey(){
+    if (state.idempotencyKey) return state.idempotencyKey;
+    state.idempotencyKey = storageGet(KEY_KEY) || makeKey();
+    storageSet(KEY_KEY, state.idempotencyKey);
+    return state.idempotencyKey;
+  }
+  function rotateIdempotencyKey(){ state.idempotencyKey = makeKey(); storageSet(KEY_KEY,state.idempotencyKey); }
+  function cleanExpiredSession(){
+    const now=Date.now();
+    let expiredRecovery=false; for (const k of [RECOVERY_KEY,RECEIPT_KEY]) { try { const x=JSON.parse(storageGet(k)||'null'); if (!x || !Number.isFinite(x.expires_at) || x.expires_at<=now) { storageRemove(k); if(k===RECOVERY_KEY && x) expiredRecovery=true; } } catch (_) { storageRemove(k); if(k===RECOVERY_KEY) expiredRecovery=true; } }
+    try{const h=JSON.parse(storageGet('mm_usce_last_request_hint')||'null');if(!h||!Number.isFinite(h.expires_at)||h.expires_at<=now)storageRemove('mm_usce_last_request_hint');}catch(_){storageRemove('mm_usce_last_request_hint');}
+    if(expiredRecovery){storageRemove(KEY_KEY);state.idempotencyKey='';}
+  }
+  function storeReceipt(r){ state.receipt=r; storageSet(RECEIPT_KEY,JSON.stringify(r)); }
+  function snapshotForm(){
+    const fields={}; ['student_name','email','phone','training_level_or_school','duration_weeks','flexibility','notes'].forEach(id=>fields[id]=$('#'+id).value);
+    fields.consent=$('#consent').checked;
+    return {fields,specialties:state.specialties.slice(),locations:state.locations.slice(),specialtyOther:{...state.specialtyOther},locationOther:{...state.locationOther},months:state.months.slice(),otherDates:state.otherDates,step:state.step};
+  }
+  function restoreForm(s){
+    if (!s || !s.fields) return;
+    Object.keys(s.fields).forEach(id=>{const el=$('#'+id); if(el){if(id==='consent')el.checked=!!s.fields[id];else el.value=String(s.fields[id]||'');}});
+    state.specialties=Array.isArray(s.specialties)&&s.specialties.length?s.specialties.slice():['',''];
+    state.locations=Array.isArray(s.locations)&&s.locations.length?s.locations.slice():['',''];
+    state.specialtyOther=s.specialtyOther||{}; state.locationOther=s.locationOther||{};
+    state.months=Array.isArray(s.months)?s.months.slice(0,6):[];
+    state.otherDates=String(s.otherDates||'');
+    state.step=Math.max(1,Math.min(4,Number(s.step)||1)); renderRanks('specialty'); renderRanks('location'); renderMonths(); setStep(state.step);
+  }
+  function saveInProgress() {
+    if (state.receipt || state.pending || state.submitting) return;
+    const draft = {
+      snapshot: snapshotForm(), idempotency_key: getIdempotencyKey(),
+      expires_at: Date.now() + RECOVERY_TTL
+    };
+    storageSet(RECOVERY_KEY, JSON.stringify(draft));
+  }
+  for (const event of ['input','change','click']) {
+    $('#requestForm').addEventListener(event, saveInProgress);
+  }
+  window.addEventListener('pagehide', saveInProgress);
+  function savePending(payload){
+    const r={expires_at:Date.now()+RECOVERY_TTL,idempotency_key:payload.idempotency_key,payload,snapshot:snapshotForm()};
+    state.pending=r; storageSet(RECOVERY_KEY,JSON.stringify(r));
+  }
+  function showConfirmed(r){
+    $('#requestRef').textContent=r.request_id; $('#confirmedEmail').textContent='Email for follow-up: '+r.email;
+    wireTrackerSuccessLinks(r); $('#successCopy').textContent='Your request is confirmed as saved. MissionMed Clinicals will review it and follow up at the email shown below.';
+    $('#requestForm').style.display='none'; $('#stepper').style.display='none'; $('#successState').classList.add('is-on');
+    setApiStatus('Request stored · '+r.status); queueEmbedHeight();
+    $('#successState').setAttribute('tabindex','-1'); $('#successState').focus();
+  }
+  function restoreSession(){
+    cleanExpiredSession();
+    try { const r=JSON.parse(storageGet(RECEIPT_KEY)||'null'); if(r && r.expires_at>Date.now() && UUID_RE.test(r.request_id) && r.email){showConfirmed(r);state.receipt=r;return;} } catch (_) { storageRemove(RECEIPT_KEY); }
+    try { const p=JSON.parse(storageGet(RECOVERY_KEY)||'null'); if(p && p.expires_at>Date.now() && p.snapshot && p.idempotency_key && !p.payload) {
+        state.idempotencyKey=p.idempotency_key; restoreForm(p.snapshot); return;
+      }
+      if(p && p.expires_at>Date.now() && p.payload && p.idempotency_key){state.pending=p;state.idempotencyKey=p.idempotency_key;restoreForm(p.snapshot);showAlert('A previous submission may not have received a reply. Review the form and submit again to retry with the same request reference.','info');return;} } catch (_) { storageRemove(RECOVERY_KEY); }
+    state.idempotencyKey=storageGet(KEY_KEY) || makeKey(); storageSet(KEY_KEY,state.idempotencyKey);
+  }
+  async function submitRequest(){
+    if (state.submitting || state.receipt) return;
+    for (let step = 1; step <= state.maxStep; step++) {
+      const message = validateStep(step);
+      if (message) {
+        setStep(step);
+        if (step === 4) flagConsentAttention();
+        else showAlert(message,'error');
+        return;
+      }
+    }
+    clearConsentAttention(); state.submitting=true; $('#nextBtn').disabled=true; $('#backBtn').disabled=true;
+    showAlert('Submitting your request securely...','info'); let payload=collectPayload();
+    if(state.pending){if(JSON.stringify(snapshotForm())!==JSON.stringify(state.pending.snapshot)){restoreForm(state.pending.snapshot);showAlert('We restored the original request so a retry uses the same details and reference. Submit again to check its saved status.','info');state.submitting=false;$('#nextBtn').disabled=false;$('#backBtn').disabled=state.step===1;return;} payload=state.pending.payload;}
+    savePending(payload);
+    try {
+      const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-MM-USCE-Idempotency-Key':payload.idempotency_key},body:JSON.stringify(payload),credentials:'omit'});
+      let data={}; try{data=await res.json();}catch(_){}
+      const verified=!!(res.ok && data && data.success===true && data.dry_run===false && UUID_RE.test(String(data.request_id||'')) && typeof data.status==='string' && data.status.trim());
+      if(!verified){throw new Error(data && data.dry_run===true ? 'The service did not confirm a saved request. Your details are kept briefly on this page; please retry or contact Clinicals.' : (data && data.message) || 'We could not verify that your request was saved. Your details are kept briefly for a safe retry.');}
+      const receipt={request_id:data.request_id,email:payload.email,status:data.status,submitted_at:Date.now(),expires_at:Date.now()+RECEIPT_TTL};
+      storeReceipt(receipt); state.pending=null; storageRemove(RECOVERY_KEY); storageRemove('mm_usce_last_request_hint');
+
+      $('#successCopy').textContent='Your request is confirmed as saved. MissionMed Clinicals will review it and follow up at the email shown below.';
+      showConfirmed(receipt); rotateIdempotencyKey();
+    } catch(err) {
+      const message = err instanceof TypeError ? 'We couldn’t reach Clinicals. Your entries are still here. Check your connection and retry this request.' : err.message;
+      showAlert(message || 'We couldn’t verify your request. Retry here using the same details.', 'error');
+    }
+    finally { state.submitting=false; $('#nextBtn').disabled=false; $('#backBtn').disabled=state.step===1; }
+  };
+  function startNewRequest(){
+    storageRemove(RECOVERY_KEY); storageRemove(RECEIPT_KEY); storageRemove('mm_usce_last_request_hint');
+    state.submitting=true;state.pending=null;state.receipt=null;state.idempotencyKey=makeKey();storageSet(KEY_KEY,state.idempotencyKey);window.location.reload();
+  }
+
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  }
+
+  $('#addSpecialty').addEventListener('click', () => { if (state.specialties.length < 4) { state.specialties.push(''); renderRanks('specialty'); } });
+  $('#addLocation').addEventListener('click', () => { if (state.locations.length < 4) { state.locations.push(''); renderRanks('location'); } });
+  $('#backBtn').addEventListener('click', () => setStep(state.step - 1));
+  $('#nextBtn').addEventListener('click', () => {
+    const message = validateStep(state.step);
+    if (message) {
+      if (state.step === 4 && !$('#consent').checked) flagConsentAttention();
+      else showAlert(message, 'error');
+      return;
+    }
+    if (state.step < state.maxStep) setStep(state.step + 1); else submitRequest();
+  });
+  $('#consent').addEventListener('change', clearConsentAttention);
+  $('#newRequestBtn').addEventListener('click', startNewRequest);
+  $$('.mm-step').forEach(step => {
+    step.addEventListener('click', () => goToStep(step.dataset.stepLabel));
+    step.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      goToStep(step.dataset.stepLabel);
+    });
+  });
+  initInteractionAudio();
+  initParallax();
+  initEmbedHeight();
+  renderRanks('specialty');
+  renderRanks('location');
+  renderMonths();
+  $('#monthOtherInput').addEventListener('input', e=>{state.otherDates=e.target.value;});
+  setStep(1);
+  restoreSession();
+
+})();
+</script>
+</body>
+</html>
