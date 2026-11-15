@@ -152,3 +152,5 @@ Resume only the outstanding copy of dispatch 9b622b06-bf0e-4c5f-91ae-b96f645d996
 ## November 15, 2026 · Clinicals Gmail Sent verification
 
 Clinicals Sent copy reservation for dispatch `9b622b06-bf0e-4c5f-91ae-b96f645d996d`. Project consent for the shared Clinicals mailbox is verified with gmail.insert only. The student reply and the accepted HQ message resolve to QA case USCE-FCED8FDD. Postmark and the student mailbox each show one copy of the HQ reply. This reservation permits at most one mailbox insertion and is written before the provider call. Reconcile any uncertain result by reading the original RFC identity and thread.
+
+The Clinicals read-only Gmail client verified the SENT label, case reply headers, subject, recipient and full text against the accepted HQ message. Gmail message `1a1dcde4e84ecdff` and its parent `1a1dcdcc9e5b8742` both belong to thread `1a1d144841149ea5`. The reviewed copy function ran once for this dispatch using this filed reservation. General worker activation and the production journal migration remain pending.
