@@ -290,17 +290,20 @@ BEGIN
   IF v_gmail !~ '^[a-f0-9]{1,40}$' OR v_thread !~ '^[a-f0-9]{1,40}$'
      OR v_rfc !~ '^<[^<>[:space:]]{1,250}>$'
      OR v_dir IS NULL OR v_dir NOT IN ('IN','OUT') OR NOT v_auth
+     OR jsonb_typeof(p_data->'authenticated') IS DISTINCT FROM 'boolean'
      OR NOT ((v_dir='IN' AND v_from=lower(btrim(req.email)) AND v_to='philaperri@gmail.com')
           OR (v_dir='OUT' AND v_from='philaperri@gmail.com' AND v_to=lower(btrim(req.email))))
-     OR coalesce(p_data->>'received_at','') !~ '^\d{4}-\d{2}-\d{2}T'
-     OR (p_data->>'received_at')::timestamptz<st.cutoff_at
-     OR (v_dir='IN' AND coalesce(p_data->>'authenticated','false')<>'true')
-     OR (v_dir='OUT' AND coalesce(p_data->>'authenticated','false')<>'true') THEN
+     OR coalesce(p_data->>'received_at','') !~ '^\d{4}-\d{2}-\d{2}T' THEN
     RETURN jsonb_build_object('ok',true,'eligible',false);
   END IF;
-  v_received:=(p_data->>'received_at')::timestamptz;
+  BEGIN
+    v_received:=(p_data->>'received_at')::timestamptz;
+  EXCEPTION WHEN others THEN
+    RETURN jsonb_build_object('ok',true,'eligible',false);
+  END;
+  IF v_received<st.cutoff_at THEN RETURN jsonb_build_object('ok',true,'eligible',false); END IF;
   v_refs:='{}'::text[];
-  IF p_data ? 'references_ids' AND jsonb_typeof(p_data->'references_ids')<>'array' THEN
+  IF p_data ? 'references_ids' AND jsonb_typeof(p_data->'references_ids') IS DISTINCT FROM 'array' THEN
     RETURN jsonb_build_object('ok',true,'eligible',false);
   END IF;
   IF jsonb_typeof(p_data->'references_ids')='array' THEN

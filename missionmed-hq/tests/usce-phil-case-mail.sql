@@ -117,6 +117,12 @@ BEGIN
   wrong:=valid||jsonb_build_object('references_ids',jsonb_build_array('not-an-rfc-id'));
   result:=public.usce_phil_case_mail('preflight',wrong);
   ASSERT NOT coalesce((result->>'eligible')::boolean,false),result::text;
+  wrong:=valid||jsonb_build_object('authenticated','true');
+  result:=public.usce_phil_case_mail('preflight',wrong);
+  ASSERT NOT coalesce((result->>'eligible')::boolean,false),result::text;
+  wrong:=valid||jsonb_build_object('received_at','not-a-timestamp');
+  result:=public.usce_phil_case_mail('preflight',wrong);
+  ASSERT NOT coalesce((result->>'eligible')::boolean,false),result::text;
 
   result:=public.usce_phil_case_mail('preflight',valid);
   ASSERT (result->>'eligible')::boolean,result::text;
