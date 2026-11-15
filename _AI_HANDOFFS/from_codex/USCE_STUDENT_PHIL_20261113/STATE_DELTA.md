@@ -2,6 +2,16 @@
 
 Status: partial release. Sole integrator chat 01a1d596-3ca2-7753-a455-e453cd232461. Founder explicitly corrected the earlier selection and authorized Option 1. DR-545 was independently reviewed, filed, and verified on MissionMed OS main at 6c6f6534762660ad1f251bd14e6c8ea673dda0ea. The universal and new mission BOOT profiles passed using the registered USCE registrar. Predecessor checkout and November 12 acceptance were preserved. The generated USCE Brain context pack was absent.
 
+## Run the offline Offer Operations check
+
+The USCE product integrator owns this check. From the assigned USCE worktree, run:
+
+```sh
+./missionmed-hq/tests/run-usce-offer-operations-offline.py
+```
+
+Use this command for routine synthetic Offer Operations verification on the owner's Mac. It requires the reviewed Node v24.14.0 binary and checks the SHA-256 of the test and its two product modules. A normal run reports five denied operations followed by exactly 27 passing tests, with zero skipped or cancelled. No registrar checkout, credentials or provider connection is required to run it. If an input or result changes, route the change to the USCE product integrator for review before updating the recorded hashes or count.
+
 ## Release evidence
 
 | Surface | Application source | Serving SHA-256 / provider evidence |

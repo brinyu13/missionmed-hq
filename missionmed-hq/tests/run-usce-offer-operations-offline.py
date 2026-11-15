@@ -8,6 +8,8 @@ and Node at /usr/local/bin/node. It reads no registrar or service configuration.
 """
 
 import argparse
+import base64
+import hashlib
 import json
 import re
 import subprocess
@@ -16,10 +18,16 @@ from pathlib import Path
 
 
 NODE = "/usr/local/bin/node"
+NODE_SHA256 = "9e831e9b13aa47c5e5eaa3904d232aa527124e8abba7ca5d72b67b46cfb10ae8"  # v24.14.0
+EXPECTED_TESTS = 27
 SANDBOX = "/usr/bin/sandbox-exec"
 HQ = Path(__file__).resolve().parents[1]
 TEST = HQ / "tests/usce-operations.test.mjs"
-SOURCES = (TEST, HQ / "routes/usce-offer-portal.mjs", HQ / "lib/usce-postmark-qa-guard.mjs")
+SOURCES = {
+    TEST: "51e290f928e72b31865439bf25b7914cc182c4a8946aee4cf8b12017cd83567f",
+    HQ / "routes/usce-offer-portal.mjs": "2e3c4b7246641000500ad66b73fd171795bab184467a80af2befd3c09ef1a51a",
+    HQ / "lib/usce-postmark-qa-guard.mjs": "95f4a47724b8ea7aaa87d8b74c54749821db4643d2290d016f809e45d6bd5241",
+}
 
 PROFILE = """
 (version 1)
@@ -77,7 +85,41 @@ def literals(paths):
     return " ".join("(literal " + json.dumps(str(path), ensure_ascii=False) + ")" for path in paths)
 
 
+def verify_input(path, expected):
+    if path.resolve(strict=True) != path or not path.is_file():
+        raise SystemExit(f"Expected a regular, non-symlink input at {path}.")
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != expected:
+        raise SystemExit(f"Reviewed SHA-256 mismatch: {path}.")
+
+
+def checked_module_loader():
+    # Verify the bytes Node actually compiles as well as the files checked before launch.
+    hashes = {path.as_uri(): digest for path, digest in SOURCES.items()}
+    hook = """
+import { registerHooks } from 'node:module';
+import { createHash } from 'node:crypto';
+const hashes = new Map(Object.entries(REVIEWED_HASHES));
+registerHooks({
+  load(url, context, nextLoad) {
+    if (!url.startsWith('file:')) return nextLoad(url, context);
+    if (!hashes.has(url)) throw new Error('Unexpected product module: ' + url);
+    const result = nextLoad(url, context);
+    if (result.source == null ||
+        createHash('sha256').update(Buffer.from(result.source)).digest('hex') !== hashes.get(url))
+      throw new Error('Reviewed module changed before execution: ' + url);
+    return result;
+  }
+});
+""".replace("REVIEWED_HASHES", json.dumps(hashes))
+    return "data:text/javascript;base64," + base64.b64encode(hook.encode()).decode("ascii")
+
+
 def run_node(profile, *arguments):
+    verify_input(Path(NODE), NODE_SHA256)
     result = subprocess.run(
         [SANDBOX, "-p", profile, NODE, *arguments],
         cwd="/", env={"LANG": "C", "TZ": "UTC", "NODE_DISABLE_COMPILE_CACHE": "1"},
@@ -96,15 +138,19 @@ def main():
     parser.parse_args()
     if sys.platform != "darwin":
         raise SystemExit("This entry requires the macOS native sandbox.")
-    for path in SOURCES:
-        if path.resolve(strict=True) != path or not path.is_file():
-            raise SystemExit(f"Expected a regular USCE source file at {path}.")
+    for path, digest in SOURCES.items():
+        verify_input(path, digest)
     ancestors = sorted({ancestor for path in SOURCES for ancestor in path.parents})
     profile = PROFILE.format(sources=literals(SOURCES), ancestors=literals(ancestors))
     run_node(profile, "-e", PROBES, str(HQ / "package.json"), str(TEST))
-    report = run_node(profile, "--test", "--test-isolation=none", "--test-reporter=tap", str(TEST))
-    if not re.search(r"^# pass [1-9][0-9]*$", report, re.MULTILINE):
-        raise SystemExit("The test runner reported no passing tests.")
+    report = run_node(profile, "--import", checked_module_loader(), "--test",
+                      "--test-isolation=none", "--test-reporter=tap", str(TEST))
+    expected_summary = (
+        f"1..{EXPECTED_TESTS}\n# tests {EXPECTED_TESTS}\n# suites 0\n# pass {EXPECTED_TESTS}\n"
+        "# fail 0\n# cancelled 0\n# skipped 0\n# todo 0"
+    )
+    if not re.search("^" + re.escape(expected_summary) + r"\n# duration_ms [\d.]+\s*\Z", report, re.MULTILINE):
+        raise SystemExit(f"Expected exactly {EXPECTED_TESTS} passing tests with no skips or other outcomes.")
 
 
 if __name__ == "__main__":
