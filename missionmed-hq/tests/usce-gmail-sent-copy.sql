@@ -11,6 +11,13 @@ ASSERT NOT (public.usce_mail_sent_copy('next',args) ? 'job');
 UPDATE command_center.usce_outbox SET dispatch_state='provider_accepted' WHERE id=disp;
 j:=public.usce_mail_sent_copy('next',args); ASSERT j#>>'{job,parent_thread_id}'='beef',j::text; ASSERT (j#>>'{job,case_id}')::uuid=cid;
 ASSERT NOT (public.usce_mail_sent_copy('next',jsonb_build_object('since',now()+interval '1 hour')) ? 'job');
+-- The same accepted correspondence is only eligible for automatic copying when it is a reply.
+ASSERT public.usce_mail_sent_copy('next',jsonb_build_object('since',now()-interval '1 hour')) ? 'job';
+UPDATE command_center.usce_comms SET in_reply_to=NULL,references_ids=ARRAY[]::text[] WHERE id=outmsg;
+UPDATE command_center.usce_outbox SET payload=(payload-'in_reply_to')||jsonb_build_object('references','') WHERE id=disp;
+ASSERT NOT (public.usce_mail_sent_copy('next',jsonb_build_object('since',now()-interval '1 hour')) ? 'job');
+UPDATE command_center.usce_comms SET in_reply_to=pr,references_ids=ARRAY[pr] WHERE id=outmsg;
+UPDATE command_center.usce_outbox SET payload=payload||jsonb_build_object('in_reply_to',pr,'references',pr) WHERE id=disp;
 args:=args||jsonb_build_object('gmail_id','aabb','thread_id','beef');
 ASSERT NOT (public.usce_mail_sent_copy('stored',args)->>'ok')::boolean;
 ASSERT (public.usce_mail_sent_copy('reserve',args)->>'won')::boolean;
