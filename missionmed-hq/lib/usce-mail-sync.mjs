@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {copyNext,createClinicalsCopyWriter} from './usce-gmail-sent-copy.mjs';
 import {readGmailDwdConfig,mintDelegatedAccessToken,GMAIL_API_ROOT} from '../routes/gmail-metadata-proof.mjs';
 import {CLINICALS_MAILBOX,makeMailRpc,dispatchNextNotification,deliverTrackerCode,email} from './usce-mail-dispatch.mjs';
 const messageId=value=>typeof value==='string'&&/^[a-f\d]{1,40}$/i.test(value)?value:null;
@@ -91,6 +92,8 @@ export async function syncMailboxOnce({rpc=makeMailRpc(),gmail=createGmailReader
 }
 export function startUsceMailWorker({env=process.env,rpc=makeMailRpc({env}),gmail=createGmailReader(),intervalMs=30000,dispatchOptions={}}={}){
  if(env.MMHQ_USCE_GATEWAY_CHILD!=='1'||env.USCE_MAIL_SYNC_ENABLED!=='true')return {started:false,stop(){}};
+ const copyWriter=createClinicalsCopyWriter({env});
+ const copyRpc=(action,data)=>rpc('usce_mail_sent_copy',{p_action:action,p_data:data});
  let running=false,stopped=false;
  const tick=async()=>{
    if(running || stopped) return;
@@ -101,6 +104,10 @@ export function startUsceMailWorker({env=process.env,rpc=makeMailRpc({env}),gmai
        if(env.USCE_MAIL_NOTIFICATIONS_ENABLED==='true') await dispatchNextNotification({rpc,env,...dispatchOptions});
      } catch { /* Keep mailbox and provider diagnostics out of logs. */ }
      if(!stopped) await deliverTrackerCode({rpc,env,...dispatchOptions});
+     if(!stopped && env.USCE_GMAIL_SENT_COPY_ENABLED==='true') {
+       await copyNext({rpc:copyRpc,gmail,writer:copyWriter,pilotId:env.USCE_GMAIL_SENT_COPY_PILOT_ID || null,
+         since:env.USCE_GMAIL_SENT_COPY_START_AT || null});
+     }
    } catch { /* Each reserved verification message has a single delivery attempt. */ }
    finally {running=false;}
  };
