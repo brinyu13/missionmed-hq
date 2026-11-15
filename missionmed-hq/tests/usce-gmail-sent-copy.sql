@@ -11,6 +11,13 @@ ASSERT NOT (public.usce_mail_sent_copy('next',args) ? 'job');
 UPDATE command_center.usce_outbox SET dispatch_state='provider_accepted' WHERE id=disp;
 j:=public.usce_mail_sent_copy('next',args); ASSERT j#>>'{job,parent_thread_id}'='beef',j::text; ASSERT (j#>>'{job,case_id}')::uuid=cid;
 ASSERT NOT (public.usce_mail_sent_copy('next',jsonb_build_object('since',now()+interval '1 hour')) ? 'job');
+ASSERT j#>>'{job,parent_direction}'='IN';
+UPDATE command_center.usce_comms SET direction='OUT',mail_state='sent',from_email=mb,to_email=stu WHERE id=parent;
+j:=public.usce_mail_sent_copy('next',args);
+ASSERT j#>>'{job,parent_direction}'='OUT' AND j#>>'{job,parent_gmail_id}'='abcd';
+UPDATE command_center.usce_comms SET to_email='other@example.invalid' WHERE id=parent;
+ASSERT (public.usce_mail_sent_copy('next',args)#>>'{job,parent_thread_id}') IS NULL;
+UPDATE command_center.usce_comms SET direction='IN',mail_state='received',from_email=stu,to_email=mb WHERE id=parent;
 -- The same accepted correspondence is only eligible for automatic copying when it is a reply.
 ASSERT public.usce_mail_sent_copy('next',jsonb_build_object('since',now()-interval '1 hour')) ? 'job';
 UPDATE command_center.usce_comms SET in_reply_to=NULL,references_ids=ARRAY[]::text[] WHERE id=outmsg;

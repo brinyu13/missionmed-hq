@@ -14,8 +14,10 @@ function oneHeader(message,name) {
   return headers.length === 1 ? headers[0].value : null;
 }
 function mailboxAddress(header) {
-  const match = /^([^<>,\r\n]*<([^<>,\s]+)>|([^<>,\s]+))$/.exec(header || '');
-  return (match?.[2] || match?.[3] || '').toLowerCase();
+  const value = (header || '').trim();
+  if (address(value)) return value.toLowerCase();
+  const named = /^(?:"(?:[^"\\\r\n]|\\[^\r\n])*"|[^<>,;"\r\n]*)\s*<([^<>,\s]+)>$/.exec(value);
+  return named && address(named[1]) ? named[1].toLowerCase() : null;
 }
 function valid(job) {
   return UUID.test(job.dispatch_id) && UUID.test(job.comm_id) && UUID.test(job.provider_id) && UUID.test(job.case_id) &&
@@ -76,9 +78,14 @@ async function correctParent(job,gmail) {
   if (!gmailId(job.parent_gmail_id) || !gmailId(job.parent_thread_id) || !sameSubject(job.subject,job.parent_subject)) return false;
   const result=await gmail('messages/'+job.parent_gmail_id,{format:'metadata'});
   const p=result?.data;
+  const direction = job.parent_direction ?? 'IN';
+  if (direction !== 'IN' && direction !== 'OUT') return false;
+  const outgoing = direction === 'OUT';
+  if (outgoing && !p?.labelIds?.includes('SENT')) return false;
   return result?.ok && p?.id===job.parent_gmail_id && p.threadId===job.parent_thread_id &&
     oneHeader(p,'message-id')===job.in_reply_to && sameSubject(oneHeader(p,'subject'),job.subject) &&
-    mailboxAddress(oneHeader(p,'from'))===job.to_email && mailboxAddress(oneHeader(p,'to'))===CLINICALS_MAILBOX;
+    mailboxAddress(oneHeader(p,'from'))===(outgoing ? CLINICALS_MAILBOX : job.to_email) &&
+    mailboxAddress(oneHeader(p,'to'))===(outgoing ? job.to_email : CLINICALS_MAILBOX);
 }
 function matches(job,m) {
   if (!gmailId(m?.id) || !gmailId(m.threadId) || !m.labelIds?.includes('SENT') ||

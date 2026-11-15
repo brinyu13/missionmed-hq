@@ -73,6 +73,19 @@ function makeHarness({ item = job(), reserveWon = true, parentData = parentMessa
 }
 const run = (h) => copyNext({ rpc: h.rpc, gmail: h.gmail, writer: h.writer, pilotId: ids.pilot });
 
+test('a follow-up to a Sent message requires the same sender, student and Sent label', async () => {
+  const data = parentMessage();
+  const headers = data.payload.headers;
+  headers.find(h => h.name === 'From').value = CLINICALS_MAILBOX;
+  headers.find(h => h.name === 'To').value = '"Smith, Jane" <student@example.test>';
+  const item = job({parent_direction: 'OUT'});
+  assert.equal((await run(makeHarness({item, parentData: data}))).outcome, 'parent_unverified');
+  data.labelIds = ['SENT'];
+  assert.equal((await run(makeHarness({item, parentData: data}))).outcome, 'stored');
+  headers.find(h => h.name === 'To').value = '"Smith, Jane" <student@example.test>, other@example.test';
+  assert.equal((await run(makeHarness({item, parentData: data}))).outcome, 'parent_unverified');
+});
+
 test('successful insert is read back exactly and only then recorded stored', async () => {
   const h = makeHarness();
   const result = await run(h);
