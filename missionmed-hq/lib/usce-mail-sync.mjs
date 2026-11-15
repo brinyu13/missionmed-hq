@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {syncPhilCaseOnce} from './usce-phil-case-mail.mjs';
 import {copyNext,createClinicalsCopyWriter} from './usce-gmail-sent-copy.mjs';
 import {readGmailDwdConfig,mintDelegatedAccessToken,GMAIL_API_ROOT} from '../routes/gmail-metadata-proof.mjs';
 import {CLINICALS_MAILBOX,makeMailRpc,dispatchNextNotification,deliverTrackerCode,email} from './usce-mail-dispatch.mjs';
@@ -112,5 +113,17 @@ export function startUsceMailWorker({env=process.env,rpc=makeMailRpc({env}),gmai
    finally {running=false;}
  };
  const timer=setInterval(tick,Math.max(5000,intervalMs));timer.unref?.();void tick();
- return {started:true,stop(){stopped=true;clearInterval(timer);},tick};
+ let philTimer;
+ if(env.USCE_PHIL_GOOGLE_CLIENT_ID && env.USCE_PHIL_GOOGLE_CLIENT_SECRET && env.USCE_PHIL_GRANT_KEY && env.USCE_PHIL_CASE_SYNC_PAUSED!=='true') {
+   let philRunning=false;
+   const pollPhil=async()=>{
+     if(stopped || philRunning)return;
+     philRunning=true;
+     try { await syncPhilCaseOnce({rpc,env}); }
+     catch { /* Individual case claims retry independently; keep Gmail details out of logs. */ }
+     finally { philRunning=false; }
+   };
+   philTimer=setInterval(pollPhil,Math.max(5000,intervalMs));philTimer.unref?.();void pollPhil();
+ }
+ return {started:true,stop(){stopped=true;clearInterval(timer);clearInterval(philTimer);},tick};
 }

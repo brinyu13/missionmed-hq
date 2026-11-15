@@ -14,7 +14,7 @@ export function makeMailRpc({env=process.env,fetchImpl=fetch}={}){
  let origin;try{const u=new URL(raw);if(u.protocol==='https:'&&u.hostname===PROJECT+'.supabase.co'&&!u.username&&!u.password)origin=u.origin;}catch{}
  return async(name,body)=>{
   if(!origin||!key)return {ok:false,error:'mail_storage_not_configured'};
-  if(!['usce_tracker_issue','usce_tracker_record_delivery'].includes(name) && !/^usce_mail_(sync|ingest|read|edit|claim_send|dispatch|sent_copy)$/.test(name))return {ok:false,error:'invalid_rpc'};
+  if(!['usce_tracker_issue','usce_tracker_record_delivery','usce_phil_case_mail'].includes(name) && !/^usce_mail_(sync|ingest|read|edit|claim_send|dispatch|sent_copy)$/.test(name))return {ok:false,error:'invalid_rpc'};
   try{const r=await fetchImpl(origin+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(15000)});
    const j=await r.json();return r.ok && (typeof j==='object' && j || (name==='usce_tracker_record_delivery' && typeof j==='boolean')) ? j : {ok:false,error:'mail_storage_unavailable'};
   }catch{return {ok:false,error:'mail_storage_unavailable'};}

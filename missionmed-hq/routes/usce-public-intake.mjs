@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import {handlePhilGmail} from './usce-phil-gmail.mjs';
 import { validateUscePostmarkQaRecipient } from '../lib/usce-postmark-qa-guard.mjs';
 
 const PUBLIC_INTAKE_PATH = '/api/usce/public/requests';
@@ -64,6 +65,7 @@ const emailHits = new Map();
 const idempotencyHits = new Map();
 
 export async function handleUscePublicRoute(request, response, url) {
+  if (await handlePhilGmail(request, response, url)) return true;
   const pathname = normalizePathname(url.pathname);
 
   if (!pathname.startsWith('/api/usce/public/')) {
