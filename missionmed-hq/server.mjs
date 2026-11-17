@@ -338,6 +338,20 @@ const LOR_STATE_KEY = Buffer.byteLength(CONFIGURED_SESSION_SECRET, 'utf8') >= 32
   : null;
 assertStartupConfiguration();
 
+// IVOC NEXT, the MissionMed Matrix interview application (a separate product from IV Prep On-Call). Nothing is
+// loaded unless IVOC_NEXT_MOUNT=1, and a failure to mount leaves this server exactly as it was: mountInHqSafely never
+// throws, and logs one line with no setting values in it. Switching IVOC_NEXT_MOUNT off is the rollback.
+let ivocNext = null;
+let ivocNextShutdownPromise = null;
+if (process.env.IVOC_NEXT_MOUNT === '1') {
+  try {
+    ivocNext = await (await import('../ivoc-next/app/server/hq-mount.mjs')).mountInHqSafely({ env: process.env });
+  } catch {
+    ivocNext = null;
+    console.error('IVOC_NEXT_MOUNT_UNAVAILABLE');
+  }
+}
+
 // LOR Studio composition root. The application is constructed here, from an EXPLICIT target
 // configuration only (DR-119 clause 7) - there is deliberately no default target and no fallback.
 // When the target is unconfigured, or no durable driver exists, composition declines and the
@@ -363,6 +377,18 @@ let lorShutdownRequested = false;
 let ivocShutdownPromise = null;
 
 function requestGracefulShutdown() {
+  if (ivocNext && !ivocNextShutdownPromise) {
+    let ivocNextTimer;
+    const ivocNextFailed = () => { process.exitCode = 1; console.error('IVOC_NEXT_RUNTIME_SHUTDOWN_UNCONFIRMED'); };
+    try {
+      ivocNextShutdownPromise = Promise.race([ivocNext.stop('server_shutdown'), new Promise((_, reject) => {
+        ivocNextTimer = setTimeout(() => reject(new Error('IVOC NEXT shutdown timeout')), 30_000);
+        ivocNextTimer.unref?.();
+      })]).then(result => { if (result?.ok !== true) ivocNextFailed(); }, ivocNextFailed).finally(() => clearTimeout(ivocNextTimer));
+    } catch {
+      ivocNextFailed(); ivocNextShutdownPromise = Promise.resolve();
+    }
+  }
   // Call synchronously so IVOC closes admission before another request can start.
   // Acknowledged hangup is not guaranteed remote terminal/accounting evidence.
   if (!ivocShutdownPromise) {
@@ -531,6 +557,29 @@ const server = http.createServer(async (request, response) => {
         url,
         hqSession: request.headers.authorization ? null : readSessionFromRequest(request),
         cookieFingerprint: ivPrepCookieFingerprint,
+        hqSessionMaxTtlSeconds: CONFIG.sessionTtlSeconds,
+        expectedOrigin: CONFIG.hqBaseUrl,
+      });
+      if (handled) return;
+    }
+
+    // IVOC NEXT answers its own two prefixes and nothing else. It is given the session this server decoded and the
+    // session cookie's name; it reads the cookie's fingerprint itself, from the same cookie the session reader uses.
+    if (
+      ivocNext
+      && (
+        pathname === '/ivoc-next'
+        || pathname.startsWith('/ivoc-next/')
+        || pathname === '/api/ivoc-next/v1'
+        || pathname.startsWith('/api/ivoc-next/v1/')
+      )
+    ) {
+      const handled = await ivocNext.handle({
+        request,
+        response,
+        url,
+        hqSession: request.headers.authorization ? null : readSessionFromRequest(request),
+        sessionCookieName: CONFIG.sessionCookieName,
         hqSessionMaxTtlSeconds: CONFIG.sessionTtlSeconds,
         expectedOrigin: CONFIG.hqBaseUrl,
       });
@@ -3290,6 +3339,15 @@ async function handleApiRoute(request, response, url, context) {
       cookieFingerprint: fingerprintIvPrepHqCookie(ivPrepLogoutCookies[CONFIG.sessionCookieName]),
       reason: 'hq_logout',
     });
+    // Only a request this server decoded a session for can sign anything out of IVOC NEXT.
+    if (ivocNext && session) {
+      void ivocNext.recordLogout({
+        request,
+        hqSession: session,
+        sessionCookieName: CONFIG.sessionCookieName,
+        reason: 'hq_logout',
+      });
+    }
 
     sendJson(
       response,
